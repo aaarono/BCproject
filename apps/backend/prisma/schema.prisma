@@ -33,19 +33,25 @@ model User {
 
   listings Listing[]
   wallet   Wallet?
+
+  buyerConversations  Conversation[] @relation("BuyerConversations")
+  sellerConversations Conversation[] @relation("SellerConversations")
+  messages            Message[]
 }
 
 model Listing {
-  id          String        @id @default(cuid())
-  sellerId    String
-  seller      User          @relation(fields: [sellerId], references: [id])
+  id       String @id @default(cuid())
+  sellerId String
+  seller   User   @relation(fields: [sellerId], references: [id])
 
   title       String
   description String
-  price       Int           // cents
+  price       Int // cents
   type        ListingType
   status      ListingStatus @default(ACTIVE)
   createdAt   DateTime      @default(now())
+
+  conversations Conversation[]
 
   @@index([sellerId])
 }
@@ -54,4 +60,35 @@ model Wallet {
   userId  String @id
   user    User   @relation(fields: [userId], references: [id])
   balance Int    @default(0)
+}
+
+model Conversation {
+  id        String   @id @default(cuid())
+  listingId String
+  buyerId   String
+  sellerId  String
+  createdAt DateTime @default(now())
+
+  listing Listing @relation(fields: [listingId], references: [id])
+  buyer   User    @relation("BuyerConversations", fields: [buyerId], references: [id])
+  seller  User    @relation("SellerConversations", fields: [sellerId], references: [id])
+
+  messages Message[]
+
+  @@unique([listingId, buyerId])
+  @@index([sellerId])
+  @@index([buyerId])
+}
+
+model Message {
+  id             String   @id @default(cuid())
+  conversationId String
+  senderId       String
+  text           String
+  createdAt      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+  sender       User         @relation(fields: [senderId], references: [id])
+
+  @@index([conversationId, createdAt])
 }

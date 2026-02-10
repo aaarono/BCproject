@@ -21,3 +21,9 @@
   - Replace PostCSS setup according to Tailwind v4 docs
   - Remove tailwind v3 config patterns if needed
   - Verify build + dev server
+
+- [ ] Realtime chat via WebSocket (NestJS Gateway)
+  - JWT auth in WS handshake
+  - Join rooms only for conversation participants
+  - Emit `message:new` on send
+  - Keep message history via REST (pagination)

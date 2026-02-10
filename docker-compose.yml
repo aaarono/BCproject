@@ -24,6 +24,8 @@ services:
     environment:
       DATABASE_URL: postgresql://marketplace:marketplace@db:5432/marketplace?schema=public
       PORT: "3000"
+      JWT_SECRET: "super_secret_change_me"
+      JWT_EXPIRES_IN: "1h"
     ports:
       - "3000:3000"
     depends_on:

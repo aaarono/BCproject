@@ -1,4 +1,4 @@
-# Bacheloar Project "Marketplace Platform for Digital Products and Services"
+# Bachelor Project "Marketplace Platform for Digital Products and Services"
 
 Full-stack web application – marketplace of digital goods and services.
 
@@ -82,7 +82,9 @@ Example:
 Example file is available:
 
     apps/backend/.env.example
-    Ports
+
+Ports:
+
     Service	Port
     Backend API	3000
     Frontend	5173

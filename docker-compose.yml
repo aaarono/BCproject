@@ -10,6 +10,25 @@ services:
       - "5432:5432"
     volumes:
       - marketplace_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U marketplace -d marketplace"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    container_name: marketplace_backend
+    environment:
+      DATABASE_URL: postgresql://marketplace:marketplace@db:5432/marketplace?schema=public
+      PORT: "3000"
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
   marketplace_pgdata:

@@ -1,0 +1,1 @@
+- Upgrade Prisma from 6.15 to 7.x

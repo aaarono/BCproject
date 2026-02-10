@@ -1,0 +1,57 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  BUYER
+  SELLER
+  ADMIN
+}
+
+enum ListingType {
+  GOOD
+  SERVICE
+}
+
+enum ListingStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  displayName  String
+  role         Role     @default(BUYER)
+  createdAt    DateTime @default(now())
+
+  listings Listing[]
+  wallet   Wallet?
+}
+
+model Listing {
+  id          String        @id @default(cuid())
+  sellerId    String
+  seller      User          @relation(fields: [sellerId], references: [id])
+
+  title       String
+  description String
+  price       Int           // cents
+  type        ListingType
+  status      ListingStatus @default(ACTIVE)
+  createdAt   DateTime      @default(now())
+
+  @@index([sellerId])
+}
+
+model Wallet {
+  userId  String @id
+  user    User   @relation(fields: [userId], references: [id])
+  balance Int    @default(0)
+}

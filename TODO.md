@@ -22,8 +22,25 @@
   - Remove tailwind v3 config patterns if needed
   - Verify build + dev server
 
+## Messages
+
 - [ ] Realtime chat via WebSocket (NestJS Gateway)
   - JWT auth in WS handshake
   - Join rooms only for conversation participants
   - Emit `message:new` on send
   - Keep message history via REST (pagination)
+
+## Wallet / Escrow (hardening)
+
+- [ ] Make wallet + deal status updates fully atomic
+  - Refactor WalletService methods to accept Prisma transaction client (tx)
+  - Use single prisma.$transaction for:
+    - ESCROW_LOCK + deal.status=FUNDED
+    - ESCROW_RELEASE + deal.status=COMPLETED
+  - Add idempotency / unique constraints to prevent duplicate ledger records per deal step
+
+- [ ] Add dedicated Escrow wallet/account (optional, for realism)
+  - Buyer pays: buyer -> escrow
+  - Complete: escrow -> seller
+  - Cancel/refund: escrow -> buyer
+  - Store escrow balance and reconcile with ledger

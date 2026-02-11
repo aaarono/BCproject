@@ -1,9 +1,13 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { WalletService } from 'src/wallet/wallet.service';
 
 @Injectable()
 export class DealsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly wallet: WalletService,
+  ) {}
 
   async create(listingId: string, buyerId: string) {
     const listing = await this.prisma.listing.findUnique({
@@ -34,15 +38,26 @@ export class DealsService {
   }
 
   async fund(dealId: string, buyerId: string) {
-    const deal = await this.getDeal(dealId);
+  return this.prisma.$transaction(async (tx) => {
+    const deal = await tx.deal.findUnique({
+      where: { id: dealId },
+      include: { listing: { select: { price: true } } },
+    });
+    if (!deal) throw new NotFoundException('Deal not found');
     if (deal.buyerId !== buyerId) throw new ForbiddenException('Not your deal');
     if (deal.status !== 'INITIATED') throw new ForbiddenException('Invalid status');
 
-    return this.prisma.deal.update({
+    // 1) lock escrow (списать buyer + ledger)
+    await this.wallet.lockEscrow(deal.buyerId, deal.id, deal.listing.price);
+
+    // 2) статус сделки
+    return tx.deal.update({
       where: { id: dealId },
       data: { status: 'FUNDED' },
     });
-  }
+  });
+}
+
 
   async markDelivered(dealId: string, sellerId: string) {
     const deal = await this.getDeal(dealId);
@@ -56,15 +71,25 @@ export class DealsService {
   }
 
   async complete(dealId: string, buyerId: string) {
-    const deal = await this.getDeal(dealId);
+  return this.prisma.$transaction(async (tx) => {
+    const deal = await tx.deal.findUnique({
+      where: { id: dealId },
+      include: { listing: { select: { price: true } } },
+    });
+    if (!deal) throw new NotFoundException('Deal not found');
     if (deal.buyerId !== buyerId) throw new ForbiddenException('Not your deal');
     if (deal.status !== 'DELIVERED') throw new ForbiddenException('Invalid status');
 
-    return this.prisma.deal.update({
+    // 1) release escrow seller'у
+    await this.wallet.releaseEscrowToSeller(deal.sellerId, deal.id, deal.listing.price);
+
+    // 2) статус сделки
+    return tx.deal.update({
       where: { id: dealId },
       data: { status: 'COMPLETED' },
     });
-  }
+  });
+}
 
   async cancel(dealId: string, userId: string) {
     const deal = await this.getDeal(dealId);
@@ -93,8 +118,14 @@ export class DealsService {
   }
 
   private async getDeal(id: string) {
-    const deal = await this.prisma.deal.findUnique({ where: { id } });
-    if (!deal) throw new NotFoundException('Deal not found');
-    return deal;
-  }
+  const deal = await this.prisma.deal.findUnique({
+    where: { id },
+    include: {
+      listing: { select: { id: true, price: true, sellerId: true, status: true, title: true } },
+    },
+  });
+  if (!deal) throw new NotFoundException('Deal not found');
+  return deal;
+}
+
 }

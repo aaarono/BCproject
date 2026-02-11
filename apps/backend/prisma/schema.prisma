@@ -23,6 +23,21 @@ enum ListingStatus {
   ARCHIVED
 }
 
+enum DealStatus {
+  INITIATED
+  FUNDED
+  DELIVERED
+  COMPLETED
+  CANCELED
+}
+
+enum WalletTxType {
+  TOPUP
+  ESCROW_LOCK
+  ESCROW_RELEASE
+  REFUND
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -39,7 +54,8 @@ model User {
   buyerDeals          Deal[]         @relation("BuyerDeals")
   sellerDeals         Deal[]         @relation("SellerDeals")
 
-  messages Message[]
+  messages           Message[]
+  walletTransactions WalletTransaction[]
 }
 
 model Listing {
@@ -61,9 +77,26 @@ model Listing {
 }
 
 model Wallet {
-  userId  String @id
-  user    User   @relation(fields: [userId], references: [id])
-  balance Int    @default(0)
+  userId            String              @id
+  user              User                @relation(fields: [userId], references: [id])
+  balance           Int                 @default(0)
+  WalletTransaction WalletTransaction[]
+}
+
+model WalletTransaction {
+  id        String       @id @default(cuid())
+  walletId  String
+  type      WalletTxType
+  amount    Int // + / - в центах
+  dealId    String?
+  createdAt DateTime     @default(now())
+
+  wallet Wallet  @relation(fields: [walletId], references: [userId])
+  User   User?   @relation(fields: [userId], references: [id])
+  userId String?
+
+  @@index([walletId])
+  @@index([dealId])
 }
 
 model Conversation {
@@ -95,14 +128,6 @@ model Message {
   sender       User         @relation(fields: [senderId], references: [id])
 
   @@index([conversationId, createdAt])
-}
-
-enum DealStatus {
-  INITIATED
-  FUNDED
-  DELIVERED
-  COMPLETED
-  CANCELED
 }
 
 model Deal {

@@ -9,6 +9,7 @@ import { MessagesModule } from './messages/messages.module';
 import { ConversationsModule } from './conversations/conversations.module';
 import { DealsModule } from './deals/deals.module';
 import { WalletModule } from './wallet/wallet.module';
+import { ReviewsModule } from './reviews/reviews.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { WalletModule } from './wallet/wallet.module';
     MessagesModule,
     DealsModule,
     WalletModule,
+    ReviewsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

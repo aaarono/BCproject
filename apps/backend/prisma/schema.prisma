@@ -46,6 +46,9 @@ model User {
   role         Role     @default(BUYER)
   createdAt    DateTime @default(now())
 
+  ratingAvg   Float @default(0)
+  ratingCount Int   @default(0)
+
   listings Listing[]
   wallet   Wallet?
 
@@ -56,6 +59,9 @@ model User {
 
   messages           Message[]
   walletTransactions WalletTransaction[]
+
+  reviewsGiven    Review[] @relation("BuyerReviews")
+  reviewsReceived Review[] @relation("SellerReviews")
 }
 
 model Listing {
@@ -141,7 +147,25 @@ model Deal {
   listing Listing @relation(fields: [listingId], references: [id])
   buyer   User    @relation("BuyerDeals", fields: [buyerId], references: [id])
   seller  User    @relation("SellerDeals", fields: [sellerId], references: [id])
+  Review  Review?
 
   @@index([buyerId])
+  @@index([sellerId])
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+
+  dealId   String @unique
+  buyerId  String
+  sellerId String
+
+  deal   Deal @relation(fields: [dealId], references: [id])
+  buyer  User @relation("BuyerReviews", fields: [buyerId], references: [id])
+  seller User @relation("SellerReviews", fields: [sellerId], references: [id])
+
   @@index([sellerId])
 }

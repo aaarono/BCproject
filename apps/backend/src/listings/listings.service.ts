@@ -12,7 +12,14 @@ export class ListingsService {
       where: { status: 'ACTIVE' },
       orderBy: { createdAt: 'desc' },
       include: {
-        seller: { select: { id: true, displayName: true } },
+        seller: {
+          select: {
+            id: true,
+            displayName: true,
+            ratingAvg: true,
+            ratingCount: true,
+          },
+        },
       },
     });
   }
@@ -20,7 +27,16 @@ export class ListingsService {
   async getById(id: string) {
     const listing = await this.prisma.listing.findUnique({
       where: { id },
-      include: { seller: { select: { id: true, displayName: true } } },
+      include: {
+        seller: {
+          select: {
+            id: true,
+            displayName: true,
+            ratingAvg: true,
+            ratingCount: true,
+          },
+        },
+      },
     });
     if (!listing) throw new NotFoundException('Listing not found');
     return listing;

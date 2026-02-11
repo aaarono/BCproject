@@ -44,3 +44,12 @@
   - Complete: escrow -> seller
   - Cancel/refund: escrow -> buyer
   - Store escrow balance and reconcile with ledger
+
+## Listings improvements
+
+- [ ] Add quantity support for listings
+  - Add `quantity` field to Listing
+  - Allow buyer to specify quantity when creating Deal
+  - Store `unitPrice` and `quantity` in Deal (immutable snapshot)
+  - Decrease listing.quantity on deal COMPLETED
+  - Auto-archive listing when quantity reaches 0

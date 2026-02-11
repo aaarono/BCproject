@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { ListingsModule } from './listings/listings.module';
 import { MessagesModule } from './messages/messages.module';
 import { ConversationsModule } from './conversations/conversations.module';
+import { DealsModule } from './deals/deals.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { ConversationsModule } from './conversations/conversations.module';
     ListingsModule,
     ConversationsModule,
     MessagesModule,
+    DealsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -36,7 +36,10 @@ model User {
 
   buyerConversations  Conversation[] @relation("BuyerConversations")
   sellerConversations Conversation[] @relation("SellerConversations")
-  messages            Message[]
+  buyerDeals          Deal[]         @relation("BuyerDeals")
+  sellerDeals         Deal[]         @relation("SellerDeals")
+
+  messages Message[]
 }
 
 model Listing {
@@ -52,6 +55,7 @@ model Listing {
   createdAt   DateTime      @default(now())
 
   conversations Conversation[]
+  Deal          Deal[]
 
   @@index([sellerId])
 }
@@ -91,4 +95,28 @@ model Message {
   sender       User         @relation(fields: [senderId], references: [id])
 
   @@index([conversationId, createdAt])
+}
+
+enum DealStatus {
+  INITIATED
+  FUNDED
+  DELIVERED
+  COMPLETED
+  CANCELED
+}
+
+model Deal {
+  id        String     @id @default(cuid())
+  listingId String
+  buyerId   String
+  sellerId  String
+  status    DealStatus @default(INITIATED)
+  createdAt DateTime   @default(now())
+
+  listing Listing @relation(fields: [listingId], references: [id])
+  buyer   User    @relation("BuyerDeals", fields: [buyerId], references: [id])
+  seller  User    @relation("SellerDeals", fields: [sellerId], references: [id])
+
+  @@index([buyerId])
+  @@index([sellerId])
 }

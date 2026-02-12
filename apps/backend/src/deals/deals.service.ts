@@ -117,6 +117,26 @@ export class DealsService {
     });
   }
 
+  async getById(id: string, userId: string) {
+    const deal = await this.prisma.deal.findUnique({
+      where: { id },
+      include: {
+        listing: {
+          select: { id: true, title: true, price: true, type: true, status: true },
+        },
+        buyer: { select: { id: true, displayName: true } },
+        seller: { select: { id: true, displayName: true } },
+      },
+    });
+
+    if (!deal) throw new NotFoundException('Deal not found');
+    if (deal.buyerId !== userId && deal.sellerId !== userId) {
+      throw new ForbiddenException('Not your deal');
+    }
+
+    return deal;
+  }
+
   private async getDeal(id: string) {
   const deal = await this.prisma.deal.findUnique({
     where: { id },

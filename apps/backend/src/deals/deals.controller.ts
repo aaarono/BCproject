@@ -39,4 +39,9 @@ export class DealsController {
   myDeals(@CurrentUser() user: JwtPayload) {
     return this.deals.getMyDeals(user.sub);
   }
+
+  @Get(':id')
+  getById(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.deals.getById(id, user.sub);
+  }
 }

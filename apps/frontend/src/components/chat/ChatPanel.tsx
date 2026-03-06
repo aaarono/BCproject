@@ -6,9 +6,10 @@ import type { Conversation, Message } from "../../types/chat";
 
 type Props = {
   listingId: string;
+  conversationId?: string | null;
 };
 
-export function ChatPanel({ listingId }: Props) {
+export function ChatPanel({ listingId, conversationId: externalConversationId }: Props) {
   const { user } = useAuth();
 
   const [conv, setConv] = useState<Conversation | null>(null);
@@ -22,8 +23,8 @@ export function ChatPanel({ listingId }: Props) {
     return res.data;
   }
 
-  async function loadMessages(conversationId: string) {
-    const res = await http.get<Message[]>(`/conversations/${conversationId}/messages`);
+  async function loadMessages(targetConversationId: string) {
+    const res = await http.get<Message[]>(`/conversations/${targetConversationId}/messages`);
     setMessages(res.data);
   }
 
@@ -32,10 +33,23 @@ export function ChatPanel({ listingId }: Props) {
 
     setErr(null);
     setLoading(true);
+
     try {
-      const c = await createOrGetConversation();
-      setConv(c);
-      await loadMessages(c.id);
+      // если conversationId пришёл извне — используем его
+      if (externalConversationId) {
+        setConv({
+          id: externalConversationId,
+          listingId,
+          buyerId: "",
+          sellerId: "",
+          createdAt: "",
+        });
+        await loadMessages(externalConversationId);
+      } else {
+        const c = await createOrGetConversation();
+        setConv(c);
+        await loadMessages(c.id);
+      }
     } catch (e: any) {
       setErr(e?.response?.data?.message ?? "Failed to load chat");
     } finally {
@@ -44,28 +58,24 @@ export function ChatPanel({ listingId }: Props) {
   }
 
   useEffect(() => {
-    // при смене listing — сбрасываем чат
     setConv(null);
     setMessages([]);
     setText("");
     setErr(null);
 
-    // грузим только если залогинен
     if (!user) return;
     bootstrap();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listingId, user?.id]);
+  }, [listingId, user?.id, externalConversationId]);
 
-  // polling сообщений
   useEffect(() => {
-    if (!user || !conv) return;
+    if (!user || !conv?.id) return;
 
     const t = setInterval(() => {
       loadMessages(conv.id).catch(() => {});
     }, 2000);
 
     return () => clearInterval(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conv?.id, user?.id]);
 
   async function send() {
@@ -75,17 +85,17 @@ export function ChatPanel({ listingId }: Props) {
     try {
       setErr(null);
 
-      // вдруг conv ещё не успел загрузиться — создадим/получим
-      let conversationId = conv?.id;
-      if (!conversationId) {
+      let targetConversationId = conv?.id;
+
+      if (!targetConversationId) {
         const c = await createOrGetConversation();
         setConv(c);
-        conversationId = c.id;
+        targetConversationId = c.id;
       }
 
-      await http.post("/messages", { conversationId, text: trimmed });
+      await http.post("/messages", { conversationId: targetConversationId, text: trimmed });
       setText("");
-      await loadMessages(conversationId);
+      await loadMessages(targetConversationId);
     } catch (e: any) {
       setErr(e?.response?.data?.message ?? "Send failed");
     }
@@ -107,7 +117,7 @@ export function ChatPanel({ listingId }: Props) {
       <div className="p-3 border-b">
         <div className="font-semibold">Chat</div>
         <div className="text-xs text-gray-600">
-          {conv ? `conversation: ${conv.id}` : "creating conversation…"}
+          {conv?.id ? `conversation: ${conv.id}` : "creating conversation…"}
         </div>
       </div>
 
@@ -124,7 +134,7 @@ export function ChatPanel({ listingId }: Props) {
             <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
               <div
                 className={`max-w-[75%] rounded px-3 py-2 ${
-                  mine ? "bg-black text-white" : "bg-white border"
+                  mine ? "bg-black text-white" : "bg-white text-gray-800 border"
                 }`}
               >
                 <div className="text-sm whitespace-pre-wrap">{m.text}</div>

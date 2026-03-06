@@ -66,4 +66,40 @@ export class ConversationsService {
       take: 50,
     });
   }
+
+  async getByListingAndBuyer(
+  listingId: string,
+  buyerId: string,
+  sellerId: string,) {
+  const listing = await this.prisma.listing.findUnique({
+    where: { id: listingId },
+  });
+
+  if (!listing) {
+    throw new NotFoundException("Listing not found");
+  }
+
+  if (listing.sellerId !== sellerId) {
+    throw new ForbiddenException("Not your listing");
+  }
+
+  const conversation = await this.prisma.conversation.findFirst({
+    where: {
+      listingId,
+      buyerId,
+      sellerId,
+    },
+    include: {
+      listing: true,
+      buyer: { select: { id: true, displayName: true } },
+      seller: { select: { id: true, displayName: true } },
+    },
+  });
+
+  if (!conversation) {
+    throw new NotFoundException("Conversation not found");
+  }
+
+  return conversation;
+}
 }

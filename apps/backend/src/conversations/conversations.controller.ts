@@ -24,4 +24,10 @@ export class ConversationsController {
   getMessages(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
     return this.service.getMessages(id, user.sub);
   }
+
+  @Get("by-listing/:listingId/by-buyer/:buyerId")
+  getByListingAndBuyer(@CurrentUser() user: JwtPayload, @Param("listingId") listingId: string, @Param("buyerId") buyerId: string,) {
+  return this.service.getByListingAndBuyer(listingId, buyerId, user.sub);
+}
+
 }

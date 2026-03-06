@@ -26,30 +26,49 @@ export function DealRoomPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
 
+  const [sellerConversationId, setSellerConversationId] = useState<string | null>(null);
   const [deal, setDeal] = useState<Deal | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [actionErr, setActionErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function load() {
-    setErr(null);
-    setLoading(true);
-    try {
-      const res = await http.get<Deal>(`/deals/${id}`);
-      setDeal(res.data);
-    } catch (e: any) {
-      setErr(e?.response?.data?.message ?? "Failed to load deal");
-    } finally {
-      setLoading(false);
-    }
+  async function loadSellerConversation(dealData: Deal) {
+  const res = await http.get(
+    `/conversations/by-listing/${dealData.listingId}/by-buyer/${dealData.buyerId}`
+  );
+    setSellerConversationId(res.data.id);
   }
 
+  async function load() {
+  setErr(null);
+  setLoading(true);
+  try {
+    const res = await http.get<Deal>(`/deals/${id}`);
+    setDeal(res.data);
+
+    // seller side: получаем conversation по listing + buyer
+    if (user?.id === res.data.sellerId) {
+      try {
+        await loadSellerConversation(res.data);
+      } catch {
+        setSellerConversationId(null);
+      }
+    } else {
+      setSellerConversationId(null);
+    }
+  } catch (e: any) {
+    setErr(e?.response?.data?.message ?? "Failed to load deal");
+  } finally {
+    setLoading(false);
+  }
+}
+
   useEffect(() => {
-    if (!id) return;
+    if (!id || !user) return;
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, user?.id]);
 
   async function act(fn: () => Promise<any>) {
     setActionErr(null);
@@ -98,10 +117,10 @@ export function DealRoomPage() {
             {isBuyer && deal.status === "INITIATED" && (
               <button
                 disabled={busy}
-                className="bg-black text-white rounded px-4 py-2"
+                className="bg-black text-white rounded px-4 py-2 disabled:opacity-50"
                 onClick={() => act(() => http.post(`/deals/${deal.id}/fund`))}
               >
-                Fund
+                {busy ? "Processing..." : "Fund"}
               </button>
             )}
 
@@ -109,12 +128,12 @@ export function DealRoomPage() {
             {isSeller && deal.status === "FUNDED" && (
               <button
                 disabled={busy}
-                className="bg-black text-white rounded px-4 py-2"
+                className="bg-black text-white rounded px-4 py-2 disabled:opacity-50"
                 onClick={() =>
                   act(() => http.post(`/deals/${deal.id}/delivered`))
                 }
               >
-                Mark delivered
+                {busy ? "Processing..." : "Mark delivered"}
               </button>
             )}
 
@@ -122,12 +141,12 @@ export function DealRoomPage() {
             {isBuyer && deal.status === "DELIVERED" && (
               <button
                 disabled={busy}
-                className="bg-black text-white rounded px-4 py-2"
+                className="bg-black text-white rounded px-4 py-2 disabled:opacity-50"
                 onClick={() =>
                   act(() => http.post(`/deals/${deal.id}/complete`))
                 }
               >
-                Complete
+                {busy ? "Processing..." : "Complete"}
               </button>
             )}
 
@@ -136,12 +155,12 @@ export function DealRoomPage() {
               (deal.status === "INITIATED" || deal.status === "FUNDED") && (
                 <button
                   disabled={busy}
-                  className="border rounded px-4 py-2"
+                  className="border rounded px-4 py-2 disabled:opacity-50"
                   onClick={() =>
                     act(() => http.post(`/deals/${deal.id}/cancel`))
                   }
                 >
-                  Cancel (refund)
+                  {busy ? "Processing..." : "Cancel (refund)"}
                 </button>
               )}
           </div>
@@ -158,9 +177,10 @@ export function DealRoomPage() {
       </div>
 
       <div className="lg:col-span-1 space-y-6">
-        {/* Пока чат остаётся по listingId — buyer точно работает.
-            Для seller чат в DealRoom полностью заработает после TODO endpoint (listingId+buyerId). */}
-        <ChatPanel listingId={deal.listingId} />
+        <ChatPanel
+          listingId={deal.listingId}
+          conversationId={isSeller ? sellerConversationId : undefined}
+        />
       </div>
     </div>
   );

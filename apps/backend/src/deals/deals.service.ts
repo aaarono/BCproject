@@ -92,12 +92,29 @@ export class DealsService {
 }
 
   async cancel(dealId: string, userId: string) {
-    const deal = await this.getDeal(dealId);
-    const isParticipant = deal.buyerId === userId || deal.sellerId === userId;
-    if (!isParticipant) throw new ForbiddenException('Not your deal');
+    const deal = await this.prisma.deal.findUnique({
+      where: { id: dealId },
+      include: {
+        listing: { select: { price: true } },
+      },
+    });
 
-    // MVP: отмена только пока INITIATED
-    if (deal.status !== 'INITIATED') throw new ForbiddenException('Cannot cancel now');
+    if (!deal) throw new NotFoundException('Deal not found');
+
+    // по твоей логике отменять может только seller
+    if (deal.sellerId !== userId) {
+      throw new ForbiddenException('Only seller can cancel this deal');
+    }
+
+    // разрешаем отмену только до завершения сделки
+    if (!['INITIATED', 'FUNDED'].includes(deal.status)) {
+      throw new ForbiddenException('Cannot cancel now');
+    }
+
+    // если buyer уже оплатил — возвращаем деньги
+    if (deal.status === 'FUNDED') {
+      await this.wallet.refundToBuyer(deal.buyerId, deal.id, deal.listing.price);
+    }
 
     return this.prisma.deal.update({
       where: { id: dealId },

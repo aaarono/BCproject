@@ -76,4 +76,22 @@ export class WalletService {
       },
     });
   }
+
+  async refundToBuyer(buyerId: string, dealId: string, amount: number) {
+    await this.getOrCreateWallet(buyerId);
+
+    await this.prisma.wallet.update({
+      where: { userId: buyerId },
+      data: { balance: { increment: amount } },
+    });
+
+    await this.prisma.walletTransaction.create({
+      data: {
+        walletId: buyerId,
+        type: 'REFUND',
+        amount,
+        dealId,
+      },
+    });
+  }
 }

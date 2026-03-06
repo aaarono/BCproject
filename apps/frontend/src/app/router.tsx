@@ -9,6 +9,7 @@ import { WalletPage } from "../pages/WalletPage";
 import { ConversationPage } from "../pages/ConversationPage";
 import { DealsPage } from "../pages/DealsPage";
 import { DealRoomPage } from "../pages/DealRoomPage";
+import { ProfilePage } from "../pages/ProfilePage";
 
 export const router = createBrowserRouter([
   {
@@ -32,6 +33,14 @@ export const router = createBrowserRouter([
           { path: "/wallet", element: <WalletPage /> },
           { path: "/conversations/:id", element: <ConversationPage /> },
         ],
+      },
+      {
+        path: "/profile",
+        element: (
+          <RequireAuth>
+            <ProfilePage />
+          </RequireAuth>
+        ),
       },
     ],
   },

@@ -29,4 +29,10 @@ export class AuthController {
       role: user.role,
     };
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('/users/me/profile')
+  getMyProfile(@CurrentUser() user: JwtPayload) {
+    return this.auth.getMyProfile(user.sub);
+  }
 }

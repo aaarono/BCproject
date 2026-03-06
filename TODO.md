@@ -53,3 +53,10 @@
   - Store `unitPrice` and `quantity` in Deal (immutable snapshot)
   - Decrease listing.quantity on deal COMPLETED
   - Auto-archive listing when quantity reaches 0
+
+## Profile
+
+- [ ] Move profile-related endpoints to a dedicated UsersController
+  - Move `/auth/users/me/profile` to `/users/me/profile`
+  - Keep auth endpoints focused on login/register/token/me
+  - Prepare UsersController for future settings/profile features

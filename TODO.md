@@ -53,8 +53,3 @@
   - Store `unitPrice` and `quantity` in Deal (immutable snapshot)
   - Decrease listing.quantity on deal COMPLETED
   - Auto-archive listing when quantity reaches 0
-
-## Deal chat
-
-- [ ] Add endpoint to get conversation for seller by listingId + buyerId (from deal)
- - e.g. GET /conversations/by-listing/:listingId/by-buyer/:buyerId (seller-only access, validates seller owns listing or is deal seller) used for DealRoom chat on seller side

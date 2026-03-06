@@ -57,4 +57,21 @@ export class ReviewsService {
       take: 50,
     });
   }
+
+  async getByDeal(dealId: string) {
+    const review = await this.prisma.review.findUnique({
+      where: { dealId },
+      include: {
+        buyer: {
+          select: { id: true, displayName: true },
+        },
+      },
+    });
+
+    if (!review) {
+      throw new NotFoundException('Review not found');
+    }
+
+    return review;
+  }
 }

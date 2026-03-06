@@ -19,4 +19,9 @@ export class ReviewsController {
   getSeller(@Param('sellerId') sellerId: string) {
     return this.reviews.getSellerReviews(sellerId);
   }
+  
+  @Get('deal/:dealId')
+  getByDeal(@Param('dealId') dealId: string) {
+    return this.reviews.getByDeal(dealId);
+  }
 }

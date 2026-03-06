@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { http } from "../api/http";
 import { useAuth } from "../auth/AuthContext";
 import { ChatPanel } from "../components/chat/ChatPanel";
+import { ReviewSection } from "../components/review/ReviewSection";
 
 type Deal = {
   id: string;
@@ -148,6 +149,10 @@ export function DealRoomPage() {
               >
                 {busy ? "Processing..." : "Complete"}
               </button>
+            )}
+
+            {isBuyer && deal.status === "COMPLETED" && (
+              <ReviewSection dealId={deal.id} />
             )}
 
             {/* seller cancel (по твоей логике) */}

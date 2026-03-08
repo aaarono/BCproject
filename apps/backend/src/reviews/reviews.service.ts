@@ -53,8 +53,22 @@ export class ReviewsService {
     return this.prisma.review.findMany({
       where: { sellerId },
       orderBy: { createdAt: 'desc' },
-      include: { buyer: { select: { id: true, displayName: true } } },
-      take: 50,
+      include: {
+        buyer: {
+          select: { id: true, displayName: true },
+        },
+        deal: {
+          select: {
+            id: true,
+            listing: {
+              select: {
+                id: true,
+                title: true,
+              },
+            },
+          },
+        },
+      },
     });
   }
 

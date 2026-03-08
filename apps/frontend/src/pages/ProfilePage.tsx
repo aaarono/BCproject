@@ -21,6 +21,13 @@ type Review = {
     id: string;
     displayName: string;
   };
+  deal: {
+    id: string;
+    listing: {
+      id: string;
+      title: string;
+    };
+  };
 };
 
 export function ProfilePage() {
@@ -107,8 +114,11 @@ export function ProfilePage() {
                 </div>
               </div>
 
-              <div className="text-xs text-gray-500">
-                {new Date(review.createdAt).toLocaleString()}
+              <div className="text-xs text-gray-500 space-y-1">
+                <div>{new Date(review.createdAt).toLocaleString()}</div>
+                <div>
+                  Listing: <span className="font-medium">{review.deal.listing.title}</span>
+                </div>
               </div>
 
               {review.comment && (

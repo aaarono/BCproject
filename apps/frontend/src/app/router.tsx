@@ -15,6 +15,7 @@ import { SettingsPage } from "../pages/SettingsPage";
 import { CreateListingPage } from "../pages/CreateListingPage";
 import { InboxPage } from "../pages/InboxPage";
 import { PublicSellerProfilePage } from "../pages/PublicSellerProfilePage";
+import { EditListingPage } from "../pages/EditListingPage";
 
 export const router = createBrowserRouter([
   {
@@ -82,7 +83,15 @@ export const router = createBrowserRouter([
       {
         path: "/users/:id",
         element: <PublicSellerProfilePage />,
-      },  
+      },
+      {
+        path: "/listings/:id/edit",
+        element: (
+          <RequireAuth>
+            <EditListingPage />
+          </RequireAuth>
+        ),
+      },
     ],
   },
 ]);

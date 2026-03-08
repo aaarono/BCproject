@@ -1,4 +1,8 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateListingDto } from './dto/create-listing.dto';
 import { UpdateListingDto } from './dto/update-listing.dto';
@@ -56,9 +60,12 @@ export class ListingsService {
   }
 
   async update(listingId: string, sellerId: string, dto: UpdateListingDto) {
-    const listing = await this.prisma.listing.findUnique({ where: { id: listingId } });
+    const listing = await this.prisma.listing.findUnique({
+      where: { id: listingId },
+    });
     if (!listing) throw new NotFoundException('Listing not found');
-    if (listing.sellerId !== sellerId) throw new ForbiddenException('Not your listing');
+    if (listing.sellerId !== sellerId)
+      throw new ForbiddenException('Not your listing');
 
     return this.prisma.listing.update({
       where: { id: listingId },
@@ -68,18 +75,78 @@ export class ListingsService {
         price: dto.price ?? undefined,
         type: (dto.type as any) ?? undefined,
       },
+      include: {
+        seller: {
+          select: {
+            id: true,
+            displayName: true,
+            ratingAvg: true,
+            ratingCount: true,
+          },
+        },
+      },
     });
   }
 
-  async remove(listingId: string, sellerId: string) {
-    const listing = await this.prisma.listing.findUnique({ where: { id: listingId } });
-    if (!listing) throw new NotFoundException('Listing not found');
-    if (listing.sellerId !== sellerId) throw new ForbiddenException('Not your listing');
+  async archive(id: string, userId: string) {
+    const listing = await this.prisma.listing.findUnique({
+      where: { id },
+    });
 
-    // мягкое удаление (лучше для истории)
+    if (!listing) {
+      throw new NotFoundException('Listing not found');
+    }
+
+    if (listing.sellerId !== userId) {
+      throw new ForbiddenException('Not your listing');
+    }
+
     return this.prisma.listing.update({
-      where: { id: listingId },
-      data: { status: 'ARCHIVED' },
+      where: { id },
+      data: {
+        status: 'ARCHIVED',
+      },
+      include: {
+        seller: {
+          select: {
+            id: true,
+            displayName: true,
+            ratingAvg: true,
+            ratingCount: true,
+          },
+        },
+      },
+    });
+  }
+
+  async restore(id: string, userId: string) {
+    const listing = await this.prisma.listing.findUnique({
+      where: { id },
+    });
+
+    if (!listing) {
+      throw new NotFoundException('Listing not found');
+    }
+
+    if (listing.sellerId !== userId) {
+      throw new ForbiddenException('Not your listing');
+    }
+
+    return this.prisma.listing.update({
+      where: { id },
+      data: {
+        status: 'ACTIVE',
+      },
+      include: {
+        seller: {
+          select: {
+            id: true,
+            displayName: true,
+            ratingAvg: true,
+            ratingCount: true,
+          },
+        },
+      },
     });
   }
 

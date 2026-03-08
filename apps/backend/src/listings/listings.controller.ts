@@ -1,4 +1,13 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { ListingsService } from './listings.service';
 import { CreateListingDto } from './dto/create-listing.dto';
 import { UpdateListingDto } from './dto/update-listing.dto';
@@ -21,6 +30,18 @@ export class ListingsController {
     return this.listings.getMyListings(user.sub);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/archive')
+  archive(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.listings.archive(id, user.sub);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/restore')
+  restore(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.listings.restore(id, user.sub);
+  }
+
   @Get(':id')
   getById(@Param('id') id: string) {
     return this.listings.getById(id);
@@ -29,20 +50,16 @@ export class ListingsController {
   @UseGuards(JwtAuthGuard)
   @Post()
   create(@CurrentUser() user: JwtPayload, @Body() dto: CreateListingDto) {
-    // Минимально: разрешаем всем залогиненным создавать.
-    // Позже ужесточим до роли SELLER через RolesGuard.
     return this.listings.create(user.sub, dto);
   }
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
-  update(@Param('id') id: string, @CurrentUser() user: JwtPayload, @Body() dto: UpdateListingDto) {
+  update(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: UpdateListingDto,
+  ) {
     return this.listings.update(id, user.sub, dto);
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @Delete(':id')
-  remove(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
-    return this.listings.remove(id, user.sub);
   }
 }

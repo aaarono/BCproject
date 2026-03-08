@@ -33,6 +33,7 @@ export function Navbar() {
               <Item to="/deals">My deals</Item>
               <Item to="/wallet">Wallet</Item>
               <Item to="/profile">Profile</Item>
+              <Item to="/create-listing">Create Listing</Item>
             </>
           )}
         </div>

@@ -28,13 +28,10 @@ export function ListingsPage() {
           {user ? (
             <>
               <span>{user.email} ({user.role})</span>
-              <Link className="underline" to="/wallet">Wallet</Link>
-              <button className="underline" onClick={logout}>Logout</button>
             </>
           ) : (
             <>
-              <Link className="underline" to="/login">Login</Link>
-              <Link className="underline" to="/register">Register</Link>
+              <span>Not logged in</span>
             </>
           )}
         </div>

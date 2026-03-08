@@ -15,6 +15,7 @@ export function ListingPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [buyLoading, setBuyLoading] = useState(false);
+  const isOwner = user?.id === listing?.seller.id;
 
   useEffect(() => {
     if (!id) return;
@@ -30,13 +31,17 @@ export function ListingPage() {
   }, [id]);
 
   async function buyNow() {
-    if (!listing) return;
     if (!user) return nav("/login");
-    if (user.role !== "BUYER") return;
+    if (!listing) return;
+
+    if (user.id === listing.seller.id) {
+      alert("You cannot buy your own listing");
+      return;
+    }
 
     setBuyLoading(true);
+
     try {
-      // two-step MVP (потом переведём на create=fund)
       const created = await http.post(`/deals`, { listingId: listing.id });
       const dealId = created.data.id;
 
@@ -44,6 +49,7 @@ export function ListingPage() {
 
       nav(`/deals/${dealId}`);
     } catch (e: any) {
+      console.log("BUY ERROR:", e?.response?.status, e?.response?.data);
       alert(e?.response?.data?.message ?? "Buy failed");
     } finally {
       setBuyLoading(false);
@@ -51,7 +57,8 @@ export function ListingPage() {
   }
 
   if (loading) return <div className="p-6">Loading…</div>;
-  if (err || !listing) return <div className="p-6 text-red-600">{err ?? "Not found"}</div>;
+  if (err || !listing)
+    return <div className="p-6 text-red-600">{err ?? "Not found"}</div>;
 
   return (
     <div className="max-w-6xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -62,7 +69,7 @@ export function ListingPage() {
       <div className="lg:col-span-1 space-y-6">
         <ChatPanel listingId={listing.id} />
 
-        {user?.role === "BUYER" && (
+        {!isOwner && user && (
           <button
             className="bg-black text-white rounded px-4 py-2 w-full disabled:opacity-60"
             onClick={buyNow}
@@ -71,12 +78,12 @@ export function ListingPage() {
             {buyLoading
               ? "Processing…"
               : listing.type === "SERVICE"
-              ? "Order"
-              : "Buy"}
+                ? "Order"
+                : "Buy"}
           </button>
         )}
 
-        {user?.role === "SELLER" && (
+        {isOwner && (
           <div className="text-sm text-gray-600 border rounded p-3">
             You are the seller. Manage deals from <b>My deals</b>.
           </div>

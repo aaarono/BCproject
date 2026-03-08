@@ -10,6 +10,8 @@ import { ConversationPage } from "../pages/ConversationPage";
 import { DealsPage } from "../pages/DealsPage";
 import { DealRoomPage } from "../pages/DealRoomPage";
 import { ProfilePage } from "../pages/ProfilePage";
+import { MyListingsPage } from "../pages/MyListingsPage";
+import { SettingsPage } from "../pages/SettingsPage";
 
 export const router = createBrowserRouter([
   {
@@ -39,6 +41,22 @@ export const router = createBrowserRouter([
         element: (
           <RequireAuth>
             <ProfilePage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: "/my-listings",
+        element: (
+          <RequireAuth>
+            <MyListingsPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: "/settings",
+        element: (
+          <RequireAuth>
+            <SettingsPage />
           </RequireAuth>
         ),
       },

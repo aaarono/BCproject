@@ -82,4 +82,21 @@ export class ListingsService {
       data: { status: 'ARCHIVED' },
     });
   }
+
+  async getMyListings(userId: string) {
+    return this.prisma.listing.findMany({
+      where: { sellerId: userId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        seller: {
+          select: {
+            id: true,
+            displayName: true,
+            ratingAvg: true,
+            ratingCount: true,
+          },
+        },
+      },
+    });
+  }
 }

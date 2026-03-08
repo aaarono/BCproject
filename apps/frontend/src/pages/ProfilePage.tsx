@@ -30,7 +30,7 @@ export function ProfilePage() {
   const [err, setErr] = useState<string | null>(null);
 
   async function loadProfile() {
-    const res = await http.get<Profile>("/auth/users/me/profile");
+    const res = await http.get<Profile>("/users/me/profile");
     setProfile(res.data);
     return res.data;
   }

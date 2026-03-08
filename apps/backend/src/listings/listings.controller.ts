@@ -15,6 +15,12 @@ export class ListingsController {
     return this.listings.getFeed();
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Get('me')
+  getMyListings(@CurrentUser() user: JwtPayload) {
+    return this.listings.getMyListings(user.sub);
+  }
+
   @Get(':id')
   getById(@Param('id') id: string) {
     return this.listings.getById(id);

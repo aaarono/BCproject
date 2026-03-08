@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import type { Listing } from "../../types/listing";
 
 export function ListingDetails({ listing }: { listing: Listing }) {
@@ -9,8 +10,15 @@ export function ListingDetails({ listing }: { listing: Listing }) {
       </div>
 
       <div className="text-sm">
-        Seller: <b>{listing.seller.displayName}</b> — ⭐{" "}
-        {listing.seller.ratingAvg.toFixed(2)} ({listing.seller.ratingCount})
+        Seller:{" "}
+        <Link
+          className="underline font-semibold"
+          to={`/users/${listing.seller.id}`}
+        >
+          {listing.seller.displayName}
+        </Link>{" "}
+        — ⭐ {listing.seller.ratingAvg.toFixed(2)} ({listing.seller.ratingCount}
+        )
       </div>
 
       <div className="pt-2 border-t flex justify-between items-center">

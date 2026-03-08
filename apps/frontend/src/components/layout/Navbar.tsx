@@ -35,6 +35,7 @@ export function Navbar() {
               <Item to="/profile">Profile</Item>
               <Item to="/create-listing">Create Listing</Item>
               <Item to="/inbox">Inbox</Item>
+              <Item to="/settings">Settings</Item>
             </>
           )}
         </div>

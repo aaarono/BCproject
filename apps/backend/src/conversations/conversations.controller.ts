@@ -11,8 +11,16 @@ export class ConversationsController {
   constructor(private readonly service: ConversationsService) {}
 
   @Post()
-  createOrGet(@CurrentUser() user: JwtPayload, @Body() dto: CreateConversationDto) {
+  createOrGet(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: CreateConversationDto,
+  ) {
     return this.service.createOrGet(dto.listingId, user.sub);
+  }
+
+  @Get('me')
+  getMyConversations(@CurrentUser() user: JwtPayload) {
+    return this.service.getMyConversations(user.sub);
   }
 
   @Get(':id')
@@ -25,9 +33,12 @@ export class ConversationsController {
     return this.service.getMessages(id, user.sub);
   }
 
-  @Get("by-listing/:listingId/by-buyer/:buyerId")
-  getByListingAndBuyer(@CurrentUser() user: JwtPayload, @Param("listingId") listingId: string, @Param("buyerId") buyerId: string,) {
-  return this.service.getByListingAndBuyer(listingId, buyerId, user.sub);
-}
-
+  @Get('by-listing/:listingId/by-buyer/:buyerId')
+  getByListingAndBuyer(
+    @CurrentUser() user: JwtPayload,
+    @Param('listingId') listingId: string,
+    @Param('buyerId') buyerId: string,
+  ) {
+    return this.service.getByListingAndBuyer(listingId, buyerId, user.sub);
+  }
 }

@@ -13,6 +13,7 @@ import { ProfilePage } from "../pages/ProfilePage";
 import { MyListingsPage } from "../pages/MyListingsPage";
 import { SettingsPage } from "../pages/SettingsPage";
 import { CreateListingPage } from "../pages/CreateListingPage";
+import { InboxPage } from "../pages/InboxPage";
 
 export const router = createBrowserRouter([
   {
@@ -66,6 +67,14 @@ export const router = createBrowserRouter([
         element: (
           <RequireAuth>
             <CreateListingPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: "/inbox",
+        element: (
+          <RequireAuth>
+            <InboxPage />
           </RequireAuth>
         ),
       },

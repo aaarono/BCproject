@@ -15,6 +15,25 @@ export class DealsController {
     return this.deals.create(body.listingId, user.sub);
   }
 
+  @Get('me')
+  myDeals(@CurrentUser() user: JwtPayload) {
+    return this.deals.getMyDeals(user.sub);
+  }
+
+  @Get('active/by-listing/:listingId/by-buyer/:buyerId')
+  getActiveByListingAndBuyer(
+    @Param('listingId') listingId: string,
+    @Param('buyerId') buyerId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.deals.getActiveByListingAndBuyer(listingId, buyerId, user.sub);
+  }
+
+  @Get(':id')
+  getById(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.deals.getById(id, user.sub);
+  }
+
   @Post(':id/fund')
   fund(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.deals.fund(id, user.sub);
@@ -33,15 +52,5 @@ export class DealsController {
   @Post(':id/cancel')
   cancel(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.deals.cancel(id, user.sub);
-  }
-
-  @Get('me')
-  myDeals(@CurrentUser() user: JwtPayload) {
-    return this.deals.getMyDeals(user.sub);
-  }
-
-  @Get(':id')
-  getById(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
-    return this.deals.getById(id, user.sub);
   }
 }

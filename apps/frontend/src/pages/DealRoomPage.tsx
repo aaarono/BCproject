@@ -27,7 +27,9 @@ export function DealRoomPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
 
-  const [sellerConversationId, setSellerConversationId] = useState<string | null>(null);
+  const [sellerConversationId, setSellerConversationId] = useState<
+    string | null
+  >(null);
   const [deal, setDeal] = useState<Deal | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -35,35 +37,35 @@ export function DealRoomPage() {
   const [busy, setBusy] = useState(false);
 
   async function loadSellerConversation(dealData: Deal) {
-  const res = await http.get(
-    `/conversations/by-listing/${dealData.listingId}/by-buyer/${dealData.buyerId}`
-  );
+    const res = await http.get(
+      `/conversations/by-listing/${dealData.listingId}/by-buyer/${dealData.buyerId}`,
+    );
     setSellerConversationId(res.data.id);
   }
 
   async function load() {
-  setErr(null);
-  setLoading(true);
-  try {
-    const res = await http.get<Deal>(`/deals/${id}`);
-    setDeal(res.data);
+    setErr(null);
+    setLoading(true);
+    try {
+      const res = await http.get<Deal>(`/deals/${id}`);
+      setDeal(res.data);
 
-    // seller side: получаем conversation по listing + buyer
-    if (user?.id === res.data.sellerId) {
-      try {
-        await loadSellerConversation(res.data);
-      } catch {
+      // seller side: получаем conversation по listing + buyer
+      if (user?.id === res.data.sellerId) {
+        try {
+          await loadSellerConversation(res.data);
+        } catch {
+          setSellerConversationId(null);
+        }
+      } else {
         setSellerConversationId(null);
       }
-    } else {
-      setSellerConversationId(null);
+    } catch (e: any) {
+      setErr(e?.response?.data?.message ?? "Failed to load deal");
+    } finally {
+      setLoading(false);
     }
-  } catch (e: any) {
-    setErr(e?.response?.data?.message ?? "Failed to load deal");
-  } finally {
-    setLoading(false);
   }
-}
 
   useEffect(() => {
     if (!id || !user) return;
@@ -75,8 +77,8 @@ export function DealRoomPage() {
     setActionErr(null);
     setBusy(true);
     try {
-      const res = await fn();
-      setDeal(res.data);
+      await fn();
+      await load();
     } catch (e: any) {
       setActionErr(e?.response?.data?.message ?? "Action failed");
     } finally {
@@ -95,7 +97,7 @@ export function DealRoomPage() {
     <div className="max-w-6xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div className="lg:col-span-2 space-y-4">
         <div className="border rounded p-4 space-y-2">
-          <div className="text-2xl font-bold">{deal.listing.title}</div>
+          <div className="text-2xl font-bold">{deal.listing.title ?? "Listing"}</div>
 
           <div className="text-sm text-gray-600">
             {(deal.listing.price / 100).toFixed(2)} Kč · {deal.listing.type}

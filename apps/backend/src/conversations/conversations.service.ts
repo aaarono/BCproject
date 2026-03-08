@@ -1,11 +1,18 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class ConversationsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private assertParticipant(conv: { buyerId: string; sellerId: string }, userId: string) {
+  private assertParticipant(
+    conv: { buyerId: string; sellerId: string },
+    userId: string,
+  ) {
     if (conv.buyerId !== userId && conv.sellerId !== userId) {
       throw new ForbiddenException('Not a participant of this conversation');
     }
@@ -17,8 +24,10 @@ export class ConversationsService {
       select: { id: true, sellerId: true, status: true },
     });
     if (!listing) throw new NotFoundException('Listing not found');
-    if (listing.status !== 'ACTIVE') throw new ForbiddenException('Listing is not active');
-    if (listing.sellerId === buyerId) throw new ForbiddenException('Seller cannot chat with himself');
+    if (listing.status !== 'ACTIVE')
+      throw new ForbiddenException('Listing is not active');
+    if (listing.sellerId === buyerId)
+      throw new ForbiddenException('Seller cannot chat with himself');
 
     // уникальность (listingId + buyerId)
     const existing = await this.prisma.conversation.findUnique({
@@ -39,7 +48,15 @@ export class ConversationsService {
     const conv = await this.prisma.conversation.findUnique({
       where: { id },
       include: {
-        listing: { select: { id: true, title: true, price: true, type: true, sellerId: true } },
+        listing: {
+          select: {
+            id: true,
+            title: true,
+            price: true,
+            type: true,
+            sellerId: true,
+          },
+        },
         buyer: { select: { id: true, displayName: true } },
         seller: { select: { id: true, displayName: true } },
       },
@@ -68,38 +85,88 @@ export class ConversationsService {
   }
 
   async getByListingAndBuyer(
-  listingId: string,
-  buyerId: string,
-  sellerId: string,) {
-  const listing = await this.prisma.listing.findUnique({
-    where: { id: listingId },
-  });
+    listingId: string,
+    buyerId: string,
+    sellerId: string,
+  ) {
+    const listing = await this.prisma.listing.findUnique({
+      where: { id: listingId },
+    });
 
-  if (!listing) {
-    throw new NotFoundException("Listing not found");
+    if (!listing) {
+      throw new NotFoundException('Listing not found');
+    }
+
+    if (listing.sellerId !== sellerId) {
+      throw new ForbiddenException('Not your listing');
+    }
+
+    const conversation = await this.prisma.conversation.findFirst({
+      where: {
+        listingId,
+        buyerId,
+        sellerId,
+      },
+      include: {
+        listing: true,
+        buyer: { select: { id: true, displayName: true } },
+        seller: { select: { id: true, displayName: true } },
+      },
+    });
+
+    if (!conversation) {
+      throw new NotFoundException('Conversation not found');
+    }
+
+    return conversation;
   }
 
-  if (listing.sellerId !== sellerId) {
-    throw new ForbiddenException("Not your listing");
+  async getMyConversations(userId: string) {
+    const conversations = await this.prisma.conversation.findMany({
+      where: {
+        OR: [{ buyerId: userId }, { sellerId: userId }],
+      },
+      include: {
+        listing: {
+          select: {
+            id: true,
+            title: true,
+            price: true,
+            type: true,
+          },
+        },
+        buyer: {
+          select: {
+            id: true,
+            displayName: true,
+          },
+        },
+        seller: {
+          select: {
+            id: true,
+            displayName: true,
+          },
+        },
+        messages: {
+          orderBy: {
+            createdAt: 'desc',
+          },
+          take: 1,
+          include: {
+            sender: {
+              select: {
+                id: true,
+                displayName: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return conversations;
   }
-
-  const conversation = await this.prisma.conversation.findFirst({
-    where: {
-      listingId,
-      buyerId,
-      sellerId,
-    },
-    include: {
-      listing: true,
-      buyer: { select: { id: true, displayName: true } },
-      seller: { select: { id: true, displayName: true } },
-    },
-  });
-
-  if (!conversation) {
-    throw new NotFoundException("Conversation not found");
-  }
-
-  return conversation;
-}
 }

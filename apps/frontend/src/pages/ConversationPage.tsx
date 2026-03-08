@@ -120,7 +120,7 @@ export function ConversationPage() {
             >
               <div
                 className={`max-w-[70%] rounded px-3 py-2 ${
-                  mine ? "bg-black text-white" : "bg-white border"
+                  mine ? "bg-black text-white" : "bg-white text-black border"
                 }`}
               >
                 <div className="text-sm">{m.text}</div>

@@ -73,8 +73,6 @@ export function ListingPage() {
       const created = await http.post(`/deals`, { listingId: listing.id });
       const dealId = created.data.id;
 
-      await http.post(`/deals/${dealId}/fund`);
-
       nav(`/deals/${dealId}`);
     } catch (e: any) {
       console.log("BUY ERROR:", e?.response?.status, e?.response?.data);

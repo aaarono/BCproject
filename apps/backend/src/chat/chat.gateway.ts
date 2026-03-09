@@ -37,12 +37,41 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly messagesService: MessagesService,
   ) {}
 
+  emitDealUpdate(deal: {
+    id: string;
+    buyerId: string;
+    sellerId: string;
+    status: string;
+    createdAt: Date | string;
+    listingId: string;
+    listing: {
+      id: string;
+      title: string;
+      price: number;
+      type: string;
+      status: string;
+    };
+    buyer: {
+      id: string;
+      displayName: string;
+    };
+    seller: {
+      id: string;
+      displayName: string;
+    };
+  }) {
+    this.server.to(this.userRoom(deal.buyerId)).emit('deal:update', deal);
+    this.server.to(this.userRoom(deal.sellerId)).emit('deal:update', deal);
+  }
+
   async handleConnection(client: AuthedSocket) {
     try {
       const authToken = client.handshake.auth?.token;
       const headerValue = client.handshake.headers.authorization;
       const bearerToken =
-        typeof headerValue === 'string' ? this.extractBearer(headerValue) : null;
+        typeof headerValue === 'string'
+          ? this.extractBearer(headerValue)
+          : null;
 
       const token = authToken || bearerToken;
 
@@ -129,7 +158,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const text = body.text?.trim();
     if (!text) throw new WsException('Text is required');
 
-    const message = await this.messagesService.send(body.conversationId, userId, text);
+    const message = await this.messagesService.send(
+      body.conversationId,
+      userId,
+      text,
+    );
 
     this.server.to(this.room(body.conversationId)).emit('message:new', message);
 

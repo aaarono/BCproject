@@ -5,65 +5,123 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { WalletService } from 'src/wallet/wallet.service';
+import { ChatGateway } from 'src/chat/chat.gateway';
 
 @Injectable()
 export class DealsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly wallet: WalletService,
+    private readonly chatGateway: ChatGateway,
   ) {}
 
   async create(listingId: string, buyerId: string) {
-    const listing = await this.prisma.listing.findUnique({
-      where: { id: listingId },
-      select: { id: true, sellerId: true, status: true },
-    });
-    if (!listing) throw new NotFoundException('Listing not found');
-    if (listing.status !== 'ACTIVE')
-      throw new ForbiddenException('Listing is not active');
-    if (listing.sellerId === buyerId)
-      throw new ForbiddenException('Cannot buy your own listing');
+    return this.prisma.$transaction(async (tx) => {
+      const listing = await tx.listing.findUnique({
+        where: { id: listingId },
+        select: { id: true, sellerId: true, status: true, price: true },
+      });
 
-    const existing = await this.prisma.deal.findFirst({
-      where: {
-        listingId,
-        buyerId,
-        status: { in: ['INITIATED', 'FUNDED', 'DELIVERED'] },
-      },
-    });
-    if (existing) return existing;
+      if (!listing) {
+        throw new NotFoundException('Listing not found');
+      }
 
-    return this.prisma.deal.create({
-      data: {
-        listingId,
-        buyerId,
-        sellerId: listing.sellerId,
-        status: 'INITIATED',
-      },
+      if (listing.status !== 'ACTIVE') {
+        throw new ForbiddenException('Listing is not active');
+      }
+
+      if (listing.sellerId === buyerId) {
+        throw new ForbiddenException('Cannot buy your own listing');
+      }
+
+      const existing = await tx.deal.findFirst({
+        where: {
+          listingId,
+          buyerId,
+          status: { in: ['INITIATED', 'FUNDED', 'DELIVERED'] },
+        },
+      });
+
+      if (existing) {
+        return existing;
+      }
+
+      const wallet = await tx.wallet.findUnique({
+        where: { userId: buyerId },
+        select: { balance: true },
+      });
+
+      const balance = wallet?.balance ?? 0;
+
+      if (balance < listing.price) {
+        throw new ForbiddenException('Insufficient balance');
+      }
+
+      const deal = await tx.deal.create({
+        data: {
+          listingId,
+          buyerId,
+          sellerId: listing.sellerId,
+          status: 'FUNDED',
+        },
+      });
+
+      await this.wallet.lockEscrow(buyerId, deal.id, listing.price);
+
+      return tx.deal.findUnique({
+        where: { id: deal.id },
+        include: {
+          listing: {
+            select: {
+              id: true,
+              title: true,
+              price: true,
+              type: true,
+              status: true,
+            },
+          },
+          buyer: {
+            select: {
+              id: true,
+              displayName: true,
+            },
+          },
+          seller: {
+            select: {
+              id: true,
+              displayName: true,
+            },
+          },
+        },
+      });
     });
   }
 
   async fund(dealId: string, buyerId: string) {
-    return this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx) => {
       const deal = await tx.deal.findUnique({
         where: { id: dealId },
         include: { listing: { select: { price: true } } },
       });
+
       if (!deal) throw new NotFoundException('Deal not found');
       if (deal.buyerId !== buyerId)
         throw new ForbiddenException('Not your deal');
       if (deal.status !== 'INITIATED')
         throw new ForbiddenException('Invalid status');
 
-      // 1) lock escrow (списать buyer + ledger)
       await this.wallet.lockEscrow(deal.buyerId, deal.id, deal.listing.price);
 
-      // 2) статус сделки
-      return tx.deal.update({
+      await tx.deal.update({
         where: { id: dealId },
         data: { status: 'FUNDED' },
       });
     });
+
+    const fullDeal = await this.getFullDeal(dealId);
+    this.chatGateway.emitDealUpdate(fullDeal);
+
+    return fullDeal;
   }
 
   async markDelivered(dealId: string, sellerId: string) {
@@ -73,37 +131,46 @@ export class DealsService {
     if (deal.status !== 'FUNDED')
       throw new ForbiddenException('Invalid status');
 
-    return this.prisma.deal.update({
+    await this.prisma.deal.update({
       where: { id: dealId },
       data: { status: 'DELIVERED' },
     });
+
+    const fullDeal = await this.getFullDeal(dealId);
+    this.chatGateway.emitDealUpdate(fullDeal);
+
+    return fullDeal;
   }
 
   async complete(dealId: string, buyerId: string) {
-    return this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx) => {
       const deal = await tx.deal.findUnique({
         where: { id: dealId },
         include: { listing: { select: { price: true } } },
       });
+
       if (!deal) throw new NotFoundException('Deal not found');
       if (deal.buyerId !== buyerId)
         throw new ForbiddenException('Not your deal');
       if (deal.status !== 'DELIVERED')
         throw new ForbiddenException('Invalid status');
 
-      // 1) release escrow seller'у
       await this.wallet.releaseEscrowToSeller(
         deal.sellerId,
         deal.id,
         deal.listing.price,
       );
 
-      // 2) статус сделки
-      return tx.deal.update({
+      await tx.deal.update({
         where: { id: dealId },
         data: { status: 'COMPLETED' },
       });
     });
+
+    const fullDeal = await this.getFullDeal(dealId);
+    this.chatGateway.emitDealUpdate(fullDeal);
+
+    return fullDeal;
   }
 
   async cancel(dealId: string, userId: string) {
@@ -116,17 +183,14 @@ export class DealsService {
 
     if (!deal) throw new NotFoundException('Deal not found');
 
-    // по твоей логике отменять может только seller
     if (deal.sellerId !== userId) {
       throw new ForbiddenException('Only seller can cancel this deal');
     }
 
-    // разрешаем отмену только до завершения сделки
     if (!['INITIATED', 'FUNDED'].includes(deal.status)) {
       throw new ForbiddenException('Cannot cancel now');
     }
 
-    // если buyer уже оплатил — возвращаем деньги
     if (deal.status === 'FUNDED') {
       await this.wallet.refundToBuyer(
         deal.buyerId,
@@ -135,10 +199,15 @@ export class DealsService {
       );
     }
 
-    return this.prisma.deal.update({
+    await this.prisma.deal.update({
       where: { id: dealId },
       data: { status: 'CANCELED' },
     });
+
+    const fullDeal = await this.getFullDeal(dealId);
+    this.chatGateway.emitDealUpdate(fullDeal);
+
+    return fullDeal;
   }
 
   async getMyDeals(userId: string) {
@@ -195,6 +264,41 @@ export class DealsService {
       },
     });
     if (!deal) throw new NotFoundException('Deal not found');
+    return deal;
+  }
+
+  private async getFullDeal(id: string) {
+    const deal = await this.prisma.deal.findUnique({
+      where: { id },
+      include: {
+        listing: {
+          select: {
+            id: true,
+            title: true,
+            price: true,
+            type: true,
+            status: true,
+          },
+        },
+        buyer: {
+          select: {
+            id: true,
+            displayName: true,
+          },
+        },
+        seller: {
+          select: {
+            id: true,
+            displayName: true,
+          },
+        },
+      },
+    });
+
+    if (!deal) {
+      throw new NotFoundException('Deal not found');
+    }
+
     return deal;
   }
 

@@ -6,8 +6,14 @@ import React, {
   useState,
 } from "react";
 import { http, setAuthToken } from "../api/http";
+import { disconnectSocket } from "../api/socket";
 
-type User = { id: string; email: string; role: "BUYER" | "SELLER" | "ADMIN" };
+type User = {
+  id: string;
+  email: string;
+  role: "BUYER" | "SELLER" | "ADMIN";
+  displayName?: string;
+};
 
 type AuthState = {
   token: string | null;
@@ -52,6 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setToken(null);
     setUser(null);
     setAuthToken(null);
+    disconnectSocket();
   }
 
   useEffect(() => {

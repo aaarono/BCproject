@@ -1,7 +1,19 @@
 import { useEffect, useState } from "react";
-import { http } from "../api/http";
 import { useAuth } from "../auth/AuthContext";
+import { http } from "../api/http";
+import { getSocket } from "../api/socket";
 import { ConversationView } from "../components/chat/ConversationView";
+
+type Message = {
+  id: string;
+  conversationId: string;
+  text: string;
+  createdAt: string;
+  sender: {
+    id: string;
+    displayName: string;
+  };
+};
 
 type Conversation = {
   id: string;
@@ -23,24 +35,22 @@ type Conversation = {
     id: string;
     displayName: string;
   };
-  messages: {
-    id: string;
-    text: string;
-    createdAt: string;
-    sender: {
-      id: string;
-      displayName: string;
-    };
-  }[];
+  messages: Message[];
 };
 
+function sortConversations(items: Conversation[]) {
+  return [...items].sort((a, b) => {
+    const aTime = a.messages[0]?.createdAt ?? a.createdAt;
+    const bTime = b.messages[0]?.createdAt ?? b.createdAt;
+    return new Date(bTime).getTime() - new Date(aTime).getTime();
+  });
+}
+
 export function InboxPage() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [selectedConversationId, setSelectedConversationId] = useState<
-    string | null
-  >(null);
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
@@ -50,25 +60,20 @@ export function InboxPage() {
 
     try {
       const res = await http.get<Conversation[]>("/conversations/me");
-
-      const sorted = [...res.data].sort((a, b) => {
-        const aTime = a.messages[0]?.createdAt ?? a.createdAt;
-        const bTime = b.messages[0]?.createdAt ?? b.createdAt;
-        return new Date(bTime).getTime() - new Date(aTime).getTime();
-      });
+      const sorted = sortConversations(res.data);
 
       setConversations(sorted);
 
-      if (!selectedConversationId && res.data.length > 0) {
-        setSelectedConversationId(res.data[0].id);
+      if (!selectedConversationId && sorted.length > 0) {
+        setSelectedConversationId(sorted[0].id);
       }
 
       if (
         selectedConversationId &&
-        !res.data.find((c) => c.id === selectedConversationId) &&
-        res.data.length > 0
+        !sorted.find((c) => c.id === selectedConversationId) &&
+        sorted.length > 0
       ) {
-        setSelectedConversationId(res.data[0].id);
+        setSelectedConversationId(sorted[0].id);
       }
     } catch (e: any) {
       setErr(e?.response?.data?.message ?? "Failed to load inbox");
@@ -83,13 +88,27 @@ export function InboxPage() {
   }, []);
 
   useEffect(() => {
-    const t = setInterval(() => {
-      loadInbox().catch(() => {});
-    }, 4000);
+    if (!token) return;
 
-    return () => clearInterval(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedConversationId]);
+    const socket = getSocket(token);
+
+    const handleInboxUpdate = (payload: { conversation: Conversation }) => {
+      const updatedConversation = payload.conversation;
+
+      setConversations((prev) => {
+        const withoutCurrent = prev.filter((c) => c.id !== updatedConversation.id);
+        return sortConversations([updatedConversation, ...withoutCurrent]);
+      });
+
+      setSelectedConversationId((prev) => prev ?? updatedConversation.id);
+    };
+
+    socket.on("inbox:update", handleInboxUpdate);
+
+    return () => {
+      socket.off("inbox:update", handleInboxUpdate);
+    };
+  }, [token]);
 
   const selectedConversation =
     conversations.find((c) => c.id === selectedConversationId) ?? null;
@@ -109,9 +128,7 @@ export function InboxPage() {
         <div className="divide-y">
           {conversations.map((conv) => {
             const otherUser =
-              user?.id === conv.buyer.id
-                ? conv.seller.displayName
-                : conv.buyer.displayName;
+              user?.id === conv.buyer.id ? conv.seller.displayName : conv.buyer.displayName;
 
             const lastMessage = conv.messages[0];
 
@@ -119,10 +136,8 @@ export function InboxPage() {
               <button
                 key={conv.id}
                 onClick={() => setSelectedConversationId(conv.id)}
-                className={`w-full text-left p-4 hover:bg-gray-50 hover:text-black ${
-                  selectedConversationId === conv.id
-                    ? "bg-gray-100 text-black"
-                    : ""
+                className={`w-full text-left p-4 hover:bg-gray-50 ${
+                  selectedConversationId === conv.id ? "bg-gray-100" : ""
                 }`}
               >
                 <div className="font-medium">{conv.listing.title}</div>

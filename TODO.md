@@ -58,23 +58,15 @@
 
 ## Chat Improvements
 
-* [ ] Realtime chat via WebSocket (NestJS Gateway)
-
-  * JWT auth in WS handshake
-  * Join rooms only for conversation participants
-  * Emit `message:new` on send
-  * Keep message history via REST (pagination)
-
 * [ ] Allow sending images in chat
 
   * Upload endpoint
   * Store file URL
   * Render image messages
 
-* [ ] Show user online/offline status
-
-  * Track active socket connections
-  * Display in chat header
+* [ ] Add realtime deal status updates in DealRoom
+  * Replace temporary polling with WebSocket events for deal status changes
+  * Update buyer/seller UI without page refresh
 
 ---
 

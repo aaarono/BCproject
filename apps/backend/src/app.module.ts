@@ -11,6 +11,7 @@ import { DealsModule } from './deals/deals.module';
 import { WalletModule } from './wallet/wallet.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { UsersModule } from './users/users.module';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { UsersModule } from './users/users.module';
     WalletModule,
     ReviewsModule,
     UsersModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,10 +1,14 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { http } from "../api/http";
 import type { Listing } from "../types/listing";
 import { ListingDetails } from "../components/listing/ListingDetails";
-import { ChatPanel } from "../components/chat/ChatPanel";
+import { ConversationView } from "../components/chat/ConversationView";
 import { useAuth } from "../auth/AuthContext";
+
+type Conversation = {
+  id: string;
+};
 
 export function ListingPage() {
   const { id } = useParams<{ id: string }>();
@@ -12,9 +16,13 @@ export function ListingPage() {
   const { user } = useAuth();
 
   const [listing, setListing] = useState<Listing | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [buyLoading, setBuyLoading] = useState(false);
+  const [chatLoading, setChatLoading] = useState(false);
+
   const isOwner = user?.id === listing?.seller.id;
 
   useEffect(() => {
@@ -29,6 +37,26 @@ export function ListingPage() {
       .catch((e) => setErr(e?.response?.data?.message ?? "Listing not found"))
       .finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    if (!listing || !user) {
+      setConversationId(null);
+      return;
+    }
+
+    if (user.id === listing.seller.id) {
+      setConversationId(null);
+      return;
+    }
+
+    setChatLoading(true);
+
+    http
+      .post<Conversation>("/conversations", { listingId: listing.id })
+      .then((r) => setConversationId(r.data.id))
+      .catch(() => setConversationId(null))
+      .finally(() => setChatLoading(false));
+  }, [listing, user]);
 
   async function buyNow() {
     if (!user) return nav("/login");
@@ -57,8 +85,9 @@ export function ListingPage() {
   }
 
   if (loading) return <div className="p-6">Loading…</div>;
-  if (err || !listing)
+  if (err || !listing) {
     return <div className="p-6 text-red-600">{err ?? "Not found"}</div>;
+  }
 
   return (
     <div className="max-w-6xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -67,7 +96,54 @@ export function ListingPage() {
       </div>
 
       <div className="lg:col-span-1 space-y-6">
-        <ChatPanel listingId={listing.id} />
+        {!user ? (
+          <div className="border rounded p-4 text-sm text-gray-600">
+            Please{" "}
+            <Link className="underline" to="/login">
+              login
+            </Link>{" "}
+            to contact the seller.
+          </div>
+        ) : isOwner ? (
+          <div className="border rounded p-4 text-sm text-gray-600 space-y-2">
+            <div>You are the seller of this listing.</div>
+            <div>
+              Manage conversations in <b>Inbox</b> and deals in <b>My deals</b>.
+            </div>
+          </div>
+        ) : chatLoading ? (
+          <div className="border rounded p-4 text-sm text-gray-500">
+            Loading conversation…
+          </div>
+        ) : conversationId ? (
+          <ConversationView
+            conversation={{
+              id: conversationId,
+              listingId: listing.id,
+              buyerId: user.id,
+              sellerId: listing.seller.id,
+              createdAt: listing.createdAt,
+              listing: {
+                id: listing.id,
+                title: listing.title,
+                price: listing.price,
+                type: listing.type,
+              },
+              buyer: {
+                id: user.id,
+                displayName: user.displayName ?? "You",
+              },
+              seller: {
+                id: listing.seller.id,
+                displayName: listing.seller.displayName,
+              },
+            }}
+          />
+        ) : (
+          <div className="border rounded p-4 text-sm text-gray-500">
+            Conversation could not be loaded.
+          </div>
+        )}
 
         {!isOwner && user && (
           <button
@@ -78,8 +154,8 @@ export function ListingPage() {
             {buyLoading
               ? "Processing…"
               : listing.type === "SERVICE"
-                ? "Order"
-                : "Buy"}
+              ? "Order"
+              : "Buy"}
           </button>
         )}
 

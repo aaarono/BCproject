@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -38,18 +39,24 @@ export class WalletService {
     return this.getMyWallet(userId);
   }
 
-  async lockEscrow(buyerId: string, dealId: string, amount: number) {
-    const wallet = await this.getOrCreateWallet(buyerId);
+  async lockEscrow(
+    tx: Prisma.TransactionClient,
+    buyerId: string,
+    dealId: string,
+    amount: number,
+  ) {
+    const wallet = await this.getOrCreateWalletTx(tx, buyerId);
+
     if (wallet.balance < amount) {
       throw new ForbiddenException('Insufficient balance');
     }
 
-    await this.prisma.wallet.update({
+    await tx.wallet.update({
       where: { userId: buyerId },
       data: { balance: { decrement: amount } },
     });
 
-    await this.prisma.walletTransaction.create({
+    await tx.walletTransaction.create({
       data: {
         walletId: buyerId,
         type: 'ESCROW_LOCK',
@@ -59,15 +66,20 @@ export class WalletService {
     });
   }
 
-  async releaseEscrowToSeller(sellerId: string, dealId: string, amount: number) {
-    await this.getOrCreateWallet(sellerId);
+  async releaseEscrowToSeller(
+    tx: Prisma.TransactionClient,
+    sellerId: string,
+    dealId: string,
+    amount: number,
+  ) {
+    await this.getOrCreateWalletTx(tx, sellerId);
 
-    await this.prisma.wallet.update({
+    await tx.wallet.update({
       where: { userId: sellerId },
       data: { balance: { increment: amount } },
     });
 
-    await this.prisma.walletTransaction.create({
+    await tx.walletTransaction.create({
       data: {
         walletId: sellerId,
         type: 'ESCROW_RELEASE',
@@ -77,21 +89,37 @@ export class WalletService {
     });
   }
 
-  async refundToBuyer(buyerId: string, dealId: string, amount: number) {
-    await this.getOrCreateWallet(buyerId);
+  async refundToBuyer(
+    tx: Prisma.TransactionClient,
+    buyerId: string,
+    dealId: string,
+    amount: number,
+  ) {
+    await this.getOrCreateWalletTx(tx, buyerId);
 
-    await this.prisma.wallet.update({
+    await tx.wallet.update({
       where: { userId: buyerId },
       data: { balance: { increment: amount } },
     });
 
-    await this.prisma.walletTransaction.create({
+    await tx.walletTransaction.create({
       data: {
         walletId: buyerId,
         type: 'REFUND',
         amount,
         dealId,
       },
+    });
+  }
+
+  private async getOrCreateWalletTx(
+    tx: Prisma.TransactionClient,
+    userId: string,
+  ) {
+    return tx.wallet.upsert({
+      where: { userId },
+      update: {},
+      create: { userId, balance: 0 },
     });
   }
 }

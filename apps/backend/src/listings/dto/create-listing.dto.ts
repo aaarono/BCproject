@@ -1,4 +1,6 @@
-import { IsEnum, IsInt, IsString, Min, MinLength } from 'class-validator';
+import { IsEnum, IsInt, IsNotEmpty, IsString, MaxLength, Min } from 'class-validator';
+import { Type } from 'class-transformer';
+import { ListingType } from '@prisma/client';
 
 export enum ListingTypeDto {
   GOOD = 'GOOD',
@@ -7,17 +9,20 @@ export enum ListingTypeDto {
 
 export class CreateListingDto {
   @IsString()
-  @MinLength(3)
-  title!: string;
+  @IsNotEmpty()
+  @MaxLength(100)
+  title: string;
 
   @IsString()
-  @MinLength(10)
-  description!: string;
+  @IsNotEmpty()
+  @MaxLength(2000)
+  description: string;
 
+  @Type(() => Number)
   @IsInt()
-  @Min(0)
-  price!: number; // cents
+  @Min(1)
+  price: number;
 
-  @IsEnum(ListingTypeDto)
-  type!: ListingTypeDto;
+  @IsEnum(ListingType)
+  type: ListingType;
 }

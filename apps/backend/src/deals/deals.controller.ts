@@ -3,6 +3,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/jwt.strategy';
 import { DealsService } from './deals.service';
+import { CreateDealDto } from './dto/create-deal.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('deals')
@@ -11,8 +12,8 @@ export class DealsController {
 
   // Create deal by listingId
   @Post()
-  create(@CurrentUser() user: JwtPayload, @Body() body: { listingId: string }) {
-    return this.deals.create(body.listingId, user.sub);
+  create(@CurrentUser() user: JwtPayload, @Body() dto : CreateDealDto) {
+    return this.deals.create(dto.listingId, user.sub);
   }
 
   @Get('me')

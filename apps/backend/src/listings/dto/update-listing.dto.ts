@@ -1,23 +1,25 @@
-import { IsEnum, IsInt, IsOptional, IsString, Min, MinLength } from 'class-validator';
-import { ListingTypeDto } from './create-listing.dto';
+import { IsEnum, IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { Type } from 'class-transformer';
+import { ListingType } from '@prisma/client';
 
 export class UpdateListingDto {
   @IsOptional()
   @IsString()
-  @MinLength(3)
+  @MaxLength(100)
   title?: string;
 
   @IsOptional()
   @IsString()
-  @MinLength(10)
+  @MaxLength(2000)
   description?: string;
 
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
-  @Min(0)
+  @Min(1)
   price?: number;
 
   @IsOptional()
-  @IsEnum(ListingTypeDto)
-  type?: ListingTypeDto;
+  @IsEnum(ListingType)
+  type?: ListingType;
 }

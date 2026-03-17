@@ -1,8 +1,10 @@
 import {
+  IsDateString,
   IsEnum,
   IsInt,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
   Min,
 } from 'class-validator';
@@ -34,4 +36,31 @@ export class UpdateListingDto {
   @IsOptional()
   @IsEnum(ListingType)
   type?: ListingType;
+
+  @ApiPropertyOptional({
+    example: 20,
+    description: 'Sale discount percent (1..90)',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(90)
+  salePercent?: number;
+
+  @ApiPropertyOptional({
+    example: '2026-03-17T10:00:00.000Z',
+    description: 'Sale start datetime (ISO 8601)',
+  })
+  @IsOptional()
+  @IsDateString()
+  saleStartsAt?: string;
+
+  @ApiPropertyOptional({
+    example: '2026-03-24T10:00:00.000Z',
+    description: 'Sale end datetime (ISO 8601)',
+  })
+  @IsOptional()
+  @IsDateString()
+  saleEndsAt?: string;
 }

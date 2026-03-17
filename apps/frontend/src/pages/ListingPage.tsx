@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { http } from "../api/http";
-import type { Listing } from "../types/listing";
+import type { Listing, PriceHistoryPoint } from "../types/listing";
 import { ListingDetails } from "../components/listing/ListingDetails";
 import { ConversationView } from "../components/chat/ConversationView";
 import { useAuth } from "../auth/AuthContext";
+import { PriceHistoryChart } from "../components/listing/PriceHistoryChart";
 
 type Conversation = {
   id: string;
@@ -16,6 +17,7 @@ export function ListingPage() {
   const { user } = useAuth();
 
   const [listing, setListing] = useState<Listing | null>(null);
+  const [priceHistory, setPriceHistory] = useState<PriceHistoryPoint[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
@@ -33,7 +35,18 @@ export function ListingPage() {
 
     http
       .get<Listing>(`/listings/${id}`)
-      .then((r) => setListing(r.data))
+      .then(async (r) => {
+        setListing(r.data);
+
+        try {
+          const history = await http.get<{ points: PriceHistoryPoint[] }>(
+            `/listings/${id}/price-history`,
+          );
+          setPriceHistory(history.data.points);
+        } catch {
+          setPriceHistory([]);
+        }
+      })
       .catch((e) => setErr(e?.response?.data?.message ?? "Listing not found"))
       .finally(() => setLoading(false));
   }, [id]);
@@ -91,6 +104,9 @@ export function ListingPage() {
     <div className="max-w-6xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div className="lg:col-span-2">
         <ListingDetails listing={listing} />
+        <div className="mt-6">
+          <PriceHistoryChart points={priceHistory} />
+        </div>
       </div>
 
       <div className="lg:col-span-1 space-y-6">

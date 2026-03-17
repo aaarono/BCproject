@@ -5,6 +5,9 @@ export type ListingFormValues = {
   description: string;
   price: string;
   type: "GOOD" | "SERVICE";
+  salePercent: string;
+  saleStartsAt: string;
+  saleEndsAt: string;
 };
 
 type Props = {
@@ -20,6 +23,9 @@ const defaultValues: ListingFormValues = {
   description: "",
   price: "",
   type: "GOOD",
+  salePercent: "",
+  saleStartsAt: "",
+  saleEndsAt: "",
 };
 
 export function ListingForm({
@@ -33,10 +39,21 @@ export function ListingForm({
   const [description, setDescription] = useState(initialValues.description);
   const [price, setPrice] = useState(initialValues.price);
   const [type, setType] = useState<"GOOD" | "SERVICE">(initialValues.type);
+  const [salePercent, setSalePercent] = useState(initialValues.salePercent);
+  const [saleStartsAt, setSaleStartsAt] = useState(initialValues.saleStartsAt);
+  const [saleEndsAt, setSaleEndsAt] = useState(initialValues.saleEndsAt);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    await onSubmit({ title, description, price, type });
+    await onSubmit({
+      title,
+      description,
+      price,
+      type,
+      salePercent,
+      saleStartsAt,
+      saleEndsAt,
+    });
   }
 
   return (
@@ -85,6 +102,50 @@ export function ListingForm({
         />
         <div className="text-xs text-gray-500 mt-1">
           Example: 15000 = 150.00 Kč
+        </div>
+      </div>
+
+      <div className="border rounded p-3 space-y-3">
+        <div className="text-sm font-medium">Flash Sale (optional)</div>
+
+        <div>
+          <label className="block text-sm mb-1">Discount percent</label>
+          <input
+            className="border rounded p-2 w-full"
+            type="number"
+            min="1"
+            max="90"
+            value={salePercent}
+            onChange={(e) => setSalePercent(e.target.value)}
+            placeholder="e.g. 20"
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-sm mb-1">Sale starts at</label>
+            <input
+              className="border rounded p-2 w-full"
+              type="datetime-local"
+              value={saleStartsAt}
+              onChange={(e) => setSaleStartsAt(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm mb-1">Sale ends at</label>
+            <input
+              className="border rounded p-2 w-full"
+              type="datetime-local"
+              value={saleEndsAt}
+              onChange={(e) => setSaleEndsAt(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="text-xs text-gray-500">
+          Fill all three fields to activate sale. Leave all empty to keep regular
+          pricing.
         </div>
       </div>
 

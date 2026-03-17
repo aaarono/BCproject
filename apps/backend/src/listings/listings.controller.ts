@@ -53,6 +53,12 @@ export class ListingsController {
   }
 
   @ApiOperation({ summary: 'Get a single listing by ID' })
+  @Get(':id/price-history')
+  getPriceHistory(@Param('id') id: string) {
+    return this.listings.getPriceHistory(id);
+  }
+
+  @ApiOperation({ summary: 'Get a single listing by ID' })
   @Get(':id')
   getById(@Param('id') id: string) {
     return this.listings.getById(id);

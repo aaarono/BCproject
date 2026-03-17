@@ -26,12 +26,17 @@ describe('ListingsService', () => {
 
   beforeEach(async () => {
     prisma = {
+      $transaction: jest.fn((cb) => cb(prisma)),
       listing: {
         findMany: jest.fn(),
         findUnique: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
         count: jest.fn(),
+      },
+      listingPriceHistory: {
+        findMany: jest.fn(),
+        create: jest.fn(),
       },
     };
 
@@ -49,10 +54,20 @@ describe('ListingsService', () => {
     it('should return paginated listings', async () => {
       prisma.listing.findMany.mockResolvedValue([listing]);
       prisma.listing.count.mockResolvedValue(1);
+      prisma.listingPriceHistory.findMany.mockResolvedValue([]);
 
       const result = await service.getFeed({ page: 1, limit: 12 });
 
-      expect(result.data).toEqual([listing]);
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]).toEqual(
+        expect.objectContaining({
+          id: listing.id,
+          effectivePrice: listing.price,
+          isOnSale: false,
+          discountedPrice: listing.price,
+          referencePrice30d: listing.price,
+        }),
+      );
       expect(result.meta).toEqual({
         total: 1,
         page: 1,
@@ -64,6 +79,7 @@ describe('ListingsService', () => {
     it('should apply search filter', async () => {
       prisma.listing.findMany.mockResolvedValue([]);
       prisma.listing.count.mockResolvedValue(0);
+      prisma.listingPriceHistory.findMany.mockResolvedValue([]);
 
       await service.getFeed({ search: 'watch' });
 
@@ -82,6 +98,7 @@ describe('ListingsService', () => {
     it('should apply type filter', async () => {
       prisma.listing.findMany.mockResolvedValue([]);
       prisma.listing.count.mockResolvedValue(0);
+      prisma.listingPriceHistory.findMany.mockResolvedValue([]);
 
       await service.getFeed({ type: 'SERVICE' as any });
 
@@ -95,6 +112,7 @@ describe('ListingsService', () => {
     it('should apply price range filter', async () => {
       prisma.listing.findMany.mockResolvedValue([]);
       prisma.listing.count.mockResolvedValue(0);
+      prisma.listingPriceHistory.findMany.mockResolvedValue([]);
 
       await service.getFeed({ minPrice: 100, maxPrice: 5000 });
 
@@ -109,8 +127,15 @@ describe('ListingsService', () => {
   describe('getById', () => {
     it('should return listing by id', async () => {
       prisma.listing.findUnique.mockResolvedValue(listing);
+      prisma.listingPriceHistory.findMany.mockResolvedValue([]);
       const result = await service.getById('l1');
-      expect(result).toEqual(listing);
+      expect(result).toEqual(
+        expect.objectContaining({
+          id: listing.id,
+          effectivePrice: listing.price,
+          isOnSale: false,
+        }),
+      );
     });
 
     it('should throw NotFoundException if not found', async () => {
@@ -133,10 +158,12 @@ describe('ListingsService', () => {
         sellerId: 'seller1',
         status: 'ACTIVE',
       });
+      prisma.listingPriceHistory.create.mockResolvedValue({});
 
       const result = await service.create('seller1', dto);
 
       expect(result.id).toBe('l2');
+      expect(prisma.$transaction).toHaveBeenCalled();
       expect(prisma.listing.create).toHaveBeenCalledWith({
         data: {
           sellerId: 'seller1',
@@ -145,6 +172,9 @@ describe('ListingsService', () => {
           price: 1000,
           type: 'GOOD',
           status: 'ACTIVE',
+          salePercent: null,
+          saleStartsAt: null,
+          saleEndsAt: null,
         },
       });
     });
@@ -154,10 +184,12 @@ describe('ListingsService', () => {
     it('should update listing if owner', async () => {
       prisma.listing.findUnique.mockResolvedValue(listing);
       prisma.listing.update.mockResolvedValue({ ...listing, title: 'Updated' });
+      prisma.listingPriceHistory.findMany.mockResolvedValue([]);
 
       const result = await service.update('l1', 'seller1', {
         title: 'Updated',
       });
+      expect(prisma.$transaction).toHaveBeenCalled();
       expect(result.title).toBe('Updated');
     });
 

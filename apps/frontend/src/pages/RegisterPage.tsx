@@ -30,7 +30,7 @@ export function RegisterPage() {
         typeof (error as { response?: { data?: { message?: unknown } } }).response
           ?.data?.message === "string"
           ? (error as { response?: { data?: { message?: string } } }).response
-              ?.data?.message
+              ?.data?.message ?? "Register failed"
           : "Register failed";
 
       setErr(message);

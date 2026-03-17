@@ -72,14 +72,29 @@ model Listing {
   title       String
   description String
   price       Int // cents
+  salePercent Int?
+  saleStartsAt DateTime?
+  saleEndsAt   DateTime?
   type        ListingType
   status      ListingStatus @default(ACTIVE)
   createdAt   DateTime      @default(now())
 
   conversations Conversation[]
   Deal          Deal[]
+  priceHistory  ListingPriceHistory[]
 
   @@index([sellerId])
+}
+
+model ListingPriceHistory {
+  id        String   @id @default(cuid())
+  listingId String
+  price     Int
+  createdAt DateTime @default(now())
+
+  listing Listing @relation(fields: [listingId], references: [id])
+
+  @@index([listingId, createdAt])
 }
 
 model Wallet {

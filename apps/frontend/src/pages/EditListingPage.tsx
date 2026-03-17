@@ -2,21 +2,15 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { http } from "../api/http";
 import { ListingForm, type ListingFormValues } from "../components/listing/ListingForm";
+import type { Listing } from "../types/listing";
 
-type Listing = {
-  id: string;
-  title: string;
-  description: string;
-  price: number;
-  type: "GOOD" | "SERVICE";
-  status: "ACTIVE" | "ARCHIVED";
-  seller: {
-    id: string;
-    displayName: string;
-    ratingAvg: number;
-    ratingCount: number;
-  };
-};
+function toDateTimeLocal(value?: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  const offset = date.getTimezoneOffset();
+  const localDate = new Date(date.getTime() - offset * 60 * 1000);
+  return localDate.toISOString().slice(0, 16);
+}
 
 export function EditListingPage() {
   const { id } = useParams<{ id: string }>();
@@ -61,6 +55,43 @@ export function EditListingPage() {
       return;
     }
 
+    const salePercent = values.salePercent.trim()
+      ? Number(values.salePercent)
+      : undefined;
+    const saleStartsAt = values.saleStartsAt.trim()
+      ? new Date(values.saleStartsAt).toISOString()
+      : undefined;
+    const saleEndsAt = values.saleEndsAt.trim()
+      ? new Date(values.saleEndsAt).toISOString()
+      : undefined;
+
+    const hasAnySaleField =
+      salePercent !== undefined ||
+      saleStartsAt !== undefined ||
+      saleEndsAt !== undefined;
+
+    if (hasAnySaleField) {
+      if (
+        !Number.isFinite(salePercent) ||
+        salePercent === undefined ||
+        salePercent < 1 ||
+        salePercent > 90
+      ) {
+        setErr("Sale discount must be between 1 and 90");
+        return;
+      }
+
+      if (!saleStartsAt || !saleEndsAt) {
+        setErr("Sale start and end datetime are required");
+        return;
+      }
+
+      if (new Date(saleStartsAt) >= new Date(saleEndsAt)) {
+        setErr("Sale start must be before sale end");
+        return;
+      }
+    }
+
     setSaving(true);
     try {
       await http.patch(`/listings/${id}`, {
@@ -68,6 +99,9 @@ export function EditListingPage() {
         description: values.description.trim(),
         price: parsedPrice,
         type: values.type,
+        salePercent,
+        saleStartsAt,
+        saleEndsAt,
       });
 
       nav(`/listings/${id}`);
@@ -92,6 +126,12 @@ export function EditListingPage() {
           description: listing.description,
           price: String(listing.price),
           type: listing.type,
+          salePercent:
+            listing.salePercent !== undefined && listing.salePercent !== null
+              ? String(listing.salePercent)
+              : "",
+          saleStartsAt: toDateTimeLocal(listing.saleStartsAt),
+          saleEndsAt: toDateTimeLocal(listing.saleEndsAt),
         }}
         submitLabel="Save changes"
         loading={saving}

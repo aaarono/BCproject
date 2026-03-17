@@ -32,6 +32,43 @@ export function CreateListingPage() {
       return;
     }
 
+    const salePercent = values.salePercent.trim()
+      ? Number(values.salePercent)
+      : undefined;
+    const saleStartsAt = values.saleStartsAt.trim()
+      ? new Date(values.saleStartsAt).toISOString()
+      : undefined;
+    const saleEndsAt = values.saleEndsAt.trim()
+      ? new Date(values.saleEndsAt).toISOString()
+      : undefined;
+
+    const hasAnySaleField =
+      salePercent !== undefined ||
+      saleStartsAt !== undefined ||
+      saleEndsAt !== undefined;
+
+    if (hasAnySaleField) {
+      if (
+        !Number.isFinite(salePercent) ||
+        salePercent === undefined ||
+        salePercent < 1 ||
+        salePercent > 90
+      ) {
+        setErr("Sale discount must be between 1 and 90");
+        return;
+      }
+
+      if (!saleStartsAt || !saleEndsAt) {
+        setErr("Sale start and end datetime are required");
+        return;
+      }
+
+      if (new Date(saleStartsAt) >= new Date(saleEndsAt)) {
+        setErr("Sale start must be before sale end");
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       const res = await http.post<CreateListingResponse>("/listings", {
@@ -39,6 +76,9 @@ export function CreateListingPage() {
         description: values.description.trim(),
         price: parsedPrice,
         type: values.type,
+        salePercent,
+        saleStartsAt,
+        saleEndsAt,
       });
 
       nav(`/listings/${res.data.id}`);

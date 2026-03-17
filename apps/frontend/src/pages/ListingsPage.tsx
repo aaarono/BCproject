@@ -2,15 +2,7 @@ import { useEffect, useState } from "react";
 import { http } from "../api/http";
 import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-
-type Listing = {
-  id: string;
-  title: string;
-  description: string;
-  price: number;
-  type: "GOOD" | "SERVICE";
-  seller: { id: string; displayName: string; ratingAvg: number; ratingCount: number };
-};
+import type { Listing } from "../types/listing";
 
 type Meta = { total: number; page: number; limit: number; totalPages: number };
 
@@ -82,7 +74,21 @@ export function ListingsPage() {
                 </div>
               </div>
               <div className="text-right">
-                <div className="font-semibold">{(x.price / 100).toFixed(2)} Kč</div>
+                {x.isOnSale ? (
+                  <div className="space-y-1">
+                    <div className="text-xs line-through text-gray-500">
+                      {(x.price / 100).toFixed(2)} Kč
+                    </div>
+                    <div className="font-semibold">
+                      {((x.effectivePrice ?? x.price) / 100).toFixed(2)} Kč
+                    </div>
+                    <div className="text-[10px] px-2 py-0.5 rounded bg-black text-white inline-block">
+                      SALE {x.salePercent}%
+                    </div>
+                  </div>
+                ) : (
+                  <div className="font-semibold">{(x.price / 100).toFixed(2)} Kč</div>
+                )}
                 <div className="text-xs text-gray-600">{x.type}</div>
               </div>
             </div>

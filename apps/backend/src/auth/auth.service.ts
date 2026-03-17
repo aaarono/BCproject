@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { JwtService, type JwtSignOptions } from '@nestjs/jwt';
+import { Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
@@ -22,7 +23,7 @@ export class AuthService {
         email: dto.email,
         passwordHash,
         displayName: dto.displayName,
-        role: (dto.role as any) ?? 'BUYER',
+        role: dto.role ?? Role.BUYER,
       },
       select: {
         id: true,

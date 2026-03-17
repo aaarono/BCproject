@@ -3,29 +3,64 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateListingDto } from './dto/create-listing.dto';
 import { UpdateListingDto } from './dto/update-listing.dto';
+import { ListingQueryDto } from './dto/listing-query.dto';
 
 @Injectable()
 export class ListingsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getFeed() {
-    return this.prisma.listing.findMany({
-      where: { status: 'ACTIVE' },
-      orderBy: { createdAt: 'desc' },
-      include: {
-        seller: {
-          select: {
-            id: true,
-            displayName: true,
-            ratingAvg: true,
-            ratingCount: true,
+  async getFeed(query: ListingQueryDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 12;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.ListingWhereInput = { status: 'ACTIVE' };
+
+    if (query.search) {
+      where.OR = [
+        { title: { contains: query.search, mode: 'insensitive' } },
+        { description: { contains: query.search, mode: 'insensitive' } },
+      ];
+    }
+
+    if (query.type) {
+      where.type = query.type;
+    }
+
+    if (query.minPrice !== undefined || query.maxPrice !== undefined) {
+      where.price = {};
+      if (query.minPrice !== undefined) where.price.gte = query.minPrice;
+      if (query.maxPrice !== undefined) where.price.lte = query.maxPrice;
+    }
+
+    const [data, total] = await Promise.all([
+      this.prisma.listing.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        include: {
+          seller: {
+            select: {
+              id: true,
+              displayName: true,
+              ratingAvg: true,
+              ratingCount: true,
+            },
           },
         },
-      },
-    });
+      }),
+      this.prisma.listing.count({ where }),
+    ]);
+
+    return {
+      data,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
   }
 
   async getById(id: string) {
@@ -53,7 +88,7 @@ export class ListingsService {
         title: dto.title,
         description: dto.description,
         price: dto.price,
-        type: dto.type as any,
+        type: dto.type,
         status: 'ACTIVE',
       },
     });
@@ -73,7 +108,7 @@ export class ListingsService {
         title: dto.title ?? undefined,
         description: dto.description ?? undefined,
         price: dto.price ?? undefined,
-        type: (dto.type as any) ?? undefined,
+        type: dto.type ?? undefined,
       },
       include: {
         seller: {

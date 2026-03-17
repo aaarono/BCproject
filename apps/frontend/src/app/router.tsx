@@ -16,6 +16,7 @@ import { CreateListingPage } from "../pages/CreateListingPage";
 import { InboxPage } from "../pages/InboxPage";
 import { PublicSellerProfilePage } from "../pages/PublicSellerProfilePage";
 import { EditListingPage } from "../pages/EditListingPage";
+import { NotFoundPage } from "../pages/NotFoundPage";
 
 export const router = createBrowserRouter([
   {
@@ -92,6 +93,7 @@ export const router = createBrowserRouter([
           </RequireAuth>
         ),
       },
+      { path: "*", element: <NotFoundPage /> },
     ],
   },
 ]);

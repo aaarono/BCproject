@@ -20,6 +20,14 @@ export function ListingsPage() {
   const [meta, setMeta] = useState<Meta>({ total: 0, page: 1, limit: 12, totalPages: 1 });
   const [search, setSearch] = useState("");
   const [type, setType] = useState<"" | "GOOD" | "SERVICE">("");
+  const [category, setCategory] = useState<
+    "" | "GAMES" | "ACCOUNTS" | "BOOSTING" | "MENTORING" | "GAME_CURRENCY" | "OTHER"
+  >("");
+  const [tags, setTags] = useState("");
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+  const [minRating, setMinRating] = useState("");
+  const [sort, setSort] = useState<"NEWEST" | "PRICE_ASC" | "PRICE_DESC" | "RATING" | "SALE">("NEWEST");
   const [page, setPage] = useState(1);
   const { user } = useAuth();
 
@@ -27,12 +35,23 @@ export function ListingsPage() {
     const params: Record<string, string | number> = { page, limit: 12 };
     if (search) params.search = search;
     if (type) params.type = type;
+    if (category) params.category = category;
+    if (sort) params.sort = sort;
+    if (minPrice) params.minPrice = Number(minPrice);
+    if (maxPrice) params.maxPrice = Number(maxPrice);
+    if (minRating) params.minRating = Number(minRating);
+
+    const normalizedTags = tags
+      .split(",")
+      .map((tag) => tag.trim().toLowerCase())
+      .filter(Boolean);
+    if (normalizedTags.length) params.tags = normalizedTags.join(",");
 
     http.get<{ data: Listing[]; meta: Meta }>("/listings", { params }).then((r) => {
       setItems(r.data.data);
       setMeta(r.data.meta);
     });
-  }, [page, search, type]);
+  }, [page, search, type, category, sort, minPrice, maxPrice, minRating, tags]);
 
   useEffect(() => {
     http
@@ -55,13 +74,13 @@ export function ListingsPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex gap-3 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
         <input
           type="text"
           placeholder="Search listings..."
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          className="border rounded px-3 py-2 text-sm flex-1"
+          className="border rounded px-3 py-2 text-sm"
         />
         <select
           value={type}
@@ -72,6 +91,89 @@ export function ListingsPage() {
           <option value="GOOD">Goods</option>
           <option value="SERVICE">Services</option>
         </select>
+
+        <select
+          value={category}
+          onChange={(e) => {
+            setCategory(
+              e.target.value as
+                | ""
+                | "GAMES"
+                | "ACCOUNTS"
+                | "BOOSTING"
+                | "MENTORING"
+                | "GAME_CURRENCY"
+                | "OTHER",
+            );
+            setPage(1);
+          }}
+          className="border rounded px-3 py-2 text-sm"
+        >
+          <option value="">All categories</option>
+          <option value="GAMES">Games</option>
+          <option value="ACCOUNTS">Accounts</option>
+          <option value="BOOSTING">Boosting</option>
+          <option value="MENTORING">Mentoring</option>
+          <option value="GAME_CURRENCY">Game currency</option>
+          <option value="OTHER">Other</option>
+        </select>
+
+        <select
+          value={sort}
+          onChange={(e) => {
+            setSort(
+              e.target.value as
+                | "NEWEST"
+                | "PRICE_ASC"
+                | "PRICE_DESC"
+                | "RATING"
+                | "SALE",
+            );
+            setPage(1);
+          }}
+          className="border rounded px-3 py-2 text-sm"
+        >
+          <option value="NEWEST">Newest</option>
+          <option value="PRICE_ASC">Price: low to high</option>
+          <option value="PRICE_DESC">Price: high to low</option>
+          <option value="RATING">Top rated sellers</option>
+          <option value="SALE">Best sale first</option>
+        </select>
+
+        <input
+          type="text"
+          placeholder="Tags: eu, alliance"
+          value={tags}
+          onChange={(e) => { setTags(e.target.value); setPage(1); }}
+          className="border rounded px-3 py-2 text-sm"
+        />
+
+        <input
+          type="number"
+          placeholder="Min price (cents)"
+          value={minPrice}
+          onChange={(e) => { setMinPrice(e.target.value); setPage(1); }}
+          className="border rounded px-3 py-2 text-sm"
+        />
+
+        <input
+          type="number"
+          placeholder="Max price (cents)"
+          value={maxPrice}
+          onChange={(e) => { setMaxPrice(e.target.value); setPage(1); }}
+          className="border rounded px-3 py-2 text-sm"
+        />
+
+        <input
+          type="number"
+          min="0"
+          max="5"
+          step="0.1"
+          placeholder="Min rating (0-5)"
+          value={minRating}
+          onChange={(e) => { setMinRating(e.target.value); setPage(1); }}
+          className="border rounded px-3 py-2 text-sm"
+        />
       </div>
 
       <div className="border rounded p-4 mb-6 space-y-3">
@@ -118,6 +220,10 @@ export function ListingsPage() {
               <div>
                 <div className="font-semibold">{x.title}</div>
                 <div className="text-sm text-gray-600">{x.description}</div>
+                <div className="text-xs text-gray-600 mt-1">
+                  {x.category}
+                  {x.tags?.length ? ` · ${x.tags.join(", ")}` : ""}
+                </div>
                 <div className="text-sm mt-2">
                   Seller: <b>{x.seller.displayName}</b> — ⭐ {x.seller.ratingAvg.toFixed(2)} ({x.seller.ratingCount})
                 </div>

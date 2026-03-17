@@ -1,8 +1,18 @@
+export type ListingCategory =
+  | "GAMES"
+  | "ACCOUNTS"
+  | "BOOSTING"
+  | "MENTORING"
+  | "GAME_CURRENCY"
+  | "OTHER";
+
 export type Listing = {
   id: string;
   title: string;
   description: string;
   price: number;
+  category: ListingCategory;
+  tags: string[];
   effectivePrice?: number;
   discountedPrice?: number;
   referencePrice30d?: number;

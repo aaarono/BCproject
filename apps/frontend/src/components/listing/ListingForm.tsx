@@ -5,6 +5,8 @@ export type ListingFormValues = {
   description: string;
   price: string;
   type: "GOOD" | "SERVICE";
+  category: "GAMES" | "ACCOUNTS" | "BOOSTING" | "MENTORING" | "GAME_CURRENCY" | "OTHER";
+  tags: string;
   salePercent: string;
   saleStartsAt: string;
   saleEndsAt: string;
@@ -23,6 +25,8 @@ const defaultValues: ListingFormValues = {
   description: "",
   price: "",
   type: "GOOD",
+  category: "GAMES",
+  tags: "",
   salePercent: "",
   saleStartsAt: "",
   saleEndsAt: "",
@@ -39,6 +43,8 @@ export function ListingForm({
   const [description, setDescription] = useState(initialValues.description);
   const [price, setPrice] = useState(initialValues.price);
   const [type, setType] = useState<"GOOD" | "SERVICE">(initialValues.type);
+  const [category, setCategory] = useState(initialValues.category);
+  const [tags, setTags] = useState(initialValues.tags);
   const [salePercent, setSalePercent] = useState(initialValues.salePercent);
   const [saleStartsAt, setSaleStartsAt] = useState(initialValues.saleStartsAt);
   const [saleEndsAt, setSaleEndsAt] = useState(initialValues.saleEndsAt);
@@ -50,6 +56,8 @@ export function ListingForm({
       description,
       price,
       type,
+      category,
+      tags,
       salePercent,
       saleStartsAt,
       saleEndsAt,
@@ -88,6 +96,43 @@ export function ListingForm({
           <option value="GOOD">GOOD</option>
           <option value="SERVICE">SERVICE</option>
         </select>
+      </div>
+
+      <div>
+        <label className="block text-sm mb-1">Category</label>
+        <select
+          className="border rounded p-2 w-full"
+          value={category}
+          onChange={(e) =>
+            setCategory(
+              e.target.value as
+                | "GAMES"
+                | "ACCOUNTS"
+                | "BOOSTING"
+                | "MENTORING"
+                | "GAME_CURRENCY"
+                | "OTHER",
+            )
+          }
+        >
+          <option value="GAMES">Games</option>
+          <option value="ACCOUNTS">Accounts</option>
+          <option value="BOOSTING">Boosting</option>
+          <option value="MENTORING">Mentoring</option>
+          <option value="GAME_CURRENCY">Game currency</option>
+          <option value="OTHER">Other</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-sm mb-1">Tags (comma-separated)</label>
+        <input
+          className="border rounded p-2 w-full"
+          value={tags}
+          onChange={(e) => setTags(e.target.value)}
+          placeholder="e.g. eu, alliance, rent"
+        />
+        <div className="text-xs text-gray-500 mt-1">Up to 8 tags.</div>
       </div>
 
       <div>

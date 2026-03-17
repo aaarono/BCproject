@@ -8,13 +8,24 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateListingDto } from './dto/create-listing.dto';
 import { UpdateListingDto } from './dto/update-listing.dto';
-import { ListingQueryDto } from './dto/listing-query.dto';
+import { ListingQueryDto, ListingSortDto } from './dto/listing-query.dto';
 
 @Injectable()
 export class ListingsService {
   constructor(private readonly prisma: PrismaService) {}
 
   private static readonly HISTORY_WINDOW_DAYS = 30;
+
+  private normalizeTags(tags?: string[] | null) {
+    if (!tags) return [];
+
+    const normalized = tags
+      .map((tag) => tag.trim().toLowerCase())
+      .filter(Boolean)
+      .slice(0, 8);
+
+    return [...new Set(normalized)];
+  }
 
   private getHistoryWindowStart() {
     const date = new Date();
@@ -150,16 +161,52 @@ export class ListingsService {
       where.type = query.type;
     }
 
+    if (query.category) {
+      where.category = query.category;
+    }
+
+    if (query.minRating !== undefined) {
+      where.seller = {
+        ratingAvg: { gte: query.minRating },
+      };
+    }
+
+    if (query.tags?.length) {
+      where.tags = { hasSome: query.tags };
+    }
+
     if (query.minPrice !== undefined || query.maxPrice !== undefined) {
       where.price = {};
       if (query.minPrice !== undefined) where.price.gte = query.minPrice;
       if (query.maxPrice !== undefined) where.price.lte = query.maxPrice;
     }
 
+    let orderBy: Prisma.ListingOrderByWithRelationInput | Prisma.ListingOrderByWithRelationInput[] =
+      { createdAt: 'desc' };
+
+    switch (query.sort) {
+      case ListingSortDto.PRICE_ASC:
+        orderBy = { price: 'asc' };
+        break;
+      case ListingSortDto.PRICE_DESC:
+        orderBy = { price: 'desc' };
+        break;
+      case ListingSortDto.RATING:
+        orderBy = [{ seller: { ratingAvg: 'desc' } }, { createdAt: 'desc' }];
+        break;
+      case ListingSortDto.SALE:
+        orderBy = [{ salePercent: 'desc' }, { createdAt: 'desc' }];
+        break;
+      case ListingSortDto.NEWEST:
+      default:
+        orderBy = { createdAt: 'desc' };
+        break;
+    }
+
     const [rawData, total] = await Promise.all([
       this.prisma.listing.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         skip,
         take: limit,
         include: {
@@ -240,6 +287,8 @@ export class ListingsService {
           description: dto.description,
           price: dto.price,
           type: dto.type,
+          category: dto.category,
+          tags: this.normalizeTags(dto.tags),
           status: 'ACTIVE',
           salePercent: saleData.salePercent,
           saleStartsAt: saleData.saleStartsAt,
@@ -283,6 +332,8 @@ export class ListingsService {
           description: dto.description ?? undefined,
           price: dto.price ?? undefined,
           type: dto.type ?? undefined,
+          category: dto.category ?? undefined,
+          tags: dto.tags !== undefined ? this.normalizeTags(dto.tags) : undefined,
           salePercent: saleData.salePercent,
           saleStartsAt: saleData.saleStartsAt,
           saleEndsAt: saleData.saleEndsAt,

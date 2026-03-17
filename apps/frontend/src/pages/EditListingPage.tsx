@@ -55,6 +55,12 @@ export function EditListingPage() {
       return;
     }
 
+    const tags = values.tags
+      .split(",")
+      .map((tag) => tag.trim().toLowerCase())
+      .filter(Boolean)
+      .slice(0, 8);
+
     const salePercent = values.salePercent.trim()
       ? Number(values.salePercent)
       : undefined;
@@ -99,6 +105,8 @@ export function EditListingPage() {
         description: values.description.trim(),
         price: parsedPrice,
         type: values.type,
+        category: values.category,
+        tags,
         salePercent,
         saleStartsAt,
         saleEndsAt,
@@ -126,6 +134,8 @@ export function EditListingPage() {
           description: listing.description,
           price: String(listing.price),
           type: listing.type,
+          category: listing.category,
+          tags: listing.tags.join(", "),
           salePercent:
             listing.salePercent !== undefined && listing.salePercent !== null
               ? String(listing.salePercent)

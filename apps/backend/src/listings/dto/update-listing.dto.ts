@@ -1,4 +1,6 @@
 import {
+  ArrayMaxSize,
+  IsArray,
   IsDateString,
   IsEnum,
   IsInt,
@@ -10,7 +12,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { ListingType } from '@prisma/client';
+import { ListingCategory, ListingType } from '@prisma/client';
 
 export class UpdateListingDto {
   @ApiPropertyOptional({ example: 'Updated Title' })
@@ -36,6 +38,23 @@ export class UpdateListingDto {
   @IsOptional()
   @IsEnum(ListingType)
   type?: ListingType;
+
+  @ApiPropertyOptional({ enum: ListingCategory })
+  @IsOptional()
+  @IsEnum(ListingCategory)
+  category?: ListingCategory;
+
+  @ApiPropertyOptional({
+    type: [String],
+    example: ['eu', 'alliance', 'sale'],
+    description: 'Optional listing tags (max 8)',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(8)
+  @IsString({ each: true })
+  @MaxLength(24, { each: true })
+  tags?: string[];
 
   @ApiPropertyOptional({
     example: 20,

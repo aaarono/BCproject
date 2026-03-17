@@ -18,6 +18,15 @@ enum ListingType {
   SERVICE
 }
 
+enum ListingCategory {
+  GAMES
+  ACCOUNTS
+  BOOSTING
+  MENTORING
+  GAME_CURRENCY
+  OTHER
+}
+
 enum ListingStatus {
   ACTIVE
   ARCHIVED
@@ -72,6 +81,8 @@ model Listing {
   title       String
   description String
   price       Int // cents
+  category    ListingCategory @default(OTHER)
+  tags        String[]        @default([])
   salePercent Int?
   saleStartsAt DateTime?
   saleEndsAt   DateTime?
@@ -84,6 +95,7 @@ model Listing {
   priceHistory  ListingPriceHistory[]
 
   @@index([sellerId])
+  @@index([category])
 }
 
 model ListingPriceHistory {

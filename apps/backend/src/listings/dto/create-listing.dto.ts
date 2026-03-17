@@ -1,4 +1,6 @@
 import {
+  ArrayMaxSize,
+  IsArray,
   IsDateString,
   IsEnum,
   IsInt,
@@ -11,7 +13,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
-import { ListingType } from '@prisma/client';
+import { ListingCategory, ListingType } from '@prisma/client';
 
 export enum ListingTypeDto {
   GOOD = 'GOOD',
@@ -40,6 +42,23 @@ export class CreateListingDto {
   @ApiProperty({ enum: ListingType, example: 'GOOD' })
   @IsEnum(ListingType)
   type: ListingType;
+
+  @ApiProperty({ enum: ListingCategory, example: 'GAMES' })
+  @IsEnum(ListingCategory)
+  category: ListingCategory;
+
+  @ApiProperty({
+    required: false,
+    type: [String],
+    example: ['eu', 'alliance', 'sale'],
+    description: 'Optional listing tags (max 8)',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(8)
+  @IsString({ each: true })
+  @MaxLength(24, { each: true })
+  tags?: string[];
 
   @ApiProperty({
     required: false,

@@ -1,7 +1,23 @@
-import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
-import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
+import { Transform, Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { ListingType } from '@prisma/client';
+import { ListingCategory, ListingType } from '@prisma/client';
+
+export enum ListingSortDto {
+  NEWEST = 'NEWEST',
+  PRICE_ASC = 'PRICE_ASC',
+  PRICE_DESC = 'PRICE_DESC',
+  RATING = 'RATING',
+  SALE = 'SALE',
+}
 
 export class ListingQueryDto {
   @ApiPropertyOptional({ example: 1, default: 1 })
@@ -51,4 +67,48 @@ export class ListingQueryDto {
   @IsInt()
   @Min(0)
   maxPrice?: number;
+
+  @ApiPropertyOptional({
+    enum: ListingCategory,
+    description: 'Filter by category',
+  })
+  @IsOptional()
+  @IsEnum(ListingCategory)
+  category?: ListingCategory;
+
+  @ApiPropertyOptional({
+    example: 4,
+    description: 'Minimum seller rating (0..5)',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @Min(0)
+  @Max(5)
+  minRating?: number;
+
+  @ApiPropertyOptional({
+    example: 'eu,alliance',
+    description: 'Comma-separated tags, any match',
+  })
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (typeof value !== 'string') return undefined;
+    const normalized = value
+      .split(',')
+      .map((tag) => tag.trim().toLowerCase())
+      .filter(Boolean);
+    return normalized.length ? normalized : undefined;
+  })
+  @IsArray()
+  @IsString({ each: true })
+  tags?: string[];
+
+  @ApiPropertyOptional({
+    enum: ListingSortDto,
+    default: ListingSortDto.NEWEST,
+    description: 'Sort listings by selected criteria',
+  })
+  @IsOptional()
+  @IsEnum(ListingSortDto)
+  sort?: ListingSortDto;
 }

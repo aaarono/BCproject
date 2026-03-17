@@ -23,6 +23,11 @@ export function ListingDetails({ listing }: { listing: Listing }) {
         )
       </div>
 
+      <div className="text-xs text-gray-600">
+        Category: {listing.category}
+        {listing.tags?.length ? ` · Tags: ${listing.tags.join(", ")}` : ""}
+      </div>
+
       <div className="pt-2 border-t flex justify-between items-center">
         <div className="text-xl font-semibold space-y-1">
           {listing.isOnSale ? (

@@ -19,6 +19,8 @@ describe('ListingsService', () => {
     title: 'Item',
     description: 'Desc',
     price: 5000,
+    category: 'GAMES',
+    tags: ['eu', 'alliance'],
     type: 'GOOD',
     status: 'ACTIVE',
     seller,
@@ -150,6 +152,8 @@ describe('ListingsService', () => {
         title: 'New',
         description: 'Desc',
         price: 1000,
+        category: 'GAMES' as any,
+        tags: ['eu', 'rent'],
         type: 'GOOD' as any,
       };
       prisma.listing.create.mockResolvedValue({
@@ -171,6 +175,8 @@ describe('ListingsService', () => {
           description: 'Desc',
           price: 1000,
           type: 'GOOD',
+          category: 'GAMES',
+          tags: ['eu', 'rent'],
           status: 'ACTIVE',
           salePercent: null,
           saleStartsAt: null,

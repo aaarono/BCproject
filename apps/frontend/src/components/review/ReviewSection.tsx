@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { http } from "../../api/http";
 import { ReviewForm } from "./ReviewForm";
 import { RatingStars } from "./RatingStars";
+import { extractHttpErrorMessage } from "../../utils/httpError";
 
 type Review = {
   id: string;
@@ -18,23 +19,30 @@ export function ReviewSection({ dealId }: { dealId: string }) {
   const [review, setReview] = useState<Review | null>(null);
   const [loading, setLoading] = useState(true);
 
-  async function loadReview() {
+  const loadReview = useCallback(async () => {
     setLoading(true);
     try {
       const res = await http.get<Review>(`/reviews/deal/${dealId}`);
       setReview(res.data);
-    } catch (e: any) {
-      if (e?.response?.status === 404) {
+    } catch (error: unknown) {
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "response" in error &&
+        (error as { response?: { status?: number } }).response?.status === 404
+      ) {
         setReview(null);
+      } else {
+        throw new Error(extractHttpErrorMessage(error, "Failed to load review"));
       }
     } finally {
       setLoading(false);
     }
-  }
+  }, [dealId]);
 
   useEffect(() => {
     loadReview();
-  }, [dealId]);
+  }, [dealId, loadReview]);
 
   if (loading) {
     return (

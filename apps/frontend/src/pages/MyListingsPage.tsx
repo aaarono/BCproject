@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { http } from "../api/http";
+import { extractHttpErrorMessage } from "../utils/httpError";
 
 type Listing = {
   id: string;
@@ -19,14 +20,29 @@ export function MyListingsPage() {
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    setErr(null);
-    setLoading(true);
+    let cancelled = false;
 
     http
       .get<Listing[]>("/listings/me")
-      .then((r) => setListings(r.data))
-      .catch((e) => setErr(e?.response?.data?.message ?? "Failed to load listings"))
-      .finally(() => setLoading(false));
+      .then((r) => {
+        if (!cancelled) {
+          setListings(r.data);
+          setErr(null);
+        }
+      })
+      .catch((error: unknown) =>
+        !cancelled &&
+          setErr(extractHttpErrorMessage(error, "Failed to load listings")),
+      )
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function archiveListing(id: string) {
@@ -37,8 +53,8 @@ export function MyListingsPage() {
           listing.id === id ? { ...listing, status: "ARCHIVED" } : listing
         )
       );
-    } catch (e: any) {
-      alert(e?.response?.data?.message ?? "Failed to archive listing");
+    } catch (error: unknown) {
+      alert(extractHttpErrorMessage(error, "Failed to archive listing"));
     }
   }
 
@@ -50,8 +66,8 @@ export function MyListingsPage() {
           listing.id === id ? { ...listing, status: "ACTIVE" } : listing
         )
       );
-    } catch (e: any) {
-      alert(e?.response?.data?.message ?? "Failed to restore listing");
+    } catch (error: unknown) {
+      alert(extractHttpErrorMessage(error, "Failed to restore listing"));
     }
   }
 

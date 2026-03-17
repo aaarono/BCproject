@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { http } from "../api/http";
 import { useAuth } from "../auth/AuthContext";
+import { extractHttpErrorMessage } from "../utils/httpError";
 
 type Deal = {
   id: string;
@@ -36,13 +37,30 @@ export function DealsPage() {
   }, [user]);
 
   useEffect(() => {
-    setErr(null);
-    setLoading(true);
+    let cancelled = false;
+
     http
       .get<Deal[]>("/deals/me")
-      .then((r) => setDeals(r.data))
-      .catch((e) => setErr(e?.response?.data?.message ?? "Failed to load deals"))
-      .finally(() => setLoading(false));
+      .then((r) => {
+        if (!cancelled) {
+          setDeals(r.data);
+          setErr(null);
+        }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setErr(extractHttpErrorMessage(error, "Failed to load deals"));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   if (loading) return <div className="p-6">Loading…</div>;

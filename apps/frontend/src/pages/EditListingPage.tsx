@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { http } from "../api/http";
 import { ListingForm, type ListingFormValues } from "../components/listing/ListingForm";
 import type { Listing } from "../types/listing";
+import { extractHttpErrorMessage } from "../utils/httpError";
 
 function toDateTimeLocal(value?: string | null) {
   if (!value) return "";
@@ -113,8 +114,8 @@ export function EditListingPage() {
       });
 
       nav(`/listings/${id}`);
-    } catch (e: any) {
-      setErr(e?.response?.data?.message ?? "Failed to update listing");
+    } catch (error: unknown) {
+      setErr(extractHttpErrorMessage(error, "Failed to update listing"));
     } finally {
       setSaving(false);
     }

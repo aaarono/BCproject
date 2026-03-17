@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { http } from "../api/http";
+import { extractHttpErrorMessage } from "../utils/httpError";
 
 type Profile = {
   id: string;
@@ -31,7 +32,9 @@ export function SettingsPage() {
     setErr(null);
 
     loadProfile()
-      .catch((e) => setErr(e?.response?.data?.message ?? "Failed to load settings"))
+      .catch((error: unknown) =>
+        setErr(extractHttpErrorMessage(error, "Failed to load settings")),
+      )
       .finally(() => setLoading(false));
   }, []);
 
@@ -50,8 +53,8 @@ export function SettingsPage() {
       setDisplayName(res.data.displayName);
       setEmail(res.data.email);
       setSuccess("Settings saved successfully.");
-    } catch (e: any) {
-      setErr(e?.response?.data?.message ?? "Failed to save settings");
+    } catch (error: unknown) {
+      setErr(extractHttpErrorMessage(error, "Failed to save settings"));
     } finally {
       setSaving(false);
     }

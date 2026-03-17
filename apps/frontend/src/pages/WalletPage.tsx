@@ -13,7 +13,20 @@ export function WalletPage() {
   }
 
   useEffect(() => {
-    load();
+    let cancelled = false;
+
+    http
+      .get<Wallet>("/wallet/me")
+      .then((r) => {
+        if (!cancelled) {
+          setWallet(r.data);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function topup() {

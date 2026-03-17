@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { http } from "../../api/http";
+import { extractHttpErrorMessage } from "../../utils/httpError";
 
 type Props = {
   dealId: string;
@@ -26,8 +27,8 @@ export function ReviewForm({ dealId, onSubmitted }: Props) {
 
       setDone(true);
       onSubmitted?.();
-    } catch (e: any) {
-      setErr(e?.response?.data?.message ?? "Failed to submit review");
+    } catch (error: unknown) {
+      setErr(extractHttpErrorMessage(error, "Failed to submit review"));
     } finally {
       setLoading(false);
     }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { http } from "../api/http";
+import { extractHttpErrorMessage } from "../utils/httpError";
 
 type TopSeller = {
   id: string;
@@ -19,8 +20,7 @@ export function TopSellersPage() {
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    setLoading(true);
-    setErr(null);
+    let cancelled = false;
 
     Promise
       .all([
@@ -28,13 +28,26 @@ export function TopSellersPage() {
         http.get<TopSeller[]>("/users/top-sellers/weekly"),
       ])
       .then(([overall, weekly]) => {
-        setOverallItems(overall.data);
-        setWeeklyItems(weekly.data);
+        if (!cancelled) {
+          setOverallItems(overall.data);
+          setWeeklyItems(weekly.data);
+          setErr(null);
+        }
       })
-      .catch((e) =>
-        setErr(e?.response?.data?.message ?? "Failed to load top sellers"),
-      )
-      .finally(() => setLoading(false));
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setErr(extractHttpErrorMessage(error, "Failed to load top sellers"));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   if (loading) return <div className="max-w-4xl mx-auto p-6">Loading…</div>;

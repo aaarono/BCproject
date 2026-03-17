@@ -1,4 +1,5 @@
 import React, {
+  useCallback,
   createContext,
   useContext,
   useEffect,
@@ -29,16 +30,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isReady, setIsReady] = useState(false);
 
-  async function refreshMe() {
+  const refreshMe = useCallback(async () => {
     const res = await http.get<User>("/auth/me");
     setUser(res.data);
-  }
+  }, []);
 
-  async function login() {
+  const login = useCallback(async () => {
     await refreshMe();
-  }
+  }, [refreshMe]);
 
-  async function logout() {
+  const logout = useCallback(async () => {
     try {
       await http.post("/auth/logout");
     } catch {
@@ -46,7 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     setUser(null);
     disconnectSocket();
-  }
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -59,11 +60,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsReady(true);
       }
     })();
-  }, []);
+  }, [refreshMe]);
 
   const value = useMemo(
     () => ({ user, login, logout, refreshMe, isReady }),
-    [user, isReady, login],
+    [user, isReady, login, logout, refreshMe],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

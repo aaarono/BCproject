@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { http } from "../../api/http";
 import { useAuth } from "../../auth/AuthContext";
 import type { Conversation, Message } from "../../types/chat";
+import { extractHttpErrorMessage } from "../../utils/httpError";
 
 type Props = {
   listingId: string;
@@ -50,8 +51,8 @@ export function ChatPanel({ listingId, conversationId: externalConversationId }:
         setConv(c);
         await loadMessages(c.id);
       }
-    } catch (e: any) {
-      setErr(e?.response?.data?.message ?? "Failed to load chat");
+    } catch (error: unknown) {
+      setErr(extractHttpErrorMessage(error, "Failed to load chat"));
     } finally {
       setLoading(false);
     }
@@ -66,7 +67,7 @@ export function ChatPanel({ listingId, conversationId: externalConversationId }:
     if (!user) return;
     bootstrap();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listingId, user?.id, externalConversationId]);
+  }, [externalConversationId, listingId, user]);
 
   useEffect(() => {
     if (!user || !conv?.id) return;
@@ -76,7 +77,7 @@ export function ChatPanel({ listingId, conversationId: externalConversationId }:
     }, 2000);
 
     return () => clearInterval(t);
-  }, [conv?.id, user?.id]);
+  }, [conv?.id, user]);
 
   async function send() {
     const trimmed = text.trim();
@@ -96,8 +97,8 @@ export function ChatPanel({ listingId, conversationId: externalConversationId }:
       await http.post("/messages", { conversationId: targetConversationId, text: trimmed });
       setText("");
       await loadMessages(targetConversationId);
-    } catch (e: any) {
-      setErr(e?.response?.data?.message ?? "Send failed");
+    } catch (error: unknown) {
+      setErr(extractHttpErrorMessage(error, "Send failed"));
     }
   }
 

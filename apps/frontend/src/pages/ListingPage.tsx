@@ -6,6 +6,7 @@ import { ListingDetails } from "../components/listing/ListingDetails";
 import { ConversationView } from "../components/chat/ConversationView";
 import { useAuth } from "../auth/AuthContext";
 import { PriceHistoryChart } from "../components/listing/PriceHistoryChart";
+import { extractHttpErrorMessage } from "../utils/httpError";
 
 type Conversation = {
   id: string;
@@ -87,9 +88,8 @@ export function ListingPage() {
       const dealId = created.data.id;
 
       nav(`/deals/${dealId}`);
-    } catch (e: any) {
-      console.log("BUY ERROR:", e?.response?.status, e?.response?.data);
-      alert(e?.response?.data?.message ?? "Buy failed");
+    } catch (error: unknown) {
+      alert(extractHttpErrorMessage(error, "Buy failed"));
     } finally {
       setBuyLoading(false);
     }

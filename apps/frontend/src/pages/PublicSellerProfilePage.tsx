@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { http } from "../api/http";
 import { RatingStars } from "../components/review/RatingStars";
 import { ProfileHeaderCard } from "../components/profile/ProfileHeaderCard";
+import { extractHttpErrorMessage } from "../utils/httpError";
 
 type Listing = {
   id: string;
@@ -50,16 +51,30 @@ export function PublicSellerProfilePage() {
   useEffect(() => {
     if (!id) return;
 
-    setLoading(true);
-    setErr(null);
+    let cancelled = false;
 
     http
       .get<SellerProfile>(`/users/${id}`)
-      .then((r) => setProfile(r.data))
-      .catch((e) =>
-        setErr(e?.response?.data?.message ?? "Failed to load seller profile"),
-      )
-      .finally(() => setLoading(false));
+      .then((r) => {
+        if (!cancelled) {
+          setProfile(r.data);
+          setErr(null);
+        }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setErr(extractHttpErrorMessage(error, "Failed to load seller profile"));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   if (loading) return <div className="p-6">Loading…</div>;

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { http } from "../api/http";
 import { useAuth } from "../auth/AuthContext";
+import { extractHttpErrorMessage } from "../utils/httpError";
 
 type Conversation = {
   id: string;
@@ -52,8 +53,8 @@ export function ConversationPage() {
     setLoading(true);
     try {
       await Promise.all([loadConversation(), loadMessages()]);
-    } catch (e: any) {
-      setErr(e?.response?.data?.message ?? "Failed to load conversation");
+    } catch (error: unknown) {
+      setErr(extractHttpErrorMessage(error, "Failed to load conversation"));
     } finally {
       setLoading(false);
     }
@@ -83,8 +84,8 @@ export function ConversationPage() {
       await http.post(`/messages`, { conversationId: id, text: trimmed });
       setText("");
       await loadMessages();
-    } catch (e: any) {
-      setErr(e?.response?.data?.message ?? "Send failed");
+    } catch (error: unknown) {
+      setErr(extractHttpErrorMessage(error, "Send failed"));
     }
   }
 

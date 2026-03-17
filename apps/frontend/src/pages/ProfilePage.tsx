@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { http } from "../api/http";
 import { RatingStars } from "../components/review/RatingStars";
 import { ProfileHeaderCard } from "../components/profile/ProfileHeaderCard";
+import { extractHttpErrorMessage } from "../utils/httpError";
 
 type Profile = {
   id: string;
@@ -70,8 +71,8 @@ export function ProfilePage() {
       try {
         const p = await loadProfile();
         await Promise.all([loadReviews(p.id), loadMyListings()]);
-      } catch (e: any) {
-        setErr(e?.response?.data?.message ?? "Failed to load profile");
+      } catch (error: unknown) {
+        setErr(extractHttpErrorMessage(error, "Failed to load profile"));
       } finally {
         setLoading(false);
       }

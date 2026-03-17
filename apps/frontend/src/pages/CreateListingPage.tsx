@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { http } from "../api/http";
 import { ListingForm, type ListingFormValues } from "../components/listing/ListingForm";
+import { extractHttpErrorMessage } from "../utils/httpError";
 
 type CreateListingResponse = {
   id: string;
@@ -90,8 +91,8 @@ export function CreateListingPage() {
       });
 
       nav(`/listings/${res.data.id}`);
-    } catch (e: any) {
-      setErr(e?.response?.data?.message ?? "Failed to create listing");
+    } catch (error: unknown) {
+      setErr(extractHttpErrorMessage(error, "Failed to create listing"));
     } finally {
       setLoading(false);
     }

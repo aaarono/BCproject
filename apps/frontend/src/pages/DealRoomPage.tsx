@@ -126,7 +126,7 @@ export function DealRoomPage() {
     return () => {
       socket.off("deal:update", handleDealUpdate);
     };
-  }, [deal?.id, user]);
+  }, [deal, user]);
 
   async function act(fn: () => Promise<unknown>) {
     setActionErr(null);

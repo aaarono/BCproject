@@ -40,6 +40,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   server!: Server;
 
   private static onlineUsers = new Map<string, number>();
+  private static readonly ACCESS_COOKIE = 'access_token';
 
   constructor(
     private readonly jwtService: JwtService,
@@ -83,8 +84,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         typeof headerValue === 'string'
           ? this.extractBearer(headerValue)
           : null;
+      const cookieToken = this.extractCookieToken(
+        typeof client.handshake.headers.cookie === 'string'
+          ? client.handshake.headers.cookie
+          : null,
+      );
 
-      const token = authToken || bearerToken;
+      const token = authToken || bearerToken || cookieToken;
 
       if (!token) throw new WsException('Unauthorized');
 
@@ -224,5 +230,21 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (!auth || typeof auth !== 'object') return null;
     const token = (auth as { token?: unknown }).token;
     return typeof token === 'string' && token.trim().length > 0 ? token : null;
+  }
+
+  private extractCookieToken(cookieHeader: string | null): string | null {
+    if (!cookieHeader) return null;
+
+    const pair = cookieHeader
+      .split(';')
+      .map((chunk) => chunk.trim())
+      .find((chunk) =>
+        chunk.startsWith(`${ChatGateway.ACCESS_COOKIE}=`),
+      );
+
+    if (!pair) return null;
+
+    const value = pair.substring(`${ChatGateway.ACCESS_COOKIE}=`.length);
+    return value ? decodeURIComponent(value) : null;
   }
 }

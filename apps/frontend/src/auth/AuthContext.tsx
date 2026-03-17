@@ -5,7 +5,7 @@ import React, {
   useMemo,
   useState,
 } from "react";
-import { http, setAuthToken } from "../api/http";
+import { http } from "../api/http";
 import { disconnectSocket } from "../api/socket";
 
 type User = {
@@ -16,10 +16,9 @@ type User = {
 };
 
 type AuthState = {
-  token: string | null;
   user: User | null;
-  login: (token: string) => Promise<void>;
-  logout: () => void;
+  login: () => Promise<void>;
+  logout: () => Promise<void>;
   refreshMe: () => Promise<void>;
   isReady: boolean;
 };
@@ -27,65 +26,50 @@ type AuthState = {
 const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [token, setToken] = useState<string | null>(() =>
-    localStorage.getItem("token"),
-  );
   const [user, setUser] = useState<User | null>(null);
   const [isReady, setIsReady] = useState(false);
 
-  useEffect(() => {
-    if (!token) return;
-    refreshMe().catch(() => logout());
-  }, [token]);
-
   async function refreshMe() {
-    if (!token) return;
     const res = await http.get<User>("/auth/me");
     setUser(res.data);
   }
 
-  async function login(newToken: string) {
-    localStorage.setItem("token", newToken);
-    setAuthToken(newToken);
-    setToken(newToken);
-
-    const res = await http.get<User>("/auth/me");
-    setUser(res.data);
+  async function login() {
+    await refreshMe();
   }
 
-  function logout() {
-    localStorage.removeItem("token");
-    setToken(null);
+  async function logout() {
+    try {
+      await http.post("/auth/logout");
+    } catch {
+      // ignore network/logout errors to always clear local auth state
+    }
     setUser(null);
-    setAuthToken(null);
     disconnectSocket();
   }
 
   useEffect(() => {
     (async () => {
-      if (!token) {
-        setIsReady(true);
-        return;
-      }
       try {
         await refreshMe();
       } catch {
-        logout();
+        setUser(null);
+        disconnectSocket();
       } finally {
         setIsReady(true);
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const value = useMemo(
-    () => ({ token, user, login, logout, refreshMe, isReady }),
-    [token, user, isReady],
+    () => ({ user, login, logout, refreshMe, isReady }),
+    [user, isReady, login],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");

@@ -4,6 +4,23 @@ import { http } from "../../api/http";
 import { useAuth } from "../../auth/AuthContext";
 import { getSocket } from "../../api/socket";
 
+function extractErrorMessage(error: unknown, fallback: string) {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "response" in error &&
+    typeof (error as { response?: { data?: { message?: unknown } } }).response
+      ?.data?.message === "string"
+  ) {
+    return (
+      (error as { response?: { data?: { message?: string } } }).response?.data
+        ?.message ?? fallback
+    );
+  }
+
+  return fallback;
+}
+
 type Message = {
   id: string;
   conversationId: string;
@@ -47,7 +64,7 @@ export function ConversationView({
 }: {
   conversation: Conversation;
 }) {
-  const { user, token } = useAuth();
+  const { user } = useAuth();
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState("");
@@ -98,8 +115,8 @@ export function ConversationView({
     setLoading(true);
     try {
       await Promise.all([loadMessages(), loadActiveDeal()]);
-    } catch (e: any) {
-      setErr(e?.response?.data?.message ?? "Failed to load conversation");
+    } catch (error: unknown) {
+      setErr(extractErrorMessage(error, "Failed to load conversation"));
     } finally {
       setLoading(false);
     }
@@ -115,9 +132,9 @@ export function ConversationView({
   }, [messages.length]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!user) return;
 
-    const socket = getSocket(token);
+    const socket = getSocket();
 
     const handleNewMessage = (message: Message) => {
       if (message.conversationId !== conversation.id) return;
@@ -154,15 +171,15 @@ export function ConversationView({
       socket.off("message:new", handleNewMessage);
       socket.off("presence:update", handlePresenceUpdate);
     };
-  }, [conversation.id, token, otherUserId]);
+  }, [conversation.id, otherUserId, user]);
 
   async function send() {
     const trimmed = text.trim();
-    if (!trimmed || !token) return;
+    if (!trimmed || !user) return;
 
     try {
       setErr(null);
-      const socket = getSocket(token);
+      const socket = getSocket();
 
       socket.emit(
         "message:send",

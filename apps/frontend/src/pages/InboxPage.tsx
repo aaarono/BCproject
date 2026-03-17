@@ -4,6 +4,23 @@ import { http } from "../api/http";
 import { getSocket } from "../api/socket";
 import { ConversationView } from "../components/chat/ConversationView";
 
+function extractErrorMessage(error: unknown, fallback: string) {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "response" in error &&
+    typeof (error as { response?: { data?: { message?: unknown } } }).response
+      ?.data?.message === "string"
+  ) {
+    return (
+      (error as { response?: { data?: { message?: string } } }).response?.data
+        ?.message ?? fallback
+    );
+  }
+
+  return fallback;
+}
+
 type Message = {
   id: string;
   conversationId: string;
@@ -47,7 +64,7 @@ function sortConversations(items: Conversation[]) {
 }
 
 export function InboxPage() {
-  const { user, token } = useAuth();
+  const { user } = useAuth();
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
@@ -75,8 +92,8 @@ export function InboxPage() {
       ) {
         setSelectedConversationId(sorted[0].id);
       }
-    } catch (e: any) {
-      setErr(e?.response?.data?.message ?? "Failed to load inbox");
+    } catch (error: unknown) {
+      setErr(extractErrorMessage(error, "Failed to load inbox"));
     } finally {
       setLoading(false);
     }
@@ -88,9 +105,9 @@ export function InboxPage() {
   }, []);
 
   useEffect(() => {
-    if (!token) return;
+    if (!user) return;
 
-    const socket = getSocket(token);
+    const socket = getSocket();
 
     const handleInboxUpdate = (payload: { conversation: Conversation }) => {
       const updatedConversation = payload.conversation;
@@ -108,7 +125,7 @@ export function InboxPage() {
     return () => {
       socket.off("inbox:update", handleInboxUpdate);
     };
-  }, [token]);
+  }, [user]);
 
   const selectedConversation =
     conversations.find((c) => c.id === selectedConversationId) ?? null;

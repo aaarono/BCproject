@@ -31,6 +31,7 @@ export class WalletService {
     await this.prisma.walletTransaction.create({
       data: {
         walletId: userId,
+        userId,
         type: 'TOPUP',
         amount,
       },
@@ -59,6 +60,7 @@ export class WalletService {
     await tx.walletTransaction.create({
       data: {
         walletId: buyerId,
+        userId: buyerId,
         type: 'ESCROW_LOCK',
         amount: -amount,
         dealId,
@@ -82,6 +84,7 @@ export class WalletService {
     await tx.walletTransaction.create({
       data: {
         walletId: sellerId,
+        userId: sellerId,
         type: 'ESCROW_RELEASE',
         amount,
         dealId,
@@ -105,6 +108,7 @@ export class WalletService {
     await tx.walletTransaction.create({
       data: {
         walletId: buyerId,
+        userId: buyerId,
         type: 'REFUND',
         amount,
         dealId,

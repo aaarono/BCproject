@@ -15,12 +15,12 @@ export function RegisterPage() {
     e.preventDefault();
     setErr(null);
     try {
-      const res = await http.post<{ accessToken: string }>("/auth/register", {
+      await http.post("/auth/register", {
         email,
         password,
         displayName,
       });
-      await login(res.data.accessToken);
+      await login();
       nav("/");
     } catch (error: unknown) {
       const message =

@@ -122,11 +122,11 @@ model WalletTransaction {
   type      WalletTxType
   amount    Int // + / - в центах
   dealId    String?
+  userId    String
   createdAt DateTime     @default(now())
 
   wallet Wallet  @relation(fields: [walletId], references: [userId])
-  User   User?   @relation(fields: [userId], references: [id])
-  userId String?
+  User   User    @relation(fields: [userId], references: [id])
 
   @@index([walletId])
   @@index([dealId])

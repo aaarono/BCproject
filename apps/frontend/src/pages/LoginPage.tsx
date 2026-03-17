@@ -3,6 +3,23 @@ import { http } from "../api/http";
 import { useAuth } from "../auth/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
 
+function extractErrorMessage(error: unknown, fallback: string) {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "response" in error &&
+    typeof (error as { response?: { data?: { message?: unknown } } }).response
+      ?.data?.message === "string"
+  ) {
+    return (
+      (error as { response?: { data?: { message?: string } } }).response?.data
+        ?.message ?? fallback
+    );
+  }
+
+  return fallback;
+}
+
 export function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -14,11 +31,11 @@ export function LoginPage() {
     e.preventDefault();
     setErr(null);
     try {
-      const res = await http.post<{ accessToken: string }>("/auth/login", { email, password });
-      await login(res.data.accessToken);
+      await http.post("/auth/login", { email, password });
+      await login();
       nav("/");
-    } catch (e: any) {
-      setErr(e?.response?.data?.message ?? "Login failed");
+    } catch (error: unknown) {
+      setErr(extractErrorMessage(error, "Login failed"));
     }
   }
 

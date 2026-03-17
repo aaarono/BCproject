@@ -1,5 +1,13 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -10,18 +18,53 @@ import { type JwtPayload } from './jwt.strategy';
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
+  private static readonly ACCESS_COOKIE = 'access_token';
+
   constructor(private readonly auth: AuthService) {}
+
+  private getCookieOptions() {
+    const isProd = process.env.NODE_ENV === 'production';
+    return {
+      httpOnly: true,
+      sameSite: 'lax' as const,
+      secure: isProd,
+      path: '/',
+    };
+  }
 
   @ApiOperation({ summary: 'Register a new user' })
   @Post('register')
-  register(@Body() dto: RegisterDto) {
-    return this.auth.register(dto);
+  async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) res: Response) {
+    const result = await this.auth.register(dto);
+    res.cookie(
+      AuthController.ACCESS_COOKIE,
+      result.accessToken,
+      this.getCookieOptions(),
+    );
+    return { user: result.user };
   }
 
   @ApiOperation({ summary: 'Login with email and password' })
   @Post('login')
-  login(@Body() dto: LoginDto) {
-    return this.auth.login(dto.email, dto.password);
+  async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
+    const result = await this.auth.login(dto.email, dto.password);
+    res.cookie(
+      AuthController.ACCESS_COOKIE,
+      result.accessToken,
+      this.getCookieOptions(),
+    );
+    return { user: result.user };
+  }
+
+  @ApiOperation({ summary: 'Logout current user' })
+  @Post('logout')
+  logout(@Res({ passthrough: true }) res: Response) {
+    res.clearCookie(AuthController.ACCESS_COOKIE, {
+      path: '/',
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+    });
+    return { ok: true };
   }
 
   @ApiOperation({ summary: 'Get current user from JWT' })

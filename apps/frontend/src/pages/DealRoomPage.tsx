@@ -6,6 +6,23 @@ import { useAuth } from "../auth/AuthContext";
 import { ConversationView } from "../components/chat/ConversationView";
 import { ReviewSection } from "../components/review/ReviewSection";
 
+function extractErrorMessage(error: unknown, fallback: string) {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "response" in error &&
+    typeof (error as { response?: { data?: { message?: unknown } } }).response
+      ?.data?.message === "string"
+  ) {
+    return (
+      (error as { response?: { data?: { message?: string } } }).response?.data
+        ?.message ?? fallback
+    );
+  }
+
+  return fallback;
+}
+
 type Deal = {
   id: string;
   status: "INITIATED" | "FUNDED" | "DELIVERED" | "COMPLETED" | "CANCELED";
@@ -26,7 +43,7 @@ type Deal = {
 
 export function DealRoomPage() {
   const { id } = useParams<{ id: string }>();
-  const { user, token } = useAuth();
+  const { user } = useAuth();
 
   const [sellerConversationId, setSellerConversationId] = useState<
     string | null
@@ -81,8 +98,8 @@ export function DealRoomPage() {
         setSellerConversationId(null);
         setBuyerConversationId(null);
       }
-    } catch (e: any) {
-      setErr(e?.response?.data?.message ?? "Failed to load deal");
+    } catch (error: unknown) {
+      setErr(extractErrorMessage(error, "Failed to load deal"));
     } finally {
       setLoading(false);
     }
@@ -95,9 +112,9 @@ export function DealRoomPage() {
   }, [id, user?.id]);
 
   useEffect(() => {
-    if (!token || !deal) return;
+    if (!user || !deal) return;
 
-    const socket = getSocket(token);
+    const socket = getSocket();
 
     const handleDealUpdate = (updatedDeal: Deal) => {
       if (updatedDeal.id !== deal.id) return;
@@ -109,17 +126,17 @@ export function DealRoomPage() {
     return () => {
       socket.off("deal:update", handleDealUpdate);
     };
-  }, [token, deal?.id]);
+  }, [deal?.id, user]);
 
-  async function act(fn: () => Promise<any>) {
+  async function act(fn: () => Promise<unknown>) {
     setActionErr(null);
     setBusy(true);
 
     try {
       await fn();
       await load();
-    } catch (e: any) {
-      setActionErr(e?.response?.data?.message ?? "Action failed");
+    } catch (error: unknown) {
+      setActionErr(extractErrorMessage(error, "Action failed"));
     } finally {
       setBusy(false);
     }

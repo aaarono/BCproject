@@ -48,7 +48,7 @@ describe('WalletService', () => {
         data: { balance: { increment: 5000 } },
       });
       expect(prisma.walletTransaction.create).toHaveBeenCalledWith({
-        data: { walletId: 'u1', type: 'TOPUP', amount: 5000 },
+        data: { walletId: 'u1', userId: 'u1', type: 'TOPUP', amount: 5000 },
       });
     });
 
@@ -84,6 +84,7 @@ describe('WalletService', () => {
       expect(tx.walletTransaction.create).toHaveBeenCalledWith({
         data: {
           walletId: 'u1',
+          userId: 'u1',
           type: 'ESCROW_LOCK',
           amount: -5000,
           dealId: 'deal1',
@@ -116,6 +117,7 @@ describe('WalletService', () => {
       expect(tx.walletTransaction.create).toHaveBeenCalledWith({
         data: {
           walletId: 'seller1',
+          userId: 'seller1',
           type: 'ESCROW_RELEASE',
           amount: 5000,
           dealId: 'deal1',
@@ -140,6 +142,7 @@ describe('WalletService', () => {
       expect(tx.walletTransaction.create).toHaveBeenCalledWith({
         data: {
           walletId: 'buyer1',
+          userId: 'buyer1',
           type: 'REFUND',
           amount: 3000,
           dealId: 'deal1',

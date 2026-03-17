@@ -19,12 +19,18 @@ export class ListingQueryDto {
   @Max(100)
   limit?: number;
 
-  @ApiPropertyOptional({ example: 'watch', description: 'Search in title and description' })
+  @ApiPropertyOptional({
+    example: 'watch',
+    description: 'Search in title and description',
+  })
   @IsOptional()
   @IsString()
   search?: string;
 
-  @ApiPropertyOptional({ enum: ListingType, description: 'Filter by listing type' })
+  @ApiPropertyOptional({
+    enum: ListingType,
+    description: 'Filter by listing type',
+  })
   @IsOptional()
   @IsEnum(ListingType)
   type?: ListingType;
@@ -36,7 +42,10 @@ export class ListingQueryDto {
   @Min(0)
   minPrice?: number;
 
-  @ApiPropertyOptional({ example: 50000, description: 'Maximum price in cents' })
+  @ApiPropertyOptional({
+    example: 50000,
+    description: 'Maximum price in cents',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()

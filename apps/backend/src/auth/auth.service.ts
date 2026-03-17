@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService, type JwtSignOptions } from '@nestjs/jwt';
 import { Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -13,7 +18,9 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
-    const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    const existing = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
     if (existing) throw new BadRequestException('Email is already in use');
 
     const passwordHash = await bcrypt.hash(dto.password, 10);
@@ -34,7 +41,11 @@ export class AuthService {
       },
     });
 
-    const accessToken = await this.signAccessToken(user.id, user.email, user.role);
+    const accessToken = await this.signAccessToken(
+      user.id,
+      user.email,
+      user.role,
+    );
 
     return { user, accessToken };
   }
@@ -46,7 +57,11 @@ export class AuthService {
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) throw new UnauthorizedException('Invalid credentials');
 
-    const accessToken = await this.signAccessToken(user.id, user.email, user.role);
+    const accessToken = await this.signAccessToken(
+      user.id,
+      user.email,
+      user.role,
+    );
 
     return {
       user: {
@@ -61,11 +76,9 @@ export class AuthService {
   }
 
   private async signAccessToken(userId: string, email: string, role: string) {
-    const expiresIn = (process.env.JWT_EXPIRES_IN ?? '1h') as JwtSignOptions['expiresIn'];
-    return this.jwt.signAsync(
-      { sub: userId, email, role },
-      { expiresIn },
-    );
+    const expiresIn = (process.env.JWT_EXPIRES_IN ??
+      '1h') as JwtSignOptions['expiresIn'];
+    return this.jwt.signAsync({ sub: userId, email, role }, { expiresIn });
   }
 
   async getMyProfile(userId: string) {

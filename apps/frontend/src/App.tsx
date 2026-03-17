@@ -1,5 +1,6 @@
 import { Outlet } from "react-router-dom";
 import { Navbar } from "./components/layout/Navbar";
+import { ErrorBoundary } from "./components/layout/ErrorBoundary";
 
 export default function App() {
   return (
@@ -7,7 +8,9 @@ export default function App() {
       <Navbar />
 
       <main className="flex-1">
-        <Outlet />
+        <ErrorBoundary>
+          <Outlet />
+        </ErrorBoundary>
       </main>
     </div>
   );

@@ -1,4 +1,8 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 
@@ -14,11 +18,15 @@ export class ReviewsService {
     });
     if (!deal) throw new NotFoundException('Deal not found');
     if (deal.buyerId !== buyerId) throw new ForbiddenException('Not your deal');
-    if (deal.status !== 'COMPLETED') throw new ForbiddenException('Deal is not completed');
+    if (deal.status !== 'COMPLETED')
+      throw new ForbiddenException('Deal is not completed');
 
     // 2) Prevent second review (DB unique also protects)
-    const exists = await this.prisma.review.findUnique({ where: { dealId: dto.dealId } });
-    if (exists) throw new ForbiddenException('Review already exists for this deal');
+    const exists = await this.prisma.review.findUnique({
+      where: { dealId: dto.dealId },
+    });
+    if (exists)
+      throw new ForbiddenException('Review already exists for this deal');
 
     // 3) Create review
     const review = await this.prisma.review.create({
@@ -39,7 +47,8 @@ export class ReviewsService {
     if (!seller) throw new NotFoundException('Seller not found');
 
     const newCount = seller.ratingCount + 1;
-    const newAvg = (seller.ratingAvg * seller.ratingCount + dto.rating) / newCount;
+    const newAvg =
+      (seller.ratingAvg * seller.ratingCount + dto.rating) / newCount;
 
     await this.prisma.user.update({
       where: { id: seller.id },

@@ -21,7 +21,7 @@ export class WalletController {
 
   @ApiOperation({ summary: 'Mock top-up wallet balance' })
   @Post('topup-mock')
-  topUp(@CurrentUser() user: JwtPayload, @Body() dto : TopUpDto) {
+  topUp(@CurrentUser() user: JwtPayload, @Body() dto: TopUpDto) {
     return this.wallet.topUpMock(user.sub, dto.amount);
   }
 }

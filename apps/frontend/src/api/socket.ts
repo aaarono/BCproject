@@ -1,5 +1,7 @@
 import { io, Socket } from "socket.io-client";
 
+const wsUrl = import.meta.env.VITE_WS_URL ?? "http://localhost:3000";
+
 let socket: Socket | null = null;
 let socketToken: string | null = null;
 
@@ -13,7 +15,7 @@ export function getSocket(token: string) {
 
   socketToken = token;
 
-  socket = io("http://localhost:3000", {
+  socket = io(wsUrl, {
     autoConnect: true,
     auth: { token },
   });

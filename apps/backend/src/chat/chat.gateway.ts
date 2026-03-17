@@ -18,9 +18,14 @@ type AuthedSocket = Socket & {
   user?: { sub: string; email?: string; role?: string };
 };
 
+const wsOrigins = (process.env.CORS_ORIGIN ?? 'http://localhost:5173')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 @WebSocketGateway({
   cors: {
-    origin: ['http://localhost:5173'],
+    origin: wsOrigins,
     credentials: true,
   },
 })

@@ -14,7 +14,7 @@ describe('ReviewsService', () => {
 
   beforeEach(async () => {
     prisma = {
-      $transaction: jest.fn(async (cb: (tx: typeof prisma) => unknown) => cb(prisma)),
+      $transaction: jest.fn((cb: (tx: typeof prisma) => unknown) => cb(prisma)),
       $executeRaw: jest.fn(),
       deal: { findUnique: jest.fn() },
       review: { findUnique: jest.fn(), findMany: jest.fn(), create: jest.fn() },

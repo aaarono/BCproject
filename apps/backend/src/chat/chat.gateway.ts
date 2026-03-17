@@ -18,6 +18,12 @@ type AuthedSocket = Socket & {
   user?: { sub: string; email?: string; role?: string };
 };
 
+type JwtSocketPayload = {
+  sub: string;
+  email?: string;
+  role?: string;
+};
+
 const wsOrigins = (process.env.CORS_ORIGIN ?? 'http://localhost:5173')
   .split(',')
   .map((origin) => origin.trim())
@@ -71,7 +77,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   async handleConnection(client: AuthedSocket) {
     try {
-      const authToken = client.handshake.auth?.token;
+      const authToken = this.extractAuthToken(client.handshake.auth);
       const headerValue = client.handshake.headers.authorization;
       const bearerToken =
         typeof headerValue === 'string'
@@ -82,9 +88,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       if (!token) throw new WsException('Unauthorized');
 
-      const payload = await this.jwtService.verifyAsync(token, {
-        secret: this.configService.get<string>('JWT_SECRET'),
-      });
+      const jwtSecret = this.configService.get<string>('JWT_SECRET');
+      if (!jwtSecret) throw new WsException('Unauthorized');
+
+      const payload = await this.jwtService.verifyAsync<JwtSocketPayload>(
+        token,
+        {
+          secret: jwtSecret,
+        },
+      );
+
+      if (!payload?.sub) throw new WsException('Unauthorized');
 
       client.user = payload;
       await client.join(this.userRoom(payload.sub));
@@ -204,5 +218,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (!header) return null;
     const [type, token] = header.split(' ');
     return type === 'Bearer' ? token : null;
+  }
+
+  private extractAuthToken(auth: unknown): string | null {
+    if (!auth || typeof auth !== 'object') return null;
+    const token = (auth as { token?: unknown }).token;
+    return typeof token === 'string' && token.trim().length > 0 ? token : null;
   }
 }

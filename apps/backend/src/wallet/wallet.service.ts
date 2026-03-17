@@ -21,7 +21,7 @@ export class WalletService {
   async topUpMock(userId: string, amount: number) {
     if (amount <= 0) throw new ForbiddenException('Invalid amount');
 
-    const wallet = await this.getOrCreateWallet(userId);
+    await this.getOrCreateWallet(userId);
 
     await this.prisma.wallet.update({
       where: { userId },

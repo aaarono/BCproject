@@ -1,18 +1,11 @@
 import {
   IsEmail,
-  IsEnum,
   IsNotEmpty,
-  IsOptional,
   IsString,
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-
-export enum RoleDto {
-  BUYER = 'BUYER',
-  SELLER = 'SELLER',
-}
+import { ApiProperty } from '@nestjs/swagger';
 
 export class RegisterDto {
   @ApiProperty({ example: 'user@example.com' })
@@ -32,9 +25,4 @@ export class RegisterDto {
   @MinLength(2)
   @MaxLength(50)
   displayName!: string;
-
-  @ApiPropertyOptional({ enum: RoleDto, default: RoleDto.BUYER })
-  @IsOptional()
-  @IsEnum(RoleDto)
-  role?: RoleDto;
 }

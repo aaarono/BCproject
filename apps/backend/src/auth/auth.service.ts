@@ -30,7 +30,7 @@ export class AuthService {
         email: dto.email,
         passwordHash,
         displayName: dto.displayName,
-        role: dto.role ?? Role.BUYER,
+        role: Role.BUYER,
       },
       select: {
         id: true,

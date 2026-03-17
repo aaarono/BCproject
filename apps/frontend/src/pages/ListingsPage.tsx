@@ -6,8 +6,17 @@ import type { Listing } from "../types/listing";
 
 type Meta = { total: number; page: number; limit: number; totalPages: number };
 
+type TopSeller = {
+  id: string;
+  displayName: string;
+  ratingAvg: number;
+  ratingCount: number;
+  completedDeals: number;
+};
+
 export function ListingsPage() {
   const [items, setItems] = useState<Listing[]>([]);
+  const [weeklyTopSellers, setWeeklyTopSellers] = useState<TopSeller[]>([]);
   const [meta, setMeta] = useState<Meta>({ total: 0, page: 1, limit: 12, totalPages: 1 });
   const [search, setSearch] = useState("");
   const [type, setType] = useState<"" | "GOOD" | "SERVICE">("");
@@ -24,6 +33,13 @@ export function ListingsPage() {
       setMeta(r.data.meta);
     });
   }, [page, search, type]);
+
+  useEffect(() => {
+    http
+      .get<TopSeller[]>("/users/top-sellers/weekly", { params: { limit: 5 } })
+      .then((r) => setWeeklyTopSellers(r.data))
+      .catch(() => setWeeklyTopSellers([]));
+  }, []);
 
   return (
     <div className="max-w-3xl mx-auto p-6">
@@ -56,6 +72,39 @@ export function ListingsPage() {
           <option value="GOOD">Goods</option>
           <option value="SERVICE">Services</option>
         </select>
+      </div>
+
+      <div className="border rounded p-4 mb-6 space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold">Weekly Top Sellers</h2>
+          <Link to="/top-sellers" className="text-sm underline">
+            View all
+          </Link>
+        </div>
+
+        {weeklyTopSellers.length === 0 ? (
+          <div className="text-sm text-gray-500">No weekly activity yet.</div>
+        ) : (
+          <div className="space-y-2">
+            {weeklyTopSellers.map((seller, index) => (
+              <Link
+                key={seller.id}
+                to={`/users/${seller.id}`}
+                className="block border rounded px-3 py-2 hover:bg-gray-50"
+              >
+                <div className="flex items-center justify-between gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-500 mr-2">#{index + 1}</span>
+                    <span className="font-medium">{seller.displayName}</span>
+                  </div>
+                  <div className="text-gray-600">
+                    ⭐ {seller.ratingAvg.toFixed(2)} · deals 7d: {seller.completedDeals}
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Listing cards */}

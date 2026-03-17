@@ -27,6 +27,7 @@ export function Navbar() {
 
         <div className="flex items-center gap-2">
           <Item to="/">Listings</Item>
+          <Item to="/top-sellers">Top Sellers</Item>
 
           {user && (
             <>

@@ -17,12 +17,14 @@ import { InboxPage } from "../pages/InboxPage";
 import { PublicSellerProfilePage } from "../pages/PublicSellerProfilePage";
 import { EditListingPage } from "../pages/EditListingPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
+import { TopSellersPage } from "../pages/TopSellersPage";
 
 export const router = createBrowserRouter([
   {
     element: <App />,
     children: [
       { path: "/", element: <ListingsPage /> },
+      { path: "/top-sellers", element: <TopSellersPage /> },
       { path: "/listings/:id", element: <ListingPage /> },
 
       { path: "/login", element: <LoginPage /> },

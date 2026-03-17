@@ -5,13 +5,19 @@ import { PrismaService } from '../../prisma/prisma.service';
 
 describe('ReviewsService', () => {
   let service: ReviewsService;
-  let prisma: any;
+  let prisma: {
+    $transaction: jest.Mock;
+    $executeRaw: jest.Mock;
+    deal: { findUnique: jest.Mock };
+    review: { findUnique: jest.Mock; findMany: jest.Mock; create: jest.Mock };
+  };
 
   beforeEach(async () => {
     prisma = {
+      $transaction: jest.fn(async (cb: (tx: typeof prisma) => unknown) => cb(prisma)),
+      $executeRaw: jest.fn(),
       deal: { findUnique: jest.fn() },
       review: { findUnique: jest.fn(), findMany: jest.fn(), create: jest.fn() },
-      user: { findUnique: jest.fn(), update: jest.fn() },
     };
 
     const module = await Test.createTestingModule({
@@ -29,22 +35,29 @@ describe('ReviewsService', () => {
       sellerId: 'seller1',
       status: 'COMPLETED',
     };
-    const seller = { id: 'seller1', ratingAvg: 4, ratingCount: 2 };
 
     it('should create review and update seller rating', async () => {
       prisma.deal.findUnique.mockResolvedValue(deal);
       prisma.review.findUnique.mockResolvedValue(null);
       prisma.review.create.mockResolvedValue({ id: 'r1', ...dto });
-      prisma.user.findUnique.mockResolvedValue(seller);
-      prisma.user.update.mockResolvedValue({});
+      prisma.$executeRaw.mockResolvedValue(1);
 
       const result = await service.create('buyer1', dto);
 
       expect(result.id).toBe('r1');
-      expect(prisma.user.update).toHaveBeenCalledWith({
-        where: { id: 'seller1' },
-        data: { ratingAvg: (4 * 2 + 5) / 3, ratingCount: 3 },
-      });
+      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(prisma.$executeRaw).toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException if seller not found during rating update', async () => {
+      prisma.deal.findUnique.mockResolvedValue(deal);
+      prisma.review.findUnique.mockResolvedValue(null);
+      prisma.review.create.mockResolvedValue({ id: 'r1', ...dto });
+      prisma.$executeRaw.mockResolvedValue(0);
+
+      await expect(service.create('buyer1', dto)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw NotFoundException if deal not found', async () => {

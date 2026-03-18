@@ -4,11 +4,11 @@ import { cn } from "../../lib/cn";
 type DealStatus = "INITIATED" | "FUNDED" | "DELIVERED" | "COMPLETED" | "CANCELED";
 
 const statusClass: Record<DealStatus, string> = {
-  INITIATED: "bg-slate-100 text-slate-700",
-  FUNDED: "bg-blue-100 text-blue-700",
-  DELIVERED: "bg-amber-100 text-amber-700",
-  COMPLETED: "bg-emerald-100 text-emerald-700",
-  CANCELED: "bg-rose-100 text-rose-700",
+  INITIATED: "bg-muted text-muted-foreground",
+  FUNDED: "bg-info/20 text-info",
+  DELIVERED: "bg-warning/20 text-warning",
+  COMPLETED: "bg-success/20 text-success",
+  CANCELED: "bg-destructive/15 text-destructive",
 };
 
 export function DealStatusBadge({ status }: { status: DealStatus }) {

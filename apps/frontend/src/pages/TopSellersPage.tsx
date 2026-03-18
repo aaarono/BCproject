@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Trophy } from "lucide-react";
 import { http } from "../api/http";
 import { extractHttpErrorMessage } from "../utils/httpError";
 import { SellerRankCard } from "../components/profile/SellerRankCard";
@@ -63,23 +64,29 @@ export function TopSellersPage() {
       />
 
       {overallItems.length === 0 && weeklyItems.length === 0 && (
-        <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+        <div className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
           Not enough seller activity yet.
         </div>
       )}
 
       <div className="space-y-6">
-        <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Overall</h2>
+        <div className="space-y-3 rounded-2xl border border-border bg-card p-4">
+          <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-foreground">
+            <Trophy className="h-4 w-4 text-warning" />
+            Overall
+          </h2>
           {overallItems.map((seller, index) => (
             <SellerRankCard key={seller.id} seller={seller} rank={index + 1} periodLabel="all time" />
           ))}
         </div>
 
-        <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Weekly</h2>
+        <div className="space-y-3 rounded-2xl border border-border bg-card p-4">
+          <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-foreground">
+            <Trophy className="h-4 w-4 text-warning" />
+            Weekly
+          </h2>
           {weeklyItems.length === 0 && (
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+            <div className="rounded-xl border border-border bg-muted p-4 text-sm text-muted-foreground">
               No weekly seller activity yet.
             </div>
           )}

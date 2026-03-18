@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
+import { ArrowLeft, CheckCircle2, MessageCircle, ShieldCheck, ShoppingBag, Star } from "lucide-react";
 import { http } from "../api/http";
 import type { Listing, PriceHistoryPoint } from "../types/listing";
 import { ListingDetails } from "../components/listing/ListingDetails";
@@ -10,6 +11,7 @@ import { extractHttpErrorMessage } from "../utils/httpError";
 import { Button } from "../components/ui/Button";
 import { Card, CardContent, CardHeader } from "../components/ui/Card";
 import { ErrorState, LoadingState } from "../components/ui/PageStates";
+import { Badge } from "../components/ui/Badge";
 
 type Conversation = {
   id: string;
@@ -104,98 +106,134 @@ export function ListingPage() {
   }
 
   return (
-    <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-4 py-6 sm:px-6 lg:grid-cols-3">
-      <div className="space-y-6 lg:col-span-2">
-        <ListingDetails listing={listing} />
-        <PriceHistoryChart points={priceHistory} />
-      </div>
+    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+      <button
+        onClick={() => nav(-1)}
+        className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground transition hover:text-foreground"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back to listings
+      </button>
 
-      <div className="space-y-6 lg:col-span-1">
-        {!user ? (
-          <Card>
-            <CardHeader className="font-semibold text-slate-900">Chat with seller</CardHeader>
-            <CardContent className="space-y-3 text-sm text-slate-600">
-              <div>
-                Please{" "}
-                <Link className="font-semibold underline" to="/login">
-                  login
-                </Link>{" "}
-                to contact the seller.
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
+          <ListingDetails listing={listing} />
+          <PriceHistoryChart points={priceHistory} />
+
+          {!user ? (
+            <Card>
+              <CardHeader className="font-semibold text-foreground">Chat with seller</CardHeader>
+              <CardContent className="space-y-3 text-sm text-muted-foreground">
+                <div>
+                  Please <Link className="font-semibold underline" to="/login">login</Link> to contact the seller.
+                </div>
+                <Button fullWidth size="lg" onClick={() => nav("/login")}>Login to continue</Button>
+              </CardContent>
+            </Card>
+          ) : isOwner ? (
+            <Card>
+              <CardHeader className="font-semibold text-foreground">Seller mode</CardHeader>
+              <CardContent className="space-y-2 text-sm text-muted-foreground">
+                <div>You are the seller of this listing.</div>
+                <div>Manage conversations in <b>Inbox</b> and deals in <b>My deals</b>.</div>
+              </CardContent>
+            </Card>
+          ) : chatLoading ? (
+            <Card>
+              <CardContent className="text-sm text-muted-foreground">Loading conversation…</CardContent>
+            </Card>
+          ) : conversationId ? (
+            <ConversationView
+              conversation={{
+                id: conversationId,
+                listingId: listing.id,
+                buyerId: user.id,
+                sellerId: listing.seller.id,
+                createdAt: listing.createdAt,
+                listing: {
+                  id: listing.id,
+                  title: listing.title,
+                  price: listing.price,
+                  type: listing.type,
+                },
+                buyer: {
+                  id: user.id,
+                  displayName: user.displayName ?? "You",
+                },
+                seller: {
+                  id: listing.seller.id,
+                  displayName: listing.seller.displayName,
+                },
+              }}
+            />
+          ) : (
+            <Card>
+              <CardContent className="text-sm text-muted-foreground">Conversation could not be loaded.</CardContent>
+            </Card>
+          )}
+        </div>
+
+        <div className="space-y-4 lg:col-span-1">
+          <Card className="sticky top-20">
+            <CardContent className="space-y-4">
+              <div className="space-y-1">
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">Current price</div>
+                <div className="text-3xl font-bold text-primary">
+                  {((listing.effectivePrice ?? listing.price) / 100).toFixed(2)} Kč
+                </div>
               </div>
-              <Button fullWidth size="lg" onClick={() => nav("/login")}>Login to continue</Button>
+
+              {!isOwner && user && (
+                <Button fullWidth size="lg" onClick={buyNow} disabled={buyLoading}>
+                  <ShoppingBag className="h-4 w-4" />
+                  {buyLoading ? "Processing…" : listing.type === "SERVICE" ? "Order now" : "Buy now"}
+                </Button>
+              )}
+
+              {!user && (
+                <Button fullWidth size="lg" onClick={() => nav("/login")}>Login to buy</Button>
+              )}
+
+              <Link to="/inbox" className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground transition hover:bg-accent">
+                <MessageCircle className="h-4 w-4" />
+                Contact seller
+              </Link>
+
+              <div className="flex items-center gap-2 rounded-lg bg-success/10 p-3 text-sm text-success">
+                <ShieldCheck className="h-5 w-5" />
+                Protected by escrow
+              </div>
             </CardContent>
           </Card>
-        ) : isOwner ? (
-          <Card>
-            <CardHeader className="font-semibold text-slate-900">Seller mode</CardHeader>
-            <CardContent className="space-y-2 text-sm text-slate-600">
-              <div>You are the seller of this listing.</div>
-              <div>
-                Manage conversations in <b>Inbox</b> and deals in <b>My deals</b>.
-              </div>
-            </CardContent>
-          </Card>
-        ) : chatLoading ? (
-          <Card>
-            <CardContent className="text-sm text-slate-500">Loading conversation…</CardContent>
-          </Card>
-        ) : conversationId ? (
-          <ConversationView
-            conversation={{
-              id: conversationId,
-              listingId: listing.id,
-              buyerId: user.id,
-              sellerId: listing.seller.id,
-              createdAt: listing.createdAt,
-              listing: {
-                id: listing.id,
-                title: listing.title,
-                price: listing.price,
-                type: listing.type,
-              },
-              buyer: {
-                id: user.id,
-                displayName: user.displayName ?? "You",
-              },
-              seller: {
-                id: listing.seller.id,
-                displayName: listing.seller.displayName,
-              },
-            }}
-          />
-        ) : (
-          <Card>
-            <CardContent className="text-sm text-slate-500">Conversation could not be loaded.</CardContent>
-          </Card>
-        )}
 
-        {!isOwner && user && (
           <Card>
+            <CardHeader className="pb-2">
+              <div className="text-sm font-semibold text-foreground">Seller</div>
+            </CardHeader>
             <CardContent className="space-y-3">
-              <Button
-                fullWidth
-                size="lg"
-                onClick={buyNow}
-                disabled={buyLoading}
-              >
-                {buyLoading
-                  ? "Processing…"
-                  : listing.type === "SERVICE"
-                  ? "Order"
-                  : "Buy"}
-              </Button>
-              <div className="text-center text-xs text-slate-500">Escrow-protected checkout</div>
-            </CardContent>
-          </Card>
-        )}
+              <Link to={`/users/${listing.seller.id}`} className="group flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-sm font-semibold text-foreground">
+                  {listing.seller.displayName.slice(0, 2).toUpperCase()}
+                </div>
+                <div>
+                  <div className="font-medium text-foreground transition group-hover:text-primary">{listing.seller.displayName}</div>
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                    <Star className="h-3 w-3 fill-warning text-warning" />
+                    {listing.seller.ratingAvg.toFixed(1)} ({listing.seller.ratingCount} reviews)
+                  </div>
+                </div>
+              </Link>
 
-        {isOwner && (
-          <Card>
-            <CardContent className="text-sm text-slate-600">
-              You are the seller. Manage deals from <b>My deals</b>.
+              <div className="grid grid-cols-2 gap-2 pt-2 text-xs">
+                <Badge variant="outline" className="justify-center">{listing.type}</Badge>
+                <span className="flex items-center justify-center gap-1 rounded-full bg-muted px-2 py-1 text-muted-foreground">
+                  <CheckCircle2 className="h-3 w-3 text-success" />
+                  Verified
+                </span>
+              </div>
             </CardContent>
           </Card>
-        )}
+        </div>
       </div>
     </div>
   );

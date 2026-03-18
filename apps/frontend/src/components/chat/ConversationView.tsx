@@ -215,21 +215,21 @@ export function ConversationView({
 
   return (
     <Card className="flex h-[720px] flex-col overflow-hidden">
-      <div className="border-b border-slate-100 bg-white p-4">
+      <div className="border-b border-border bg-background p-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-700">
+            <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-foreground">
               {otherUser.slice(0, 2).toUpperCase()}
               <span
-                className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white ${
-                  isOtherUserOnline ? "bg-emerald-500" : "bg-slate-400"
+                className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-background ${
+                  isOtherUserOnline ? "bg-emerald-500" : "bg-muted-foreground"
                 }`}
               />
             </div>
 
             <div className="min-w-0">
-              <div className="truncate font-semibold text-slate-900">{otherUser}</div>
-              <div className="text-xs text-slate-500">{isOtherUserOnline ? "Online" : "Offline"}</div>
+              <div className="truncate font-semibold text-foreground">{otherUser}</div>
+              <div className="text-xs text-muted-foreground">{isOtherUserOnline ? "Online" : "Offline"}</div>
             </div>
           </div>
 
@@ -253,7 +253,7 @@ export function ConversationView({
         </div>
       </div>
 
-      <div className="border-b border-slate-100 bg-slate-50 px-4 py-2">
+      <div className="border-b border-border bg-muted px-4 py-2">
         <Link
           to={`/listings/${conversation.listing.id}`}
           className="flex items-center gap-2 text-sm"
@@ -261,20 +261,20 @@ export function ConversationView({
           <Badge variant="outline" className="text-[10px]">
             Related listing
           </Badge>
-          <span className="line-clamp-1 font-medium text-slate-800">{conversation.listing.title}</span>
-          <span className="ml-auto shrink-0 text-slate-700">{(conversation.listing.price / 100).toFixed(2)} Kč</span>
+          <span className="line-clamp-1 font-medium text-foreground">{conversation.listing.title}</span>
+          <span className="ml-auto shrink-0 text-muted-foreground">{(conversation.listing.price / 100).toFixed(2)} Kč</span>
         </Link>
       </div>
 
       <div
         ref={messagesContainerRef}
-        className="flex flex-1 flex-col gap-2 overflow-y-auto bg-slate-50 px-4 py-6"
+        className="flex flex-1 flex-col gap-2 overflow-y-auto bg-muted px-4 py-6"
       >
         <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-3">
-          {loading && <div className="text-sm text-slate-500">Loading…</div>}
+          {loading && <div className="text-sm text-muted-foreground">Loading…</div>}
 
           {!loading && messages.length === 0 && (
-            <div className="py-10 text-center text-sm text-slate-500">No messages yet</div>
+            <div className="py-10 text-center text-sm text-muted-foreground">No messages yet</div>
           )}
 
           {messages.map((m) => {
@@ -287,14 +287,14 @@ export function ConversationView({
                 <div
                   className={`max-w-[75%] rounded-2xl px-4 py-2.5 ${
                     mine
-                      ? "bg-slate-900 text-white"
-                      : "border border-slate-200 bg-white text-slate-900"
+                      ? "bg-primary text-primary-foreground"
+                      : "border border-border bg-background text-foreground"
                   }`}
                 >
                   <div className="whitespace-pre-wrap text-sm">{m.text}</div>
                   <div
                     className={`mt-1 text-[10px] ${
-                      mine ? "text-slate-200" : "text-slate-500"
+                      mine ? "text-primary-foreground/70" : "text-muted-foreground"
                     }`}
                   >
                     {m.sender.displayName} · {new Date(m.createdAt).toLocaleTimeString()}
@@ -306,12 +306,13 @@ export function ConversationView({
         </div>
       </div>
 
-      <div className="border-t border-slate-100 bg-white p-4">
+      <div className="border-t border-border bg-background p-4">
         <div className="mx-auto flex max-w-2xl gap-2">
           <Input
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Type a message..."
+            className="bg-background"
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
@@ -325,7 +326,7 @@ export function ConversationView({
           </Button>
         </div>
 
-        {err && <div className="mx-auto mt-2 max-w-2xl text-sm text-red-600">{err}</div>}
+        {err && <div className="mx-auto mt-2 max-w-2xl text-sm text-destructive">{err}</div>}
       </div>
     </Card>
   );

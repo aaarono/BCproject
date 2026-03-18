@@ -10,7 +10,7 @@ export function RatingStars({ value, size = 18 }: Props) {
         <span
           key={star}
           style={{ fontSize: size }}
-          className={star <= value ? "text-yellow-500" : "text-gray-300"}
+          className={star <= value ? "text-warning" : "text-muted-foreground/40"}
         >
           ★
         </span>

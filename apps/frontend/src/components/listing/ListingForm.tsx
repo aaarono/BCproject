@@ -73,11 +73,11 @@ export function ListingForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       <Card>
         <CardHeader>
-          <div className="text-sm text-slate-600">Basic information</div>
+          <div className="text-sm text-muted-foreground">Basic information</div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Title</label>
+            <label className="mb-1 block text-sm font-medium text-foreground">Title</label>
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -86,7 +86,7 @@ export function ListingForm({
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Description</label>
+            <label className="mb-1 block text-sm font-medium text-foreground">Description</label>
             <Textarea
               className="min-h-[120px]"
               value={description}
@@ -97,9 +97,9 @@ export function ListingForm({
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Type</label>
+              <label className="mb-1 block text-sm font-medium text-foreground">Type</label>
               <select
-                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"
+                className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 value={type}
                 onChange={(e) => setType(e.target.value as "GOOD" | "SERVICE")}
               >
@@ -109,9 +109,9 @@ export function ListingForm({
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Category</label>
+              <label className="mb-1 block text-sm font-medium text-foreground">Category</label>
               <select
-                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"
+                className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 value={category}
                 onChange={(e) =>
                   setCategory(
@@ -136,17 +136,17 @@ export function ListingForm({
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Tags (comma-separated)</label>
+            <label className="mb-1 block text-sm font-medium text-foreground">Tags (comma-separated)</label>
             <Input
               value={tags}
               onChange={(e) => setTags(e.target.value)}
               placeholder="e.g. eu, alliance, rent"
             />
-            <div className="mt-1 text-xs text-slate-500">Up to 8 tags.</div>
+            <div className="mt-1 text-xs text-muted-foreground">Up to 8 tags.</div>
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Price (in cents)</label>
+            <label className="mb-1 block text-sm font-medium text-foreground">Price (in cents)</label>
             <Input
               type="number"
               min="1"
@@ -154,19 +154,19 @@ export function ListingForm({
               onChange={(e) => setPrice(e.target.value)}
               placeholder="e.g. 15000"
             />
-            <div className="mt-1 text-xs text-slate-500">Example: 15000 = 150.00 Kč</div>
+            <div className="mt-1 text-xs text-muted-foreground">Example: 15000 = 150.00 Kč</div>
           </div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader className="flex items-center justify-between gap-3">
-          <div className="text-sm font-medium text-slate-700">Flash Sale</div>
+          <div className="text-sm font-medium text-foreground">Flash Sale</div>
           <Badge variant="muted">Optional</Badge>
         </CardHeader>
         <CardContent className="space-y-3">
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Discount percent</label>
+            <label className="mb-1 block text-sm font-medium text-foreground">Discount percent</label>
             <Input
               type="number"
               min="1"
@@ -179,7 +179,7 @@ export function ListingForm({
 
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Sale starts at</label>
+              <label className="mb-1 block text-sm font-medium text-foreground">Sale starts at</label>
               <Input
                 type="datetime-local"
                 value={saleStartsAt}
@@ -188,7 +188,7 @@ export function ListingForm({
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Sale ends at</label>
+              <label className="mb-1 block text-sm font-medium text-foreground">Sale ends at</label>
               <Input
                 type="datetime-local"
                 value={saleEndsAt}
@@ -197,13 +197,13 @@ export function ListingForm({
             </div>
           </div>
 
-          <div className="text-xs text-slate-500">
+          <div className="text-xs text-muted-foreground">
             Fill all three fields to activate sale. Leave all empty to keep regular pricing.
           </div>
         </CardContent>
       </Card>
 
-      {error && <div className="text-sm text-red-600">{error}</div>}
+      {error && <div className="text-sm text-destructive">{error}</div>}
 
       <Button type="submit" disabled={loading}>
         {loading ? "Saving..." : submitLabel}

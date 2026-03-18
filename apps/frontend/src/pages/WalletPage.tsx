@@ -44,10 +44,10 @@ export function WalletPage() {
 
       <Card>
         <CardHeader>
-          <div className="text-sm text-slate-600">Current balance</div>
+          <div className="text-sm text-muted-foreground">Current balance</div>
         </CardHeader>
         <CardContent>
-          <div className="text-3xl font-bold text-slate-900">
+          <div className="text-3xl font-bold text-foreground">
             {wallet ? (wallet.balance / 100).toFixed(2) : "..."} Kč
           </div>
         </CardContent>
@@ -55,7 +55,7 @@ export function WalletPage() {
 
       <Card>
         <CardHeader>
-          <div className="text-sm text-slate-600">Top up (mock)</div>
+          <div className="text-sm text-muted-foreground">Top up (mock)</div>
         </CardHeader>
         <CardContent className="space-y-3">
           <Input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} />

@@ -19,7 +19,7 @@ export function LoadingState({ width = "max-w-5xl", label = "Loading…" }: { wi
   return (
     <Wrapper width={width}>
       <Card>
-        <CardContent className="py-8 text-center text-sm text-slate-600">{label}</CardContent>
+        <CardContent className="py-8 text-center text-sm text-muted-foreground">{label}</CardContent>
       </Card>
     </Wrapper>
   );
@@ -29,7 +29,7 @@ export function ErrorState({ width = "max-w-5xl", message }: { width?: Width; me
   return (
     <Wrapper width={width}>
       <Card>
-        <CardContent className="py-8 text-center text-sm text-red-600">{message}</CardContent>
+        <CardContent className="py-8 text-center text-sm text-destructive">{message}</CardContent>
       </Card>
     </Wrapper>
   );
@@ -39,7 +39,7 @@ export function EmptyState({ width = "max-w-5xl", message }: { width?: Width; me
   return (
     <Wrapper width={width}>
       <Card>
-        <CardContent className="text-slate-600">{message}</CardContent>
+        <CardContent className="text-muted-foreground">{message}</CardContent>
       </Card>
     </Wrapper>
   );

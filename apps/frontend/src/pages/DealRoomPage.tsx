@@ -173,12 +173,21 @@ export function DealRoomPage() {
             : "Deal canceled";
 
   const amountLabel = `${(deal.listing.price / 100).toFixed(2)} Kč`;
+  const flowSteps: Array<Deal["status"]> = ["INITIATED", "FUNDED", "DELIVERED", "COMPLETED"];
+  const stepIndexMap: Record<Deal["status"], number> = {
+    INITIATED: 0,
+    FUNDED: 1,
+    DELIVERED: 2,
+    COMPLETED: 3,
+    CANCELED: 0,
+  };
+  const currentStepIndex = stepIndexMap[deal.status];
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
       <Link
         to="/deals"
-        className="mb-4 inline-flex items-center gap-2 text-sm text-slate-500 transition hover:text-slate-900"
+        className="mb-4 inline-flex items-center gap-2 text-sm text-muted-foreground transition hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to deals
@@ -190,21 +199,39 @@ export function DealRoomPage() {
             <CardHeader className="space-y-2">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-lg font-semibold text-slate-900">Deal Status</div>
-                  <div className="mt-1 text-sm text-slate-500">Escrow-safe flow for this listing transaction.</div>
+                  <div className="text-lg font-semibold text-foreground">Deal Status</div>
+                  <div className="mt-1 text-sm text-muted-foreground">Escrow-safe flow for this listing transaction.</div>
                 </div>
                 <DealStatusBadge status={deal.status} />
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <div className="line-clamp-1 text-base font-semibold text-slate-900">{deal.listing.title ?? "Listing"}</div>
-                <div className="mt-1 text-sm text-slate-600">{amountLabel} · {deal.listing.type}</div>
+                <div className="line-clamp-1 text-base font-semibold text-foreground">{deal.listing.title ?? "Listing"}</div>
+                <div className="mt-1 text-sm text-muted-foreground">{amountLabel} · {deal.listing.type}</div>
               </div>
 
-              <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
+              <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
                 <Clock className="h-4 w-4 shrink-0" />
                 <span>{statusDescription}</span>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                  <span>Deal progress</span>
+                  <span>{deal.status}</span>
+                </div>
+                <div className="grid grid-cols-4 gap-2">
+                  {flowSteps.map((step, index) => {
+                    const isCompleted = deal.status !== "CANCELED" && index <= currentStepIndex;
+                    return (
+                      <div key={step} className="space-y-1">
+                        <div className={`h-2 rounded-full ${isCompleted ? "bg-primary" : "bg-muted"}`} />
+                        <div className="text-[10px] text-muted-foreground">{step.toLowerCase()}</div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
               {deal.status !== "COMPLETED" && deal.status !== "CANCELED" && (
@@ -218,8 +245,8 @@ export function DealRoomPage() {
 
           <Card>
             <CardHeader className="space-y-1">
-              <div className="font-semibold text-slate-900">Actions</div>
-              <div className="text-xs text-slate-500">Available actions depend on your role and current deal status.</div>
+              <div className="font-semibold text-foreground">Actions</div>
+              <div className="text-xs text-muted-foreground">Available actions depend on your role and current deal status.</div>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex flex-wrap gap-2">
@@ -252,9 +279,9 @@ export function DealRoomPage() {
                 )}
               </div>
 
-              <div className="mt-2 text-xs text-slate-500">{statusDescription}</div>
+              <div className="mt-2 text-xs text-muted-foreground">{statusDescription}</div>
 
-              {actionErr && <div className="text-sm text-red-600">{actionErr}</div>}
+              {actionErr && <div className="text-sm text-destructive">{actionErr}</div>}
             </CardContent>
           </Card>
 
@@ -282,87 +309,87 @@ export function DealRoomPage() {
             />
           ) : (
             <Card>
-              <CardContent className="text-sm text-slate-500">Conversation not found yet.</CardContent>
+              <CardContent className="text-sm text-muted-foreground">Conversation not found yet.</CardContent>
             </Card>
           )}
         </div>
 
-      <div className="space-y-4 lg:col-span-1">
-        <Card>
-          <CardHeader className="pb-2">
-            <div className="text-sm font-semibold text-slate-900">Deal info</div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="line-clamp-2 text-sm font-medium text-slate-900">{deal.listing.title}</div>
-            <Badge variant="outline" className="text-[10px]">
-              {deal.listing.type}
-            </Badge>
-            <div className="border-t border-slate-100 pt-3">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-500">Amount</span>
-                <span className="font-semibold text-slate-900">{amountLabel}</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <div className="text-sm font-semibold text-slate-900">Participants</div>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-slate-500">Your role</span>
+        <div className="space-y-4 lg:col-span-1">
+          <Card>
+            <CardHeader className="pb-2">
+              <div className="text-sm font-semibold text-foreground">Deal info</div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="line-clamp-2 text-sm font-medium text-foreground">{deal.listing.title}</div>
               <Badge variant="outline" className="text-[10px]">
-                {role}
+                {deal.listing.type}
               </Badge>
-            </div>
-            <div className="border-t border-slate-100 pt-3">
-              <div className="text-slate-500">Counterparty</div>
-              <div className="mt-1 font-medium text-slate-900">{counterpartyName}</div>
-              <div className="mt-2 text-xs text-slate-500">
-                Buyer: {deal.buyer.displayName} · Seller: {deal.seller.displayName}
+              <div className="border-t border-border pt-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Amount</span>
+                  <span className="font-semibold text-foreground">{amountLabel}</span>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <div className="text-sm font-semibold text-slate-900">Timeline</div>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-slate-500">Created</span>
-              <span>{new Date(deal.createdAt).toLocaleString()}</span>
-            </div>
-            {deal.fundedAt && (
+          <Card>
+            <CardHeader className="pb-2">
+              <div className="text-sm font-semibold text-foreground">Participants</div>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
               <div className="flex items-center justify-between">
-                <span className="text-slate-500">Funded</span>
-                <span>{new Date(deal.fundedAt).toLocaleString()}</span>
+                <span className="text-muted-foreground">Your role</span>
+                <Badge variant="outline" className="text-[10px]">
+                  {role}
+                </Badge>
               </div>
-            )}
-            {deal.deliveredAt && (
+              <div className="border-t border-border pt-3">
+                <div className="text-muted-foreground">Counterparty</div>
+                <div className="mt-1 font-medium text-foreground">{counterpartyName}</div>
+                <div className="mt-2 text-xs text-muted-foreground">
+                  Buyer: {deal.buyer.displayName} · Seller: {deal.seller.displayName}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <div className="text-sm font-semibold text-foreground">Timeline</div>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
               <div className="flex items-center justify-between">
-                <span className="text-slate-500">Delivered</span>
-                <span>{new Date(deal.deliveredAt).toLocaleString()}</span>
+                <span className="text-muted-foreground">Created</span>
+                <span>{new Date(deal.createdAt).toLocaleString()}</span>
               </div>
-            )}
-            {deal.completedAt && (
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">Completed</span>
-                <span>{new Date(deal.completedAt).toLocaleString()}</span>
-              </div>
-            )}
-            {deal.canceledAt && (
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">Canceled</span>
-                <span>{new Date(deal.canceledAt).toLocaleString()}</span>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+              {deal.fundedAt && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Funded</span>
+                  <span>{new Date(deal.fundedAt).toLocaleString()}</span>
+                </div>
+              )}
+              {deal.deliveredAt && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Delivered</span>
+                  <span>{new Date(deal.deliveredAt).toLocaleString()}</span>
+                </div>
+              )}
+              {deal.completedAt && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Completed</span>
+                  <span>{new Date(deal.completedAt).toLocaleString()}</span>
+                </div>
+              )}
+              {deal.canceledAt && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Canceled</span>
+                  <span>{new Date(deal.canceledAt).toLocaleString()}</span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

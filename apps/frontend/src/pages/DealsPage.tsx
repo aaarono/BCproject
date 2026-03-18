@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Briefcase, Gamepad2 } from "lucide-react";
+import { ArrowRight, Briefcase, Gamepad2, Handshake } from "lucide-react";
 import { Link } from "react-router-dom";
 import { http } from "../api/http";
 import { useAuth } from "../auth/AuthContext";
@@ -8,6 +8,7 @@ import { Badge } from "../components/ui/Badge";
 import { Card, CardContent, CardHeader } from "../components/ui/Card";
 import { DealStatusBadge } from "../components/profile/DealStatusBadge";
 import { ErrorState, LoadingState } from "../components/ui/PageStates";
+import { EmptyState } from "../components/ui/EmptyState";
 
 type Deal = {
   id: string;
@@ -65,16 +66,18 @@ export function DealsPage() {
     <div className="mx-auto max-w-5xl space-y-4 px-4 py-6 sm:px-6">
       <Card>
         <CardHeader className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">{title}</h1>
-          <div className="text-sm text-slate-500">Track escrow status and take required actions in each deal room.</div>
-          {user && <div className="text-xs text-slate-400">Logged in as: {user.email}</div>}
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">{title}</h1>
+          <div className="text-sm text-muted-foreground">Track escrow status and take required actions in each deal room.</div>
+          {user && <div className="text-xs text-muted-foreground">Logged in as: {user.email}</div>}
         </CardHeader>
       </Card>
 
       {deals.length === 0 && (
-        <Card>
-          <CardContent className="text-slate-600">No deals yet.</CardContent>
-        </Card>
+        <EmptyState
+          title="No deals yet"
+          description="Your escrow-protected purchases and sales will appear here once a listing starts a deal."
+          icon={<Handshake className="h-5 w-5" />}
+        />
       )}
 
       <div className="space-y-3">
@@ -84,18 +87,18 @@ export function DealsPage() {
 
           return (
             <Link key={d.id} to={`/deals/${d.id}`} className="block">
-              <Card className="group transition hover:border-slate-300 hover:shadow-sm">
+              <Card className="group transition hover:bg-accent">
                 <CardContent className="p-4">
                   <div className="flex items-start gap-4">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
                       {d.listing.type === "GOOD" ? <Gamepad2 className="h-5 w-5" /> : <Briefcase className="h-5 w-5" />}
                     </div>
 
                     <div className="min-w-0 flex-1 space-y-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <div className="line-clamp-1 font-semibold text-slate-900">{d.listing.title}</div>
-                          <div className="mt-1 text-sm text-slate-600">
+                          <div className="line-clamp-1 font-semibold text-foreground">{d.listing.title}</div>
+                          <div className="mt-1 text-sm text-muted-foreground">
                             {d.listing.type} · {formatAmount(d.listing.price)}
                           </div>
                         </div>
@@ -116,10 +119,10 @@ export function DealsPage() {
                       </div>
 
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-slate-400">Updated {new Date(d.createdAt).toLocaleString()}</span>
+                        <span className="text-muted-foreground">Updated {new Date(d.createdAt).toLocaleString()}</span>
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold text-slate-900">{formatAmount(d.listing.price)}</span>
-                          <ArrowRight className="h-4 w-4 text-slate-400 transition group-hover:text-slate-700" />
+                          <span className="font-semibold text-foreground">{formatAmount(d.listing.price)}</span>
+                          <ArrowRight className="h-4 w-4 text-muted-foreground transition group-hover:text-foreground" />
                         </div>
                       </div>
                     </div>

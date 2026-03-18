@@ -104,9 +104,9 @@ export function ChatPanel({ listingId, conversationId: externalConversationId }:
 
   if (!user) {
     return (
-      <div className="border rounded p-4">
-        <div className="font-semibold mb-2">Chat</div>
-        <div className="text-sm text-gray-600">
+      <div className="rounded-lg border border-border bg-card p-4">
+        <div className="mb-2 font-semibold">Chat</div>
+        <div className="text-sm text-muted-foreground">
           Please <Link className="underline" to="/login">login</Link> to message the seller.
         </div>
       </div>
@@ -114,19 +114,19 @@ export function ChatPanel({ listingId, conversationId: externalConversationId }:
   }
 
   return (
-    <div className="border rounded flex flex-col h-[520px]">
-      <div className="p-3 border-b">
+    <div className="flex h-[520px] flex-col rounded-lg border border-border bg-card">
+      <div className="border-b border-border p-3">
         <div className="font-semibold">Chat</div>
-        <div className="text-xs text-gray-600">
+        <div className="text-xs text-muted-foreground">
           {conv?.id ? `conversation: ${conv.id}` : "creating conversation…"}
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2 bg-gray-50">
-        {loading && <div className="text-sm text-gray-500">Loading…</div>}
+      <div className="flex flex-1 flex-col gap-2 overflow-y-auto bg-muted p-3">
+        {loading && <div className="text-sm text-muted-foreground">Loading…</div>}
 
         {!loading && messages.length === 0 && (
-          <div className="text-sm text-gray-500">No messages yet</div>
+          <div className="text-sm text-muted-foreground">No messages yet</div>
         )}
 
         {messages.map((m) => {
@@ -135,11 +135,17 @@ export function ChatPanel({ listingId, conversationId: externalConversationId }:
             <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
               <div
                 className={`max-w-[75%] rounded px-3 py-2 ${
-                  mine ? "bg-black text-white" : "bg-white text-gray-800 border"
+                  mine
+                    ? "bg-primary text-primary-foreground"
+                    : "border border-border bg-card text-foreground"
                 }`}
               >
                 <div className="text-sm whitespace-pre-wrap">{m.text}</div>
-                <div className={`text-[10px] mt-1 ${mine ? "text-gray-200" : "text-gray-500"}`}>
+                <div
+                  className={`mt-1 text-[10px] ${
+                    mine ? "text-primary-foreground/80" : "text-muted-foreground"
+                  }`}
+                >
                   {m.sender.displayName} · {new Date(m.createdAt).toLocaleTimeString()}
                 </div>
               </div>
@@ -148,10 +154,10 @@ export function ChatPanel({ listingId, conversationId: externalConversationId }:
         })}
       </div>
 
-      <div className="p-2 border-t">
+      <div className="border-t border-border p-2">
         <div className="flex gap-2">
           <input
-            className="border rounded p-2 flex-1"
+            className="flex-1 rounded-lg border border-input bg-background p-2 text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Write a message…"
@@ -159,11 +165,14 @@ export function ChatPanel({ listingId, conversationId: externalConversationId }:
               if (e.key === "Enter") send();
             }}
           />
-          <button className="bg-black text-white rounded px-4" onClick={send}>
+          <button
+            className="rounded-lg bg-primary px-4 text-primary-foreground transition hover:opacity-90"
+            onClick={send}
+          >
             Send
           </button>
         </div>
-        {err && <div className="text-sm text-red-600 mt-2">{err}</div>}
+        {err && <div className="mt-2 text-sm text-destructive">{err}</div>}
       </div>
     </div>
   );

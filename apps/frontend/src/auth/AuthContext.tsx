@@ -14,6 +14,7 @@ type User = {
   email: string;
   role: "BUYER" | "SELLER" | "ADMIN";
   displayName?: string;
+  avatarUrl?: string | null;
 };
 
 type AuthState = {

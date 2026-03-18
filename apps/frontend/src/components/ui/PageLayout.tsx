@@ -32,13 +32,13 @@ export function PageHeader({
   right?: ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+    <div className="rounded-2xl border border-border bg-card p-5 sm:p-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">{title}</h1>
-          {subtitle ? <p className="mt-1 text-sm text-slate-600">{subtitle}</p> : null}
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">{title}</h1>
+          {subtitle ? <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p> : null}
         </div>
-        {right ? <div className="text-xs text-slate-500">{right}</div> : null}
+        {right ? <div className="text-xs text-muted-foreground">{right}</div> : null}
       </div>
     </div>
   );

@@ -25,6 +25,7 @@ export type Listing = {
   seller: {
     id: string;
     displayName: string;
+    avatarUrl?: string | null;
     ratingAvg: number;
     ratingCount: number;
   };

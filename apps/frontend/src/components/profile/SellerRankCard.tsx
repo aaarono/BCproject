@@ -21,22 +21,22 @@ export function SellerRankCard({
   return (
     <Link
       to={`/users/${seller.id}`}
-      className="group block rounded-xl border border-slate-200 bg-white p-4 transition hover:border-slate-300 hover:shadow-sm"
+      className="group block rounded-xl border border-border bg-card p-4 transition hover:bg-accent"
     >
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
-          <div className="mb-1 inline-flex items-center rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+          <div className="mb-1 inline-flex items-center rounded-full bg-muted px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
             #{rank} · {periodLabel}
           </div>
-          <div className="truncate text-base font-semibold text-slate-900 group-hover:text-slate-700">
+          <div className="truncate text-base font-semibold text-foreground group-hover:text-accent-foreground">
             {seller.displayName}
           </div>
-          <div className="text-sm text-slate-600">
+          <div className="text-sm text-muted-foreground">
             ★ {seller.ratingAvg.toFixed(2)} ({seller.ratingCount} reviews)
           </div>
         </div>
 
-        <div className="text-right text-xs text-slate-500">
+        <div className="text-right text-xs text-muted-foreground">
           <div>{seller.completedDeals} deals</div>
           <div>{seller.activeListings} listings</div>
         </div>

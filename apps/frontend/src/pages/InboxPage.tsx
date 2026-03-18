@@ -7,6 +7,7 @@ import { ConversationView } from "../components/chat/ConversationView";
 import { Card, CardContent, CardHeader } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
 import { ErrorState, LoadingState } from "../components/ui/PageStates";
+import { EmptyState } from "../components/ui/EmptyState";
 
 function extractErrorMessage(error: unknown, fallback: string) {
   if (
@@ -157,33 +158,43 @@ export function InboxPage() {
   return (
     <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[360px_1fr]">
       <Card className="h-[720px] overflow-hidden">
-        <CardHeader className="space-y-1 border-b border-slate-100">
-          <div className="text-base font-semibold text-slate-900">Inbox</div>
-          <div className="text-xs text-slate-500">Live conversations from your listings and deals</div>
+        <CardHeader className="space-y-1 border-b border-border">
+          <div className="text-base font-semibold text-foreground">Inbox</div>
+          <div className="text-xs text-muted-foreground">Live conversations from your listings and deals</div>
         </CardHeader>
 
-        <div className="border-b border-slate-100 px-5 py-3">
+        <div className="border-b border-border px-5 py-3">
           <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by listing, user, or message"
-              className="pl-9"
+              className="bg-muted pl-9"
             />
           </div>
         </div>
 
         <CardContent className="h-[calc(720px-145px)] overflow-y-auto p-0">
           {conversations.length === 0 && (
-            <div className="p-5 text-sm text-slate-500">No conversations yet.</div>
+            <div className="p-5">
+              <EmptyState
+                title="No conversations yet"
+                description="When buyers or sellers message you from a listing, it will appear here in real time."
+              />
+            </div>
           )}
 
           {conversations.length > 0 && filteredConversations.length === 0 && (
-            <div className="p-5 text-sm text-slate-500">No matching conversations.</div>
+            <div className="p-5">
+              <EmptyState
+                title="No matching conversations"
+                description="Try another keyword for listing title, username, or message text."
+              />
+            </div>
           )}
 
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-border">
             {filteredConversations.map((conv) => {
               const otherUser =
                 user?.id === conv.buyer.id ? conv.seller.displayName : conv.buyer.displayName;
@@ -195,27 +206,27 @@ export function InboxPage() {
                 <button
                   key={conv.id}
                   onClick={() => setSelectedConversationId(conv.id)}
-                  className={`w-full p-4 text-left transition hover:bg-slate-50 ${
-                    selectedConversationId === conv.id ? "bg-slate-100" : ""
+                  className={`w-full p-4 text-left transition hover:bg-accent ${
+                    selectedConversationId === conv.id ? "bg-accent" : ""
                   }`}
                 >
                   <div className="flex items-start gap-3">
-                    <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-700">
+                    <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground">
                       {otherUser.slice(0, 2).toUpperCase()}
                     </div>
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <div className="line-clamp-1 text-sm font-semibold text-slate-900">{otherUser}</div>
-                          <div className="mt-0.5 line-clamp-1 text-xs text-slate-500">{conv.listing.title}</div>
+                          <div className="line-clamp-1 text-sm font-semibold text-foreground">{otherUser}</div>
+                          <div className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{conv.listing.title}</div>
                         </div>
-                        <div className="shrink-0 text-[11px] text-slate-400">
+                        <div className="shrink-0 text-[11px] text-muted-foreground">
                           {new Date(timestamp).toLocaleString()}
                         </div>
                       </div>
 
-                      <div className="mt-2 line-clamp-2 text-sm text-slate-600">
+                      <div className="mt-2 line-clamp-2 text-sm text-muted-foreground">
                         {lastMessage
                           ? `${lastMessage.sender.displayName}: ${lastMessage.text}`
                           : "No messages yet"}
@@ -234,7 +245,7 @@ export function InboxPage() {
           <ConversationView conversation={selectedConversation} />
         ) : (
           <Card className="flex h-[720px] items-center justify-center">
-            <CardContent className="text-slate-500">Select a conversation</CardContent>
+            <CardContent className="text-muted-foreground">Select a conversation</CardContent>
           </Card>
         )}
       </div>

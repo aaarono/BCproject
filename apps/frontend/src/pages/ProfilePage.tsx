@@ -46,6 +46,7 @@ type Review = {
 };
 
 export function ProfilePage() {
+  const [activeTab, setActiveTab] = useState<"listings" | "reviews" | "achievements">("listings");
   const [profile, setProfile] = useState<Profile | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [myListings, setMyListings] = useState<MyListing[]>([]);
@@ -101,82 +102,128 @@ export function ProfilePage() {
           />
         </div>
         <div className="lg:col-span-2 space-y-6">
-        <Card>
-          <CardHeader className="flex items-center justify-between gap-3">
-            <div className="text-xl font-semibold text-slate-900">My listings</div>
-            <Link className="text-sm font-medium text-slate-700 underline" to="/my-listings">
-              View all
-            </Link>
-          </CardHeader>
+          <div className="grid w-full grid-cols-3 gap-2 rounded-xl border border-border bg-card p-2">
+            <button
+              type="button"
+              onClick={() => setActiveTab("listings")}
+              className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+                activeTab === "listings" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent"
+              }`}
+            >
+              Listings
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("reviews")}
+              className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+                activeTab === "reviews" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent"
+              }`}
+            >
+              Reviews
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("achievements")}
+              className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+                activeTab === "achievements" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent"
+              }`}
+            >
+              Achievements
+            </button>
+          </div>
 
-          <CardContent className="space-y-3">
-            {myListings.length === 0 && (
-              <div className="text-sm text-slate-500">No listings yet.</div>
-            )}
+          {activeTab === "listings" && (
+            <Card>
+              <CardHeader className="flex items-center justify-between gap-3">
+                <div className="text-xl font-semibold text-foreground">My listings</div>
+                <Link className="text-sm font-medium text-foreground underline" to="/my-listings">
+                  View all
+                </Link>
+              </CardHeader>
 
-            {myListings.map((listing) => (
-              <Link
-                key={listing.id}
-                to={`/listings/${listing.id}`}
-                className="block rounded-xl border border-slate-200 bg-slate-50 p-3 transition hover:border-slate-300 hover:bg-white"
-              >
-                <div className="flex justify-between gap-4">
-                  <div>
-                    <div className="font-medium text-slate-900">{listing.title}</div>
-                    <div className="line-clamp-2 text-sm text-slate-600">
-                      {listing.description}
+              <CardContent className="space-y-3">
+                {myListings.length === 0 && <div className="text-sm text-muted-foreground">No listings yet.</div>}
+
+                {myListings.map((listing) => (
+                  <Link
+                    key={listing.id}
+                    to={`/listings/${listing.id}`}
+                    className="block rounded-xl border border-border bg-muted p-3 transition hover:bg-accent"
+                  >
+                    <div className="flex justify-between gap-4">
+                      <div>
+                        <div className="font-medium text-foreground">{listing.title}</div>
+                        <div className="line-clamp-2 text-sm text-muted-foreground">{listing.description}</div>
+                        <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                          <Badge variant="outline">{listing.type}</Badge>
+                          <Badge variant="muted">{listing.status}</Badge>
+                        </div>
+                      </div>
+
+                      <div className="font-semibold text-foreground">{(listing.price / 100).toFixed(2)} Kč</div>
                     </div>
-                    <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
-                      <Badge variant="outline">{listing.type}</Badge>
-                      <Badge variant="muted">{listing.status}</Badge>
-                    </div>
-                  </div>
-
-                  <div className="font-semibold text-slate-900">
-                    {(listing.price / 100).toFixed(2)} Kč
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div className="text-xl font-semibold text-slate-900">Reviews</div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {reviews.length === 0 && (
-              <div className="text-sm text-slate-500">No reviews yet.</div>
-            )}
-
-            {reviews.map((review) => (
-              <div key={review.id} className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <Link className="font-medium text-slate-900 underline" to={`/users/${review.buyer.id}`}>
-                    {review.buyer.displayName}
                   </Link>
-                  <div className="flex items-center gap-2">
-                    <RatingStars value={review.rating} />
-                    <span className="text-sm text-slate-600">{review.rating}/5</span>
-                  </div>
-                </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
 
-                <div className="space-y-1 text-xs text-slate-500">
-                  <div>{new Date(review.createdAt).toLocaleString()}</div>
-                  <div>
-                    Listing: <span className="font-medium text-slate-700">{review.deal.listing.title}</span>
-                  </div>
-                </div>
+          {activeTab === "reviews" && (
+            <Card>
+              <CardHeader>
+                <div className="text-xl font-semibold text-foreground">Reviews</div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {reviews.length === 0 && <div className="text-sm text-muted-foreground">No reviews yet.</div>}
 
-                {review.comment && (
-                  <div className="text-sm whitespace-pre-wrap text-slate-700">{review.comment}</div>
-                )}
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
+                {reviews.map((review) => (
+                  <div key={review.id} className="space-y-2 rounded-xl border border-border bg-muted p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <Link className="font-medium text-foreground underline" to={`/users/${review.buyer.id}`}>
+                        {review.buyer.displayName}
+                      </Link>
+                      <div className="flex items-center gap-2">
+                        <RatingStars value={review.rating} />
+                        <span className="text-sm text-muted-foreground">{review.rating}/5</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1 text-xs text-muted-foreground">
+                      <div>{new Date(review.createdAt).toLocaleString()}</div>
+                      <div>
+                        Listing: <span className="font-medium text-foreground">{review.deal.listing.title}</span>
+                      </div>
+                    </div>
+
+                    {review.comment && <div className="text-sm whitespace-pre-wrap text-foreground">{review.comment}</div>}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {activeTab === "achievements" && (
+            <Card>
+              <CardHeader>
+                <div className="text-xl font-semibold text-foreground">Achievements</div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="rounded-xl border border-border bg-muted p-3">
+                  <div className="font-medium text-foreground">Trusted Seller</div>
+                  <div className="text-sm text-muted-foreground">Maintain a high rating with completed successful deals.</div>
+                </div>
+                <div className="rounded-xl border border-border bg-muted p-3">
+                  <div className="font-medium text-foreground">Fast Responder</div>
+                  <div className="text-sm text-muted-foreground">Reply quickly to conversations and keep buyer confidence high.</div>
+                </div>
+                <div className="rounded-xl border border-border bg-muted p-3">
+                  <div className="font-medium text-foreground">Marketplace Builder</div>
+                  <div className="text-sm text-muted-foreground">Create active listings and keep inventory fresh.</div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
     </PageContainer>
   );

@@ -100,7 +100,7 @@ export function CreateListingPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-4 px-4 py-6 sm:px-6">
-      <h1 className="text-2xl font-bold tracking-tight text-slate-900">Create listing</h1>
+      <h1 className="text-2xl font-bold tracking-tight text-foreground">Create listing</h1>
       <ListingForm
         submitLabel="Create listing"
         loading={loading}

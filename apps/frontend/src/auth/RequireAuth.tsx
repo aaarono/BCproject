@@ -7,7 +7,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   if (!isReady) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
-        <div className="rounded-2xl border border-slate-200 bg-white px-5 py-8 text-center text-sm text-slate-600">
+        <div className="rounded-2xl border border-border bg-card px-5 py-8 text-center text-sm text-muted-foreground">
           Loading…
         </div>
       </div>

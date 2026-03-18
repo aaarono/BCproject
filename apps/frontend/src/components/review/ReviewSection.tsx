@@ -46,15 +46,15 @@ export function ReviewSection({ dealId }: { dealId: string }) {
 
   if (loading) {
     return (
-      <div className="border rounded p-4">
-        <div className="text-sm text-gray-500">Loading review…</div>
+      <div className="rounded-lg border border-border bg-card p-4">
+        <div className="text-sm text-muted-foreground">Loading review…</div>
       </div>
     );
   }
 
   if (review) {
     return (
-      <div className="border rounded p-4 space-y-3">
+      <div className="space-y-3 rounded-lg border border-border bg-card p-4">
         <div className="font-semibold">Your review</div>
 
         <div className="text-sm">
@@ -63,15 +63,15 @@ export function ReviewSection({ dealId }: { dealId: string }) {
 
         <div className="flex items-center gap-2">
           <RatingStars value={review.rating} />
-          <span className="text-sm text-gray-600">{review.rating}/5</span>
+          <span className="text-sm text-muted-foreground">{review.rating}/5</span>
         </div>
 
-        <div className="text-sm text-gray-600">
+        <div className="text-sm text-muted-foreground">
           {new Date(review.createdAt).toLocaleString()}
         </div>
 
         {review.comment && (
-          <div className="border rounded p-3 bg-gray-50 text-sm whitespace-pre-wrap text-black">
+          <div className="whitespace-pre-wrap rounded-lg border border-border bg-muted p-3 text-sm text-foreground">
             {review.comment}
           </div>
         )}

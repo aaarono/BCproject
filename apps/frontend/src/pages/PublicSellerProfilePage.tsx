@@ -4,6 +4,9 @@ import { http } from "../api/http";
 import { RatingStars } from "../components/review/RatingStars";
 import { ProfileHeaderCard } from "../components/profile/ProfileHeaderCard";
 import { extractHttpErrorMessage } from "../utils/httpError";
+import { Card, CardContent, CardHeader } from "../components/ui/Card";
+import { Badge } from "../components/ui/Badge";
+import { ErrorState, LoadingState } from "../components/ui/PageStates";
 
 type Listing = {
   id: string;
@@ -77,12 +80,12 @@ export function PublicSellerProfilePage() {
     };
   }, [id]);
 
-  if (loading) return <div className="p-6">Loading…</div>;
+  if (loading) return <LoadingState width="max-w-6xl" />;
   if (err || !profile)
-    return <div className="p-6 text-red-600">{err ?? "Seller not found"}</div>;
+    return <ErrorState width="max-w-6xl" message={err ?? "Seller not found"} />;
 
   return (
-    <div className="max-w-6xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-4 py-6 sm:px-6 lg:grid-cols-3">
       <div className="lg:col-span-1 space-y-4">
         <ProfileHeaderCard
           displayName={profile.displayName}
@@ -92,79 +95,81 @@ export function PublicSellerProfilePage() {
       </div>
 
       <div className="lg:col-span-2 space-y-6">
-        <div className="border rounded p-4 space-y-4">
-          <div className="text-xl font-semibold">Active listings</div>
+        <Card>
+          <CardHeader>
+            <div className="text-xl font-semibold text-slate-900">Active listings</div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {profile.listings.length === 0 && (
+              <div className="text-sm text-slate-500">No active listings.</div>
+            )}
 
-          {profile.listings.length === 0 && (
-            <div className="text-sm text-gray-500">No active listings.</div>
-          )}
-
-          <div className="space-y-3">
             {profile.listings.map((listing) => (
               <Link
                 key={listing.id}
                 to={`/listings/${listing.id}`}
-                className="block border rounded p-3 hover:bg-gray-50"
+                className="block rounded-xl border border-slate-200 bg-slate-50 p-3 transition hover:border-slate-300 hover:bg-white"
               >
                 <div className="flex justify-between gap-4">
                   <div>
-                    <div className="font-medium">{listing.title}</div>
-                    <div className="text-sm text-gray-600">
+                    <div className="font-medium text-slate-900">{listing.title}</div>
+                    <div className="text-sm text-slate-600">
                       {listing.description}
                     </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      {listing.type}
+                    <div className="mt-1">
+                      <Badge variant="outline">{listing.type}</Badge>
                     </div>
                   </div>
 
-                  <div className="font-semibold">
+                  <div className="font-semibold text-slate-900">
                     {(listing.price / 100).toFixed(2)} Kč
                   </div>
                 </div>
               </Link>
             ))}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        <div className="border rounded p-4 space-y-4">
-          <div className="text-xl font-semibold">Reviews</div>
+        <Card>
+          <CardHeader>
+            <div className="text-xl font-semibold text-slate-900">Reviews</div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {profile.reviewsReceived.length === 0 && (
+              <div className="text-sm text-slate-500">No reviews yet.</div>
+            )}
 
-          {profile.reviewsReceived.length === 0 && (
-            <div className="text-sm text-gray-500">No reviews yet.</div>
-          )}
-
-          <div className="space-y-3">
             {profile.reviewsReceived.map((review) => (
-              <div key={review.id} className="border rounded p-3 space-y-2">
+              <div key={review.id} className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
                 <div className="flex items-center justify-between gap-3">
-                  <div className="font-medium">{review.buyer.displayName}</div>
+                  <div className="font-medium text-slate-900">{review.buyer.displayName}</div>
                   <div className="flex items-center gap-2">
                     <RatingStars value={review.rating} />
-                    <span className="text-sm text-gray-600">
+                    <span className="text-sm text-slate-600">
                       {review.rating}/5
                     </span>
                   </div>
                 </div>
 
-                <div className="text-xs text-gray-500 space-y-1">
+                <div className="space-y-1 text-xs text-slate-500">
                   <div>{new Date(review.createdAt).toLocaleString()}</div>
                   <div>
                     Listing:{" "}
-                    <span className="font-medium">
+                    <span className="font-medium text-slate-700">
                       {review.deal.listing.title}
                     </span>
                   </div>
                 </div>
 
                 {review.comment && (
-                  <div className="text-sm whitespace-pre-wrap">
+                  <div className="text-sm whitespace-pre-wrap text-slate-700">
                     {review.comment}
                   </div>
                 )}
               </div>
             ))}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

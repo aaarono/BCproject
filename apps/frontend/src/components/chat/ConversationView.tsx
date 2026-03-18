@@ -1,16 +1,21 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { ExternalLink, Send } from "lucide-react";
 import { Link } from "react-router-dom";
 import { http } from "../../api/http";
 import { useAuth } from "../../auth/AuthContext";
 import { getSocket } from "../../api/socket";
+import { Badge } from "../ui/Badge";
+import { Button } from "../ui/Button";
+import { Card } from "../ui/Card";
+import { Input } from "../ui/Input";
 
 function extractErrorMessage(error: unknown, fallback: string) {
   if (
     typeof error === "object" &&
     error !== null &&
     "response" in error &&
-    typeof (error as { response?: { data?: { message?: unknown } } }).response
-      ?.data?.message === "string"
+    typeof (error as { response?: { data?: { message?: unknown } } }).response?.data
+      ?.message === "string"
   ) {
     return (
       (error as { response?: { data?: { message?: string } } }).response?.data
@@ -102,7 +107,7 @@ export function ConversationView({
   async function loadActiveDeal() {
     try {
       const res = await http.get<ActiveDeal>(
-        `/deals/active/by-listing/${conversation.listingId}/by-buyer/${conversation.buyerId}`
+        `/deals/active/by-listing/${conversation.listingId}/by-buyer/${conversation.buyerId}`,
       );
       setActiveDeal(res.data);
     } catch {
@@ -160,7 +165,7 @@ export function ConversationView({
         if (response?.userId === otherUserId) {
           setIsOtherUserOnline(response.isOnline);
         }
-      }
+      },
     );
 
     socket.on("message:new", handleNewMessage);
@@ -199,7 +204,7 @@ export function ConversationView({
               return [...prev, response.message!];
             });
           }
-        }
+        },
       );
 
       setText("");
@@ -209,96 +214,119 @@ export function ConversationView({
   }
 
   return (
-    <div className="border rounded flex flex-col h-[650px]">
-      <div className="p-4 border-b space-y-2">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="font-semibold">{conversation.listing.title}</div>
-            <div className="text-sm text-gray-600 flex items-center gap-2">
-              <span>With: {otherUser}</span>
+    <Card className="flex h-[720px] flex-col overflow-hidden">
+      <div className="border-b border-slate-100 bg-white p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-700">
+              {otherUser.slice(0, 2).toUpperCase()}
               <span
-                className={`inline-block w-2.5 h-2.5 rounded-full ${
-                  isOtherUserOnline ? "bg-green-500" : "bg-gray-400"
+                className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white ${
+                  isOtherUserOnline ? "bg-emerald-500" : "bg-slate-400"
                 }`}
               />
-              <span className="text-xs">
-                {isOtherUserOnline ? "Online" : "Offline"}
-              </span>
+            </div>
+
+            <div className="min-w-0">
+              <div className="truncate font-semibold text-slate-900">{otherUser}</div>
+              <div className="text-xs text-slate-500">{isOtherUserOnline ? "Online" : "Offline"}</div>
             </div>
           </div>
 
-          <div className="flex flex-col items-end gap-2 text-sm">
-            <Link className="underline" to={`/listings/${conversation.listing.id}`}>
-              Open listing
-            </Link>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" asChild>
+              <Link to={`/listings/${conversation.listing.id}`}>
+                <ExternalLink className="h-4 w-4" />
+                Listing
+              </Link>
+            </Button>
 
             {activeDeal && (
-              <Link className="underline" to={`/deals/${activeDeal.id}`}>
-                Open deal
-              </Link>
+              <Button variant="ghost" size="sm" asChild>
+                <Link to={`/deals/${activeDeal.id}`}>
+                  <ExternalLink className="h-4 w-4" />
+                  Deal
+                </Link>
+              </Button>
             )}
           </div>
         </div>
       </div>
 
+      <div className="border-b border-slate-100 bg-slate-50 px-4 py-2">
+        <Link
+          to={`/listings/${conversation.listing.id}`}
+          className="flex items-center gap-2 text-sm"
+        >
+          <Badge variant="outline" className="text-[10px]">
+            Related listing
+          </Badge>
+          <span className="line-clamp-1 font-medium text-slate-800">{conversation.listing.title}</span>
+          <span className="ml-auto shrink-0 text-slate-700">{(conversation.listing.price / 100).toFixed(2)} Kč</span>
+        </Link>
+      </div>
+
       <div
         ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto p-4 flex flex-col gap-2 bg-gray-50"
+        className="flex flex-1 flex-col gap-2 overflow-y-auto bg-slate-50 px-4 py-6"
       >
-        {loading && <div className="text-sm text-gray-500">Loading…</div>}
+        <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-3">
+          {loading && <div className="text-sm text-slate-500">Loading…</div>}
 
-        {!loading && messages.length === 0 && (
-          <div className="text-sm text-gray-500">No messages yet</div>
-        )}
+          {!loading && messages.length === 0 && (
+            <div className="py-10 text-center text-sm text-slate-500">No messages yet</div>
+          )}
 
-        {messages.map((m) => {
-          const mine = m.senderId === user?.id;
-          return (
-            <div
-              key={m.id}
-              className={`flex ${mine ? "justify-end" : "justify-start"}`}
-            >
+          {messages.map((m) => {
+            const mine = m.senderId === user?.id;
+            return (
               <div
-                className={`max-w-[75%] rounded px-3 py-2 ${
-                  mine ? "bg-black text-white" : "bg-white text-black border"
-                }`}
+                key={m.id}
+                className={`flex ${mine ? "justify-end" : "justify-start"}`}
               >
-                <div className="text-sm whitespace-pre-wrap">{m.text}</div>
                 <div
-                  className={`text-[10px] mt-1 ${
-                    mine ? "text-gray-200" : "text-gray-500"
+                  className={`max-w-[75%] rounded-2xl px-4 py-2.5 ${
+                    mine
+                      ? "bg-slate-900 text-white"
+                      : "border border-slate-200 bg-white text-slate-900"
                   }`}
                 >
-                  {m.sender.displayName} ·{" "}
-                  {new Date(m.createdAt).toLocaleTimeString()}
+                  <div className="whitespace-pre-wrap text-sm">{m.text}</div>
+                  <div
+                    className={`mt-1 text-[10px] ${
+                      mine ? "text-slate-200" : "text-slate-500"
+                    }`}
+                  >
+                    {m.sender.displayName} · {new Date(m.createdAt).toLocaleTimeString()}
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
 
-      <div className="p-3 border-t space-y-2">
-        <div className="flex gap-2">
-          <input
-            className="border rounded p-2 flex-1"
+      <div className="border-t border-slate-100 bg-white p-4">
+        <div className="mx-auto flex max-w-2xl gap-2">
+          <Input
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Write a message…"
+            placeholder="Type a message..."
             onKeyDown={(e) => {
-              if (e.key === "Enter") send();
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                send();
+              }
             }}
           />
-          <button
-            className="bg-black text-white rounded px-4 py-2"
-            onClick={send}
-          >
+          <Button onClick={send} disabled={!text.trim()}>
+            <Send className="h-4 w-4" />
             Send
-          </button>
+          </Button>
         </div>
 
-        {err && <div className="text-sm text-red-600">{err}</div>}
+        {err && <div className="mx-auto mt-2 max-w-2xl text-sm text-red-600">{err}</div>}
       </div>
-    </div>
+    </Card>
   );
 }

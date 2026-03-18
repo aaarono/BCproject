@@ -7,6 +7,9 @@ import { ConversationView } from "../components/chat/ConversationView";
 import { useAuth } from "../auth/AuthContext";
 import { PriceHistoryChart } from "../components/listing/PriceHistoryChart";
 import { extractHttpErrorMessage } from "../utils/httpError";
+import { Button } from "../components/ui/Button";
+import { Card, CardContent, CardHeader } from "../components/ui/Card";
+import { ErrorState, LoadingState } from "../components/ui/PageStates";
 
 type Conversation = {
   id: string;
@@ -95,40 +98,47 @@ export function ListingPage() {
     }
   }
 
-  if (loading) return <div className="p-6">Loading…</div>;
+  if (loading) return <LoadingState width="max-w-6xl" />;
   if (err || !listing) {
-    return <div className="p-6 text-red-600">{err ?? "Not found"}</div>;
+    return <ErrorState width="max-w-6xl" message={err ?? "Not found"} />;
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div className="lg:col-span-2">
+    <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-4 py-6 sm:px-6 lg:grid-cols-3">
+      <div className="space-y-6 lg:col-span-2">
         <ListingDetails listing={listing} />
-        <div className="mt-6">
-          <PriceHistoryChart points={priceHistory} />
-        </div>
+        <PriceHistoryChart points={priceHistory} />
       </div>
 
-      <div className="lg:col-span-1 space-y-6">
+      <div className="space-y-6 lg:col-span-1">
         {!user ? (
-          <div className="border rounded p-4 text-sm text-gray-600">
-            Please{" "}
-            <Link className="underline" to="/login">
-              login
-            </Link>{" "}
-            to contact the seller.
-          </div>
+          <Card>
+            <CardHeader className="font-semibold text-slate-900">Chat with seller</CardHeader>
+            <CardContent className="space-y-3 text-sm text-slate-600">
+              <div>
+                Please{" "}
+                <Link className="font-semibold underline" to="/login">
+                  login
+                </Link>{" "}
+                to contact the seller.
+              </div>
+              <Button fullWidth size="lg" onClick={() => nav("/login")}>Login to continue</Button>
+            </CardContent>
+          </Card>
         ) : isOwner ? (
-          <div className="border rounded p-4 text-sm text-gray-600 space-y-2">
-            <div>You are the seller of this listing.</div>
-            <div>
-              Manage conversations in <b>Inbox</b> and deals in <b>My deals</b>.
-            </div>
-          </div>
+          <Card>
+            <CardHeader className="font-semibold text-slate-900">Seller mode</CardHeader>
+            <CardContent className="space-y-2 text-sm text-slate-600">
+              <div>You are the seller of this listing.</div>
+              <div>
+                Manage conversations in <b>Inbox</b> and deals in <b>My deals</b>.
+              </div>
+            </CardContent>
+          </Card>
         ) : chatLoading ? (
-          <div className="border rounded p-4 text-sm text-gray-500">
-            Loading conversation…
-          </div>
+          <Card>
+            <CardContent className="text-sm text-slate-500">Loading conversation…</CardContent>
+          </Card>
         ) : conversationId ? (
           <ConversationView
             conversation={{
@@ -154,29 +164,37 @@ export function ListingPage() {
             }}
           />
         ) : (
-          <div className="border rounded p-4 text-sm text-gray-500">
-            Conversation could not be loaded.
-          </div>
+          <Card>
+            <CardContent className="text-sm text-slate-500">Conversation could not be loaded.</CardContent>
+          </Card>
         )}
 
         {!isOwner && user && (
-          <button
-            className="bg-black text-white rounded px-4 py-2 w-full disabled:opacity-60"
-            onClick={buyNow}
-            disabled={buyLoading}
-          >
-            {buyLoading
-              ? "Processing…"
-              : listing.type === "SERVICE"
-              ? "Order"
-              : "Buy"}
-          </button>
+          <Card>
+            <CardContent className="space-y-3">
+              <Button
+                fullWidth
+                size="lg"
+                onClick={buyNow}
+                disabled={buyLoading}
+              >
+                {buyLoading
+                  ? "Processing…"
+                  : listing.type === "SERVICE"
+                  ? "Order"
+                  : "Buy"}
+              </Button>
+              <div className="text-center text-xs text-slate-500">Escrow-protected checkout</div>
+            </CardContent>
+          </Card>
         )}
 
         {isOwner && (
-          <div className="text-sm text-gray-600 border rounded p-3">
-            You are the seller. Manage deals from <b>My deals</b>.
-          </div>
+          <Card>
+            <CardContent className="text-sm text-slate-600">
+              You are the seller. Manage deals from <b>My deals</b>.
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>

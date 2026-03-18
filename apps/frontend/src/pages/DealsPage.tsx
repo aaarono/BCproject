@@ -1,8 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
+import { ArrowRight, Briefcase, Gamepad2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { http } from "../api/http";
 import { useAuth } from "../auth/AuthContext";
 import { extractHttpErrorMessage } from "../utils/httpError";
+import { Badge } from "../components/ui/Badge";
+import { Card, CardContent, CardHeader } from "../components/ui/Card";
+import { DealStatusBadge } from "../components/profile/DealStatusBadge";
+import { ErrorState, LoadingState } from "../components/ui/PageStates";
 
 type Deal = {
   id: string;
@@ -12,18 +17,6 @@ type Deal = {
   buyer: { id: string; displayName: string };
   seller: { id: string; displayName: string };
 };
-
-function StatusBadge({ status }: { status: string }) {
-  const base = "text-xs px-2 py-1 rounded border";
-  const map: Record<string, string> = {
-    INITIATED: "bg-gray-50",
-    FUNDED: "bg-gray-50",
-    DELIVERED: "bg-gray-50",
-    COMPLETED: "bg-gray-50",
-    CANCELED: "bg-gray-50",
-  };
-  return <span className={`${base} ${map[status] ?? "bg-gray-50"}`}>{status}</span>;
-}
 
 export function DealsPage() {
   const { user } = useAuth();
@@ -63,47 +56,76 @@ export function DealsPage() {
     };
   }, []);
 
-  if (loading) return <div className="p-6">Loading…</div>;
-  if (err) return <div className="p-6 text-red-600">{err}</div>;
+  if (loading) return <LoadingState width="max-w-5xl" />;
+  if (err) return <ErrorState width="max-w-5xl" message={err} />;
+
+  const formatAmount = (value: number) => `${(value / 100).toFixed(2)} Kč`;
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-4">
-      <div className="flex items-end justify-between">
-        <h1 className="text-2xl font-bold">{title}</h1>
-        {user && <div className="text-xs text-gray-500">Logged in as: {user.email}</div>}
-      </div>
+    <div className="mx-auto max-w-5xl space-y-4 px-4 py-6 sm:px-6">
+      <Card>
+        <CardHeader className="space-y-1">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">{title}</h1>
+          <div className="text-sm text-slate-500">Track escrow status and take required actions in each deal room.</div>
+          {user && <div className="text-xs text-slate-400">Logged in as: {user.email}</div>}
+        </CardHeader>
+      </Card>
 
-      {deals.length === 0 && <div className="text-gray-600">No deals yet.</div>}
+      {deals.length === 0 && (
+        <Card>
+          <CardContent className="text-slate-600">No deals yet.</CardContent>
+        </Card>
+      )}
 
       <div className="space-y-3">
         {deals.map((d) => {
           const iam = user?.id === d.seller.id ? "Seller" : user?.id === d.buyer.id ? "Buyer" : null;
+          const counterparty = iam === "Seller" ? d.buyer.displayName : d.seller.displayName;
 
           return (
-            <Link
-              key={d.id}
-              to={`/deals/${d.id}`}
-              className="block border rounded p-4 hover:bg-gray-50"
-            >
-              <div className="flex justify-between gap-4">
-                <div>
-                  <div className="font-semibold">{d.listing.title}</div>
-                  <div className="text-sm text-gray-600">
-                    {d.listing.type} · {(d.listing.price / 100).toFixed(2)} Kč
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    Buyer: {d.buyer.displayName} · Seller: {d.seller.displayName}
-                    {iam && <span className="text-xs text-gray-500"> · You are: {iam}</span>}
-                  </div>
-                </div>
+            <Link key={d.id} to={`/deals/${d.id}`} className="block">
+              <Card className="group transition hover:border-slate-300 hover:shadow-sm">
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+                      {d.listing.type === "GOOD" ? <Gamepad2 className="h-5 w-5" /> : <Briefcase className="h-5 w-5" />}
+                    </div>
 
-                <div className="text-right space-y-2">
-                  <StatusBadge status={d.status} />
-                  <div className="text-xs text-gray-500">
-                    {new Date(d.createdAt).toLocaleString()}
+                    <div className="min-w-0 flex-1 space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="line-clamp-1 font-semibold text-slate-900">{d.listing.title}</div>
+                          <div className="mt-1 text-sm text-slate-600">
+                            {d.listing.type} · {formatAmount(d.listing.price)}
+                          </div>
+                        </div>
+                        <div className="shrink-0">
+                          <DealStatusBadge status={d.status} />
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                        {iam && (
+                          <Badge variant="outline" className="text-[10px]">
+                            You are {iam}
+                          </Badge>
+                        )}
+                        <Badge variant="outline" className="text-[10px]">
+                          With {counterparty}
+                        </Badge>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-400">Updated {new Date(d.createdAt).toLocaleString()}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-slate-900">{formatAmount(d.listing.price)}</span>
+                          <ArrowRight className="h-4 w-4 text-slate-400 transition group-hover:text-slate-700" />
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
             </Link>
           );
         })}

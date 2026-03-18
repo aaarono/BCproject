@@ -3,6 +3,10 @@ import { http } from "../api/http";
 import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import type { Listing } from "../types/listing";
+import { MarketplaceListingCard } from "../components/listing/MarketplaceListingCard";
+import { PageContainer, PageHeader } from "../components/ui/PageLayout";
+import { Input } from "../components/ui/Input";
+import { Button } from "../components/ui/Button";
 
 type Meta = { total: number; page: number; limit: number; totalPages: number };
 
@@ -61,31 +65,25 @@ export function ListingsPage() {
   }, []);
 
   return (
-    <div className="max-w-3xl mx-auto p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Listings</h1>
-        <div className="text-sm flex gap-3 items-center">
-          {user ? (
-            <span>{user.email} ({user.role})</span>
-          ) : (
-            <span>Not logged in</span>
-          )}
-        </div>
-      </div>
+    <PageContainer width="max-w-7xl">
+      <PageHeader
+        title="Listings"
+        subtitle="Discover trusted offers with escrow-protected checkout."
+        right={user ? `Signed in as ${user.email}` : "Guest mode"}
+      />
 
-      {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
-        <input
+      <div className="mb-6 grid grid-cols-1 gap-3 rounded-2xl border border-slate-200 bg-white p-4 md:grid-cols-2 lg:grid-cols-4">
+        <Input
           type="text"
           placeholder="Search listings..."
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          className="border rounded px-3 py-2 text-sm"
+          className="bg-slate-50"
         />
         <select
           value={type}
           onChange={(e) => { setType(e.target.value as "" | "GOOD" | "SERVICE"); setPage(1); }}
-          className="border rounded px-3 py-2 text-sm"
+          className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
         >
           <option value="">All types</option>
           <option value="GOOD">Goods</option>
@@ -107,7 +105,7 @@ export function ListingsPage() {
             );
             setPage(1);
           }}
-          className="border rounded px-3 py-2 text-sm"
+          className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
         >
           <option value="">All categories</option>
           <option value="GAMES">Games</option>
@@ -131,7 +129,7 @@ export function ListingsPage() {
             );
             setPage(1);
           }}
-          className="border rounded px-3 py-2 text-sm"
+          className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
         >
           <option value="NEWEST">Newest</option>
           <option value="PRICE_ASC">Price: low to high</option>
@@ -140,31 +138,31 @@ export function ListingsPage() {
           <option value="SALE">Best sale first</option>
         </select>
 
-        <input
+        <Input
           type="text"
           placeholder="Tags: eu, alliance"
           value={tags}
           onChange={(e) => { setTags(e.target.value); setPage(1); }}
-          className="border rounded px-3 py-2 text-sm"
+          className="bg-slate-50"
         />
 
-        <input
+        <Input
           type="number"
           placeholder="Min price (cents)"
           value={minPrice}
           onChange={(e) => { setMinPrice(e.target.value); setPage(1); }}
-          className="border rounded px-3 py-2 text-sm"
+          className="bg-slate-50"
         />
 
-        <input
+        <Input
           type="number"
           placeholder="Max price (cents)"
           value={maxPrice}
           onChange={(e) => { setMaxPrice(e.target.value); setPage(1); }}
-          className="border rounded px-3 py-2 text-sm"
+          className="bg-slate-50"
         />
 
-        <input
+        <Input
           type="number"
           min="0"
           max="5"
@@ -172,35 +170,36 @@ export function ListingsPage() {
           placeholder="Min rating (0-5)"
           value={minRating}
           onChange={(e) => { setMinRating(e.target.value); setPage(1); }}
-          className="border rounded px-3 py-2 text-sm"
+          className="bg-slate-50"
         />
       </div>
 
-      <div className="border rounded p-4 mb-6 space-y-3">
+      <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-4">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold">Weekly Top Sellers</h2>
-          <Link to="/top-sellers" className="text-sm underline">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Weekly Top Sellers</h2>
+          <Link to="/top-sellers" className="text-sm font-medium text-slate-700 underline">
             View all
           </Link>
         </div>
 
         {weeklyTopSellers.length === 0 ? (
-          <div className="text-sm text-gray-500">No weekly activity yet.</div>
+          <div className="mt-3 text-sm text-slate-500">No weekly activity yet.</div>
         ) : (
-          <div className="space-y-2">
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {weeklyTopSellers.map((seller, index) => (
               <Link
                 key={seller.id}
                 to={`/users/${seller.id}`}
-                className="block border rounded px-3 py-2 hover:bg-gray-50"
+                className="block rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 transition hover:border-slate-300 hover:bg-white"
               >
-                <div className="flex items-center justify-between gap-4 text-sm">
+                <div className="flex items-center justify-between gap-4">
                   <div>
-                    <span className="text-gray-500 mr-2">#{index + 1}</span>
-                    <span className="font-medium">{seller.displayName}</span>
+                    <div className="text-[10px] uppercase tracking-wide text-slate-500">#{index + 1}</div>
+                    <div className="font-semibold text-slate-900">{seller.displayName}</div>
                   </div>
-                  <div className="text-gray-600">
-                    ⭐ {seller.ratingAvg.toFixed(2)} · deals 7d: {seller.completedDeals}
+                  <div className="text-right text-xs text-slate-600">
+                    <div>★ {seller.ratingAvg.toFixed(2)}</div>
+                    <div>7d deals: {seller.completedDeals}</div>
                   </div>
                 </div>
               </Link>
@@ -209,70 +208,40 @@ export function ListingsPage() {
         )}
       </div>
 
-      {/* Listing cards */}
-      <div className="space-y-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {items.length === 0 && (
-          <p className="text-gray-500 text-center py-8">No listings found</p>
+          <p className="col-span-full rounded-xl border border-slate-200 bg-white py-10 text-center text-slate-500">
+            No listings found
+          </p>
         )}
         {items.map((x) => (
-          <Link key={x.id} to={`/listings/${x.id}`} className="block border rounded p-4 hover:bg-gray-50">
-            <div className="flex justify-between">
-              <div>
-                <div className="font-semibold">{x.title}</div>
-                <div className="text-sm text-gray-600">{x.description}</div>
-                <div className="text-xs text-gray-600 mt-1">
-                  {x.category}
-                  {x.tags?.length ? ` · ${x.tags.join(", ")}` : ""}
-                </div>
-                <div className="text-sm mt-2">
-                  Seller: <b>{x.seller.displayName}</b> — ⭐ {x.seller.ratingAvg.toFixed(2)} ({x.seller.ratingCount})
-                </div>
-              </div>
-              <div className="text-right">
-                {x.isOnSale ? (
-                  <div className="space-y-1">
-                    <div className="text-xs line-through text-gray-500">
-                      {(x.price / 100).toFixed(2)} Kč
-                    </div>
-                    <div className="font-semibold">
-                      {((x.effectivePrice ?? x.price) / 100).toFixed(2)} Kč
-                    </div>
-                    <div className="text-[10px] px-2 py-0.5 rounded bg-black text-white inline-block">
-                      SALE {x.salePercent}%
-                    </div>
-                  </div>
-                ) : (
-                  <div className="font-semibold">{(x.price / 100).toFixed(2)} Kč</div>
-                )}
-                <div className="text-xs text-gray-600">{x.type}</div>
-              </div>
-            </div>
-          </Link>
+          <MarketplaceListingCard key={x.id} listing={x} />
         ))}
       </div>
 
-      {/* Pagination */}
       {meta.totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-6">
-          <button
+        <div className="mt-6 flex items-center justify-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page === 1}
-            className="px-3 py-1 border rounded text-sm disabled:opacity-40"
           >
             Previous
-          </button>
-          <span className="text-sm text-gray-600">
+          </Button>
+          <span className="text-sm text-slate-600">
             Page {meta.page} of {meta.totalPages}
           </span>
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => setPage((p) => Math.min(meta.totalPages, p + 1))}
             disabled={page === meta.totalPages}
-            className="px-3 py-1 border rounded text-sm disabled:opacity-40"
           >
             Next
-          </button>
+          </Button>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

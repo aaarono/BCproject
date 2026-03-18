@@ -4,6 +4,7 @@ import { http } from "../api/http";
 import { ListingForm, type ListingFormValues } from "../components/listing/ListingForm";
 import type { Listing } from "../types/listing";
 import { extractHttpErrorMessage } from "../utils/httpError";
+import { ErrorState, LoadingState } from "../components/ui/PageStates";
 
 function toDateTimeLocal(value?: string | null) {
   if (!value) return "";
@@ -121,13 +122,13 @@ export function EditListingPage() {
     }
   }
 
-  if (loading) return <div className="p-6">Loading…</div>;
-  if (err && !listing) return <div className="p-6 text-red-600">{err}</div>;
-  if (!listing) return <div className="p-6 text-red-600">Listing not found</div>;
+  if (loading) return <LoadingState width="max-w-3xl" />;
+  if (err && !listing) return <ErrorState width="max-w-3xl" message={err} />;
+  if (!listing) return <ErrorState width="max-w-3xl" message="Listing not found" />;
 
   return (
-    <div className="max-w-2xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-6">Edit listing</h1>
+    <div className="mx-auto max-w-3xl space-y-4 px-4 py-6 sm:px-6">
+      <h1 className="text-2xl font-bold tracking-tight text-slate-900">Edit listing</h1>
 
       <ListingForm
         initialValues={{

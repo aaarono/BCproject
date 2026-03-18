@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import { http } from "../api/http";
 import { extractHttpErrorMessage } from "../utils/httpError";
+import { Card, CardContent, CardHeader } from "../components/ui/Card";
+import { Input } from "../components/ui/Input";
+import { Button } from "../components/ui/Button";
+import { ErrorState, LoadingState } from "../components/ui/PageStates";
+import { PageContainer, PageHeader } from "../components/ui/PageLayout";
 
 type Profile = {
   id: string;
@@ -60,43 +65,37 @@ export function SettingsPage() {
     }
   }
 
-  if (loading) return <div className="p-6">Loading…</div>;
-  if (err && !profile) return <div className="p-6 text-red-600">{err}</div>;
+  if (loading) return <LoadingState width="max-w-2xl" />;
+  if (err && !profile) return <ErrorState width="max-w-2xl" message={err} />;
 
   return (
-    <div className="max-w-2xl mx-auto p-6 space-y-4">
-      <h1 className="text-2xl font-bold">Settings</h1>
+    <PageContainer width="max-w-2xl">
+      <PageHeader title="Settings" subtitle="Update your profile identity and login email." />
 
-      <div className="border rounded p-4 space-y-4">
-        <div>
-          <label className="block text-sm mb-1">Display name</label>
-          <input
-            className="border rounded p-2 w-full"
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-          />
-        </div>
+      <Card>
+        <CardHeader>
+          <div className="text-sm text-slate-600">Manage your account profile settings</div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Display name</label>
+            <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+          </div>
 
-        <div>
-          <label className="block text-sm mb-1">Email</label>
-          <input
-            className="border rounded p-2 w-full"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Email</label>
+            <Input value={email} onChange={(e) => setEmail(e.target.value)} />
+            <div className="mt-1 text-xs text-slate-500">Used for login and marketplace notifications.</div>
+          </div>
 
-        {err && <div className="text-sm text-red-600">{err}</div>}
-        {success && <div className="text-sm text-green-700">{success}</div>}
+          {err && <div className="text-sm text-red-600">{err}</div>}
+          {success && <div className="text-sm text-emerald-700">{success}</div>}
 
-        <button
-          className="bg-black text-white rounded px-4 py-2 disabled:opacity-50"
-          onClick={save}
-          disabled={saving}
-        >
-          {saving ? "Saving..." : "Save changes"}
-        </button>
-      </div>
-    </div>
+          <Button onClick={save} disabled={saving}>
+            {saving ? "Saving..." : "Save changes"}
+          </Button>
+        </CardContent>
+      </Card>
+    </PageContainer>
   );
 }

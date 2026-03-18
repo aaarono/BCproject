@@ -1,8 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Search } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { http } from "../api/http";
 import { getSocket } from "../api/socket";
 import { ConversationView } from "../components/chat/ConversationView";
+import { Card, CardContent, CardHeader } from "../components/ui/Card";
+import { Input } from "../components/ui/Input";
+import { ErrorState, LoadingState } from "../components/ui/PageStates";
 
 function extractErrorMessage(error: unknown, fallback: string) {
   if (
@@ -68,6 +72,7 @@ export function InboxPage() {
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
@@ -130,60 +135,107 @@ export function InboxPage() {
   const selectedConversation =
     conversations.find((c) => c.id === selectedConversationId) ?? null;
 
-  if (loading) return <div className="p-6">Loading…</div>;
-  if (err) return <div className="p-6 text-red-600">{err}</div>;
+  const filteredConversations = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return conversations;
+
+    return conversations.filter((conv) => {
+      const otherUser = user?.id === conv.buyer.id ? conv.seller.displayName : conv.buyer.displayName;
+      const lastMessage = conv.messages[0]?.text ?? "";
+
+      return (
+        conv.listing.title.toLowerCase().includes(query) ||
+        otherUser.toLowerCase().includes(query) ||
+        lastMessage.toLowerCase().includes(query)
+      );
+    });
+  }, [conversations, searchQuery, user?.id]);
+
+  if (loading) return <LoadingState width="max-w-7xl" />;
+  if (err) return <ErrorState width="max-w-7xl" message={err} />;
 
   return (
-    <div className="max-w-7xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-6">
-      <div className="border rounded h-[650px] overflow-y-auto">
-        <div className="p-4 border-b font-semibold">Inbox</div>
+    <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[360px_1fr]">
+      <Card className="h-[720px] overflow-hidden">
+        <CardHeader className="space-y-1 border-b border-slate-100">
+          <div className="text-base font-semibold text-slate-900">Inbox</div>
+          <div className="text-xs text-slate-500">Live conversations from your listings and deals</div>
+        </CardHeader>
 
-        {conversations.length === 0 && (
-          <div className="p-4 text-sm text-gray-500">No conversations yet.</div>
-        )}
-
-        <div className="divide-y">
-          {conversations.map((conv) => {
-            const otherUser =
-              user?.id === conv.buyer.id ? conv.seller.displayName : conv.buyer.displayName;
-
-            const lastMessage = conv.messages[0];
-
-            return (
-              <button
-                key={conv.id}
-                onClick={() => setSelectedConversationId(conv.id)}
-                className={`w-full text-left p-4 hover:bg-gray-50 ${
-                  selectedConversationId === conv.id ? "bg-gray-100" : ""
-                }`}
-              >
-                <div className="font-medium">{conv.listing.title}</div>
-                <div className="text-sm text-gray-600">With: {otherUser}</div>
-
-                <div className="text-sm text-gray-500 mt-1 line-clamp-2">
-                  {lastMessage
-                    ? `${lastMessage.sender.displayName}: ${lastMessage.text}`
-                    : "No messages yet"}
-                </div>
-
-                <div className="text-xs text-gray-400 mt-2">
-                  {lastMessage
-                    ? new Date(lastMessage.createdAt).toLocaleString()
-                    : new Date(conv.createdAt).toLocaleString()}
-                </div>
-              </button>
-            );
-          })}
+        <div className="border-b border-slate-100 px-5 py-3">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by listing, user, or message"
+              className="pl-9"
+            />
+          </div>
         </div>
-      </div>
 
-      <div>
+        <CardContent className="h-[calc(720px-145px)] overflow-y-auto p-0">
+          {conversations.length === 0 && (
+            <div className="p-5 text-sm text-slate-500">No conversations yet.</div>
+          )}
+
+          {conversations.length > 0 && filteredConversations.length === 0 && (
+            <div className="p-5 text-sm text-slate-500">No matching conversations.</div>
+          )}
+
+          <div className="divide-y divide-slate-100">
+            {filteredConversations.map((conv) => {
+              const otherUser =
+                user?.id === conv.buyer.id ? conv.seller.displayName : conv.buyer.displayName;
+
+              const lastMessage = conv.messages[0];
+              const timestamp = lastMessage?.createdAt ?? conv.createdAt;
+
+              return (
+                <button
+                  key={conv.id}
+                  onClick={() => setSelectedConversationId(conv.id)}
+                  className={`w-full p-4 text-left transition hover:bg-slate-50 ${
+                    selectedConversationId === conv.id ? "bg-slate-100" : ""
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-700">
+                      {otherUser.slice(0, 2).toUpperCase()}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="line-clamp-1 text-sm font-semibold text-slate-900">{otherUser}</div>
+                          <div className="mt-0.5 line-clamp-1 text-xs text-slate-500">{conv.listing.title}</div>
+                        </div>
+                        <div className="shrink-0 text-[11px] text-slate-400">
+                          {new Date(timestamp).toLocaleString()}
+                        </div>
+                      </div>
+
+                      <div className="mt-2 line-clamp-2 text-sm text-slate-600">
+                        {lastMessage
+                          ? `${lastMessage.sender.displayName}: ${lastMessage.text}`
+                          : "No messages yet"}
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="min-h-[720px]">
         {selectedConversation ? (
           <ConversationView conversation={selectedConversation} />
         ) : (
-          <div className="border rounded h-[650px] flex items-center justify-center text-gray-500">
-            Select a conversation
-          </div>
+          <Card className="flex h-[720px] items-center justify-center">
+            <CardContent className="text-slate-500">Select a conversation</CardContent>
+          </Card>
         )}
       </div>
     </div>

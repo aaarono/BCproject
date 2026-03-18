@@ -2,6 +2,10 @@ import { useState } from "react";
 import { http } from "../api/http";
 import { useAuth } from "../auth/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
+import { Card, CardContent, CardHeader } from "../components/ui/Card";
+import { Button } from "../components/ui/Button";
+import { Input } from "../components/ui/Input";
+import { PageContainer } from "../components/ui/PageLayout";
 
 function extractErrorMessage(error: unknown, fallback: string) {
   if (
@@ -40,17 +44,49 @@ export function LoginPage() {
   }
 
   return (
-    <div className="max-w-md mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-4">Login</h1>
-      <form onSubmit={onSubmit} className="space-y-3">
-        <input className="w-full border p-2 rounded" placeholder="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-        <input className="w-full border p-2 rounded" placeholder="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-        {err && <div className="text-red-600 text-sm">{String(err)}</div>}
-        <button className="w-full bg-black text-white rounded p-2">Sign in</button>
-      </form>
-      <div className="mt-3 text-sm">
-        No account? <Link className="underline" to="/register">Register</Link>
+    <PageContainer width="max-w-md" className="py-8 sm:px-0">
+      <Card>
+        <CardHeader className="space-y-1.5">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Login</h1>
+          <p className="text-sm text-slate-600">Continue to your marketplace account</p>
+        </CardHeader>
+
+        <CardContent className="space-y-4">
+          <form onSubmit={onSubmit} className="space-y-3.5">
+            <Input
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+            />
+            <Input
+              placeholder="Password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+            />
+
+            <div className="text-xs text-slate-500">Use your registered marketplace credentials.</div>
+
+            {err && <div className="text-sm text-red-600">{String(err)}</div>}
+
+            <Button fullWidth size="lg" type="submit">
+              Sign in
+            </Button>
+          </form>
+
+          <div className="text-sm text-slate-600">
+            No account?{" "}
+            <Link className="font-semibold text-slate-900 underline" to="/register">
+              Register
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+      <div className="mt-4 text-center text-xs text-slate-500">
+        Your session stays secure with httpOnly cookies.
       </div>
-    </div>
+    </PageContainer>
   );
 }

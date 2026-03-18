@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { http } from "../api/http";
 import { extractHttpErrorMessage } from "../utils/httpError";
+import { SellerRankCard } from "../components/profile/SellerRankCard";
+import { ErrorState, LoadingState } from "../components/ui/PageStates";
+import { PageContainer, PageHeader } from "../components/ui/PageLayout";
 
 type TopSeller = {
   id: string;
@@ -50,80 +52,42 @@ export function TopSellersPage() {
     };
   }, []);
 
-  if (loading) return <div className="max-w-4xl mx-auto p-6">Loading…</div>;
-  if (err) return <div className="max-w-4xl mx-auto p-6 text-red-600">{err}</div>;
+  if (loading) return <LoadingState width="max-w-5xl" />;
+  if (err) return <ErrorState width="max-w-5xl" message={err} />;
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-4">
-      <h1 className="text-2xl font-bold">Top Sellers</h1>
-      <p className="text-sm text-gray-600">
-        Ranking based on rating quality and completed deal activity.
-      </p>
+    <PageContainer width="max-w-5xl" className="space-y-6">
+      <PageHeader
+        title="Top Sellers"
+        subtitle="Rankings by rating quality and completed deals."
+      />
 
       {overallItems.length === 0 && weeklyItems.length === 0 && (
-        <div className="border rounded p-4 text-sm text-gray-600">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
           Not enough seller activity yet.
         </div>
       )}
 
       <div className="space-y-6">
-        <div className="space-y-3">
-          <h2 className="text-lg font-semibold">Overall</h2>
+        <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Overall</h2>
           {overallItems.map((seller, index) => (
-            <Link
-              key={seller.id}
-              to={`/users/${seller.id}`}
-              className="block border rounded p-4 hover:bg-gray-50"
-            >
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <div className="text-sm text-gray-500">#{index + 1}</div>
-                  <div className="font-semibold">{seller.displayName}</div>
-                  <div className="text-sm text-gray-600">
-                    ⭐ {seller.ratingAvg.toFixed(2)} ({seller.ratingCount} reviews)
-                  </div>
-                </div>
-
-                <div className="text-right text-sm text-gray-700">
-                  <div>Completed deals: {seller.completedDeals}</div>
-                  <div>Active listings: {seller.activeListings}</div>
-                </div>
-              </div>
-            </Link>
+            <SellerRankCard key={seller.id} seller={seller} rank={index + 1} periodLabel="all time" />
           ))}
         </div>
 
-        <div className="space-y-3">
-          <h2 className="text-lg font-semibold">Weekly</h2>
+        <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Weekly</h2>
           {weeklyItems.length === 0 && (
-            <div className="border rounded p-4 text-sm text-gray-600">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
               No weekly seller activity yet.
             </div>
           )}
           {weeklyItems.map((seller, index) => (
-            <Link
-              key={seller.id}
-              to={`/users/${seller.id}`}
-              className="block border rounded p-4 hover:bg-gray-50"
-            >
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <div className="text-sm text-gray-500">#{index + 1}</div>
-                  <div className="font-semibold">{seller.displayName}</div>
-                  <div className="text-sm text-gray-600">
-                    ⭐ {seller.ratingAvg.toFixed(2)} ({seller.ratingCount} reviews)
-                  </div>
-                </div>
-
-                <div className="text-right text-sm text-gray-700">
-                  <div>Completed deals (7d): {seller.completedDeals}</div>
-                  <div>Active listings: {seller.activeListings}</div>
-                </div>
-              </div>
-            </Link>
+            <SellerRankCard key={seller.id} seller={seller} rank={index + 1} periodLabel="7d" />
           ))}
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 }

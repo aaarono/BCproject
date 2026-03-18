@@ -2,6 +2,10 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { http } from "../api/http";
 import { extractHttpErrorMessage } from "../utils/httpError";
+import { Card, CardContent, CardHeader } from "../components/ui/Card";
+import { Button } from "../components/ui/Button";
+import { Badge } from "../components/ui/Badge";
+import { ErrorState, LoadingState } from "../components/ui/PageStates";
 
 type Listing = {
   id: string;
@@ -73,61 +77,62 @@ export function MyListingsPage() {
 
   const filteredListings = listings.filter((listing) => listing.status === filter);
 
-  if (loading) return <div className="p-6">Loading…</div>;
-  if (err) return <div className="p-6 text-red-600">{err}</div>;
+  if (loading) return <LoadingState width="max-w-5xl" />;
+  if (err) return <ErrorState width="max-w-5xl" message={err} />;
 
   return (
-    <div className="max-w-5xl mx-auto p-6 space-y-4">
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold">My listings</h1>
+    <div className="mx-auto max-w-5xl space-y-4 px-4 py-6 sm:px-6">
+      <Card>
+        <CardHeader className="flex items-center justify-between gap-4">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">My listings</h1>
 
-        <div className="flex gap-2">
-          <button
-            className={`px-3 py-2 rounded border ${
-              filter === "ACTIVE" ? "bg-black text-white" : ""
-            }`}
-            onClick={() => setFilter("ACTIVE")}
-          >
-            Active
-          </button>
+          <div className="flex gap-2">
+            <Button
+              variant={filter === "ACTIVE" ? "default" : "outline"}
+              onClick={() => setFilter("ACTIVE")}
+            >
+              Active
+            </Button>
 
-          <button
-            className={`px-3 py-2 rounded border ${
-              filter === "ARCHIVED" ? "bg-black text-white" : ""
-            }`}
-            onClick={() => setFilter("ARCHIVED")}
-          >
-            Archived
-          </button>
-        </div>
-      </div>
+            <Button
+              variant={filter === "ARCHIVED" ? "default" : "outline"}
+              onClick={() => setFilter("ARCHIVED")}
+            >
+              Archived
+            </Button>
+          </div>
+        </CardHeader>
+      </Card>
 
       {filteredListings.length === 0 && (
-        <div className="text-gray-600">
-          {filter === "ACTIVE"
-            ? "You have no active listings."
-            : "You have no archived listings."}
-        </div>
+        <Card>
+          <CardContent className="text-slate-600">
+            {filter === "ACTIVE"
+              ? "You have no active listings."
+              : "You have no archived listings."}
+          </CardContent>
+        </Card>
       )}
 
       <div className="space-y-3">
         {filteredListings.map((listing) => (
-          <div key={listing.id} className="border rounded p-4">
-            <div className="flex justify-between gap-4">
+          <Card key={listing.id}>
+            <CardContent className="flex justify-between gap-4 p-4">
               <div>
-                <div className="font-semibold">{listing.title}</div>
-                <div className="text-sm text-gray-600">{listing.description}</div>
-                <div className="text-sm text-gray-600 mt-1">
-                  {listing.type} · {listing.status}
+                <div className="font-semibold text-slate-900">{listing.title}</div>
+                <div className="text-sm text-slate-600">{listing.description}</div>
+                <div className="mt-1 flex items-center gap-2">
+                  <Badge variant="outline">{listing.type}</Badge>
+                  <Badge variant="muted">{listing.status}</Badge>
                 </div>
               </div>
 
-              <div className="text-right space-y-2">
-                <div className="font-semibold">
+              <div className="space-y-2 text-right">
+                <div className="font-semibold text-slate-900">
                   {(listing.price / 100).toFixed(2)} Kč
                 </div>
 
-                <div className="flex flex-col items-end gap-1 text-sm">
+                <div className="flex flex-col items-end gap-1 text-sm text-slate-600">
                   <Link to={`/listings/${listing.id}`} className="underline">
                     Open listing
                   </Link>
@@ -157,8 +162,8 @@ export function MyListingsPage() {
                   )}
                 </div>
               </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         ))}
       </div>
     </div>

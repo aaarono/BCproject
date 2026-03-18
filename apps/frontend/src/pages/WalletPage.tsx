@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
 import { http } from "../api/http";
+import { Card, CardContent, CardHeader } from "../components/ui/Card";
+import { Button } from "../components/ui/Button";
+import { Input } from "../components/ui/Input";
+import { PageContainer, PageHeader } from "../components/ui/PageLayout";
 
 type Wallet = { userId: string; balance: number };
 
@@ -35,16 +39,29 @@ export function WalletPage() {
   }
 
   return (
-    <div className="max-w-md mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-4">Wallet</h1>
-      <div className="border rounded p-4 mb-4">
-        Balance: <b>{wallet ? (wallet.balance / 100).toFixed(2) : "..."}</b> Kč
-      </div>
+    <PageContainer width="max-w-md">
+      <PageHeader title="Wallet" />
 
-      <div className="flex gap-2">
-        <input className="border rounded p-2 flex-1" type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
-        <button className="bg-black text-white rounded px-3" onClick={topup}>Top up</button>
-      </div>
-    </div>
+      <Card>
+        <CardHeader>
+          <div className="text-sm text-slate-600">Current balance</div>
+        </CardHeader>
+        <CardContent>
+          <div className="text-3xl font-bold text-slate-900">
+            {wallet ? (wallet.balance / 100).toFixed(2) : "..."} Kč
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="text-sm text-slate-600">Top up (mock)</div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
+          <Button onClick={topup}>Top up</Button>
+        </CardContent>
+      </Card>
+    </PageContainer>
   );
 }

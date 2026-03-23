@@ -14,6 +14,9 @@ type Deal = {
   id: string;
   status: "INITIATED" | "FUNDED" | "DELIVERED" | "COMPLETED" | "CANCELED";
   createdAt: string;
+  quantity: number;
+  unitPriceSnapshot: number;
+  totalAmountSnapshot: number;
   listing: { id: string; title: string; price: number; type: string; status: string };
   buyer: { id: string; displayName: string };
   seller: { id: string; displayName: string };
@@ -99,7 +102,7 @@ export function DealsPage() {
                         <div className="min-w-0">
                           <div className="line-clamp-1 font-semibold text-foreground">{d.listing.title}</div>
                           <div className="mt-1 text-sm text-muted-foreground">
-                            {d.listing.type} · {formatAmount(d.listing.price)}
+                            {d.listing.type} · {formatAmount(d.unitPriceSnapshot)} × {d.quantity}
                           </div>
                         </div>
                         <div className="shrink-0">
@@ -121,7 +124,7 @@ export function DealsPage() {
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-muted-foreground">Updated {new Date(d.createdAt).toLocaleString()}</span>
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold text-foreground">{formatAmount(d.listing.price)}</span>
+                          <span className="font-semibold text-foreground">{formatAmount(d.totalAmountSnapshot)}</span>
                           <ArrowRight className="h-4 w-4 text-muted-foreground transition group-hover:text-foreground" />
                         </div>
                       </div>

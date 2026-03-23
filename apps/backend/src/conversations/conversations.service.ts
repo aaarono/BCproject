@@ -57,8 +57,8 @@ export class ConversationsService {
             sellerId: true,
           },
         },
-        buyer: { select: { id: true, displayName: true } },
-        seller: { select: { id: true, displayName: true } },
+        buyer: { select: { id: true, displayName: true, avatarUrl: true } },
+        seller: { select: { id: true, displayName: true, avatarUrl: true } },
       },
     });
     if (!conv) throw new NotFoundException('Conversation not found');
@@ -109,8 +109,8 @@ export class ConversationsService {
       },
       include: {
         listing: true,
-        buyer: { select: { id: true, displayName: true } },
-        seller: { select: { id: true, displayName: true } },
+        buyer: { select: { id: true, displayName: true, avatarUrl: true } },
+        seller: { select: { id: true, displayName: true, avatarUrl: true } },
       },
     });
 
@@ -139,12 +139,14 @@ export class ConversationsService {
           select: {
             id: true,
             displayName: true,
+            avatarUrl: true,
           },
         },
         seller: {
           select: {
             id: true,
             displayName: true,
+            avatarUrl: true,
           },
         },
         messages: {

@@ -3,9 +3,20 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
+import { existsSync, mkdirSync } from 'fs';
+import * as express from 'express';
+import { join } from 'path';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  const uploadsRoot = join(process.cwd(), 'uploads');
+  const avatarUploadsPath = join(uploadsRoot, 'avatars');
+  if (!existsSync(avatarUploadsPath)) {
+    mkdirSync(avatarUploadsPath, { recursive: true });
+  }
+
+  app.use('/uploads', express.static(uploadsRoot));
 
   app.use(helmet());
 

@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
 import { ErrorState, LoadingState } from "../components/ui/PageStates";
 import { EmptyState } from "../components/ui/EmptyState";
+import { Avatar } from "../components/ui/Avatar";
 
 function extractErrorMessage(error: unknown, fallback: string) {
   if (
@@ -52,10 +53,12 @@ type Conversation = {
   buyer: {
     id: string;
     displayName: string;
+    avatarUrl?: string | null;
   };
   seller: {
     id: string;
     displayName: string;
+    avatarUrl?: string | null;
   };
   messages: Message[];
 };
@@ -198,6 +201,8 @@ export function InboxPage() {
             {filteredConversations.map((conv) => {
               const otherUser =
                 user?.id === conv.buyer.id ? conv.seller.displayName : conv.buyer.displayName;
+              const otherUserAvatar =
+                user?.id === conv.buyer.id ? conv.seller.avatarUrl : conv.buyer.avatarUrl;
 
               const lastMessage = conv.messages[0];
               const timestamp = lastMessage?.createdAt ?? conv.createdAt;
@@ -211,9 +216,13 @@ export function InboxPage() {
                   }`}
                 >
                   <div className="flex items-start gap-3">
-                    <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground">
-                      {otherUser.slice(0, 2).toUpperCase()}
-                    </div>
+                    <Avatar
+                      src={otherUserAvatar ?? undefined}
+                      alt={otherUser}
+                      fallback={otherUser.slice(0, 2).toUpperCase()}
+                      className="mt-0.5 h-9 w-9 shrink-0"
+                      fallbackClassName="text-xs font-semibold"
+                    />
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-3">

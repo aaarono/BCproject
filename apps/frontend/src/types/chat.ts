@@ -10,8 +10,8 @@ export type Conversation = {
     price: number;
     type: "GOOD" | "SERVICE";
   };
-  buyer?: { id: string; displayName: string };
-  seller?: { id: string; displayName: string };
+  buyer?: { id: string; displayName: string; avatarUrl?: string | null };
+  seller?: { id: string; displayName: string; avatarUrl?: string | null };
 };
 
 export type Message = {

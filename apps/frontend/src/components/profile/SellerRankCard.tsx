@@ -1,8 +1,10 @@
 import { Link } from "react-router-dom";
+import { Avatar } from "../ui/Avatar";
 
 type SellerRank = {
   id: string;
   displayName: string;
+  avatarUrl?: string | null;
   ratingAvg: number;
   ratingCount: number;
   completedDeals: number;
@@ -24,15 +26,25 @@ export function SellerRankCard({
       className="group block rounded-xl border border-border bg-card p-4 transition hover:bg-accent"
     >
       <div className="flex items-center justify-between gap-4">
-        <div className="min-w-0">
-          <div className="mb-1 inline-flex items-center rounded-full bg-muted px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            #{rank} · {periodLabel}
-          </div>
-          <div className="truncate text-base font-semibold text-foreground group-hover:text-accent-foreground">
-            {seller.displayName}
-          </div>
-          <div className="text-sm text-muted-foreground">
-            ★ {seller.ratingAvg.toFixed(2)} ({seller.ratingCount} reviews)
+        <div className="flex min-w-0 items-center gap-3">
+          <Avatar
+            src={seller.avatarUrl ?? undefined}
+            alt={seller.displayName}
+            fallback={seller.displayName.slice(0, 2).toUpperCase()}
+            className="h-10 w-10"
+            fallbackClassName="text-xs font-semibold"
+          />
+
+          <div className="min-w-0">
+            <div className="mb-1 inline-flex items-center rounded-full bg-muted px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              #{rank} · {periodLabel}
+            </div>
+            <div className="truncate text-base font-semibold text-foreground group-hover:text-accent-foreground">
+              {seller.displayName}
+            </div>
+            <div className="text-sm text-muted-foreground">
+              ★ {seller.ratingAvg.toFixed(2)} ({seller.ratingCount} reviews)
+            </div>
           </div>
         </div>
 

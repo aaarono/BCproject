@@ -13,6 +13,7 @@ type Profile = {
   id: string;
   email: string;
   displayName: string;
+  avatarUrl?: string | null;
   role: "BUYER" | "SELLER" | "ADMIN";
   ratingAvg: number;
   ratingCount: number;
@@ -97,6 +98,7 @@ export function ProfilePage() {
           <ProfileHeaderCard
             displayName={profile.displayName}
             subtitle={profile.email}
+            avatarUrl={profile.avatarUrl}
             ratingAvg={profile.ratingAvg}
             ratingCount={profile.ratingCount}
           />

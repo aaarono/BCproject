@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { http } from "../api/http";
 import { extractHttpErrorMessage } from "../utils/httpError";
 import { Card, CardContent, CardHeader } from "../components/ui/Card";
@@ -8,21 +8,26 @@ import { ErrorState, LoadingState } from "../components/ui/PageStates";
 import { PageContainer, PageHeader } from "../components/ui/PageLayout";
 import { Bell, Camera, Monitor, Moon, Save, Shield, Sun, User } from "lucide-react";
 import { cn } from "../lib/cn";
+import { Avatar } from "../components/ui/Avatar";
+import { useAuth } from "../auth/AuthContext";
 
 type Profile = {
   id: string;
   email: string;
   displayName: string;
+  avatarUrl?: string | null;
   role: "BUYER" | "SELLER" | "ADMIN";
   ratingAvg: number;
   ratingCount: number;
 };
 
 export function SettingsPage() {
+  const { refreshMe } = useAuth();
   const [activeTab, setActiveTab] = useState<"profile" | "notifications" | "security" | "appearance">("profile");
   const [profile, setProfile] = useState<Profile | null>(null);
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
   const [notifications, setNotifications] = useState({
     newMessage: true,
     dealUpdates: true,
@@ -34,15 +39,19 @@ export function SettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [passwordSaving, setPasswordSaving] = useState(false);
   const [themeMode, setThemeMode] = useState<"light" | "dark" | "system">("system");
   const [err, setErr] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
 
   async function loadProfile() {
     const res = await http.get<Profile>("/users/me/profile");
     setProfile(res.data);
     setDisplayName(res.data.displayName);
     setEmail(res.data.email);
+    setAvatarUrl(res.data.avatarUrl ?? "");
   }
 
   useEffect(() => {
@@ -78,11 +87,14 @@ export function SettingsPage() {
       const res = await http.patch<Profile>("/users/me", {
         displayName,
         email,
+        avatarUrl,
       });
 
       setProfile(res.data);
       setDisplayName(res.data.displayName);
       setEmail(res.data.email);
+      setAvatarUrl(res.data.avatarUrl ?? "");
+      await refreshMe();
       setSuccess("Settings saved successfully.");
     } catch (error: unknown) {
       setErr(extractHttpErrorMessage(error, "Failed to save settings"));
@@ -95,7 +107,10 @@ export function SettingsPage() {
     setSuccess("Notification preferences saved.");
   }
 
-  function updatePasswordMock() {
+  async function updatePassword() {
+    setErr(null);
+    setSuccess(null);
+
     if (!currentPassword || !newPassword || !confirmPassword) {
       setErr("Fill all password fields.");
       return;
@@ -106,11 +121,62 @@ export function SettingsPage() {
       return;
     }
 
+    setPasswordSaving(true);
+
+    try {
+      await http.patch("/users/me/password", {
+        currentPassword,
+        newPassword,
+      });
+
+      setSuccess("Password updated successfully.");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (error: unknown) {
+      setErr(extractHttpErrorMessage(error, "Failed to update password"));
+    } finally {
+      setPasswordSaving(false);
+    }
+  }
+
+  async function uploadAvatar(file: File) {
+    if (!file.type.startsWith("image/")) {
+      setErr("Please select an image file.");
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      setErr("Avatar must be up to 2MB.");
+      return;
+    }
+
     setErr(null);
-    setSuccess("Password update placeholder completed.");
-    setCurrentPassword("");
-    setNewPassword("");
-    setConfirmPassword("");
+    setSuccess(null);
+    setAvatarUploading(true);
+
+    try {
+      const form = new FormData();
+      form.append("file", file);
+
+      const res = await http.patch<Profile>("/users/me/avatar", form, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      setProfile(res.data);
+      setAvatarUrl(res.data.avatarUrl ?? "");
+      await refreshMe();
+      setSuccess("Avatar updated successfully.");
+    } catch (error: unknown) {
+      setErr(extractHttpErrorMessage(error, "Failed to upload avatar"));
+    } finally {
+      setAvatarUploading(false);
+      if (avatarInputRef.current) {
+        avatarInputRef.current.value = "";
+      }
+    }
   }
 
   if (loading) return <LoadingState width="max-w-2xl" />;
@@ -174,15 +240,36 @@ export function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="flex items-center gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted text-xl font-semibold text-foreground">
-                {(displayName || profile?.displayName || "U").slice(0, 2).toUpperCase()}
-              </div>
+              <Avatar
+                src={avatarUrl || undefined}
+                alt={displayName || profile?.displayName || "User"}
+                fallback={(displayName || profile?.displayName || "U").slice(0, 2).toUpperCase()}
+                className="h-16 w-16"
+              />
               <div>
-                <Button variant="outline" size="sm">
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) {
+                      void uploadAvatar(file);
+                    }
+                  }}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  disabled={avatarUploading}
+                  onClick={() => avatarInputRef.current?.click()}
+                >
                   <Camera className="h-4 w-4" />
-                  Change avatar
+                  {avatarUploading ? "Uploading..." : "Upload avatar"}
                 </Button>
-                <p className="mt-2 text-xs text-muted-foreground">JPG, PNG or GIF. Max 2MB.</p>
+                <p className="mt-2 text-xs text-muted-foreground">PNG/JPG/WEBP/GIF, max 2MB.</p>
               </div>
             </div>
 
@@ -196,6 +283,18 @@ export function SettingsPage() {
                 <label className="mb-1 block text-sm font-medium text-foreground">Email</label>
                 <Input value={email} onChange={(e) => setEmail(e.target.value)} />
               </div>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-foreground">Avatar URL</label>
+              <Input
+                placeholder="https://example.com/avatar.png"
+                value={avatarUrl}
+                onChange={(e) => setAvatarUrl(e.target.value)}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Leave empty to remove avatar.
+              </p>
             </div>
 
             {err && <div className="text-sm text-destructive">{err}</div>}
@@ -286,7 +385,9 @@ export function SettingsPage() {
             {err && <div className="text-sm text-destructive">{err}</div>}
             {success && <div className="text-sm text-success">{success}</div>}
 
-            <Button onClick={updatePasswordMock}>Update password</Button>
+            <Button onClick={updatePassword} disabled={passwordSaving}>
+              {passwordSaving ? "Updating..." : "Update password"}
+            </Button>
 
             <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3">
               <div className="text-sm font-semibold text-destructive">Danger zone</div>

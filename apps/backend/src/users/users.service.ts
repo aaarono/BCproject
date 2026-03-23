@@ -1,10 +1,77 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
+import { unlink } from 'fs/promises';
+import { basename, join } from 'path';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UpdateMeDto } from './dto/update-me.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @Injectable()
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private getLocalAvatarPathFromUrl(url: string | null | undefined) {
+    if (!url) return null;
+
+    try {
+      const parsed = new URL(url);
+      const prefix = '/uploads/avatars/';
+
+      if (!parsed.pathname.startsWith(prefix)) {
+        return null;
+      }
+
+      const filename = parsed.pathname.slice(prefix.length);
+      if (!filename) {
+        return null;
+      }
+
+      const safeFilename = basename(filename);
+      if (safeFilename !== filename) {
+        return null;
+      }
+
+      return join(process.cwd(), 'uploads', 'avatars', safeFilename);
+    } catch {
+      return null;
+    }
+  }
+
+  private async removeLocalAvatarFileIfExists(url: string | null | undefined) {
+    const targetPath = this.getLocalAvatarPathFromUrl(url);
+    if (!targetPath) return;
+
+    try {
+      await unlink(targetPath);
+    } catch (error: unknown) {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        (error as { code?: string }).code === 'ENOENT'
+      ) {
+        return;
+      }
+    }
+  }
+
+  private extractAvatarUrl(value: unknown) {
+    if (
+      typeof value !== 'object' ||
+      value === null ||
+      !('avatarUrl' in value)
+    ) {
+      return null;
+    }
+
+    const avatarUrl = (value as { avatarUrl?: unknown }).avatarUrl;
+    return typeof avatarUrl === 'string' ? avatarUrl : null;
+  }
 
   async getTopSellers(limit = 10) {
     return this.getRankedSellers(limit);
@@ -20,10 +87,14 @@ export class UsersService {
       select: {
         id: true,
         displayName: true,
+        avatarUrl: true,
         ratingAvg: true,
         ratingCount: true,
       },
-      orderBy: [{ ratingAvg: 'desc' as const }, { ratingCount: 'desc' as const }],
+      orderBy: [
+        { ratingAvg: 'desc' as const },
+        { ratingCount: 'desc' as const },
+      ],
       take: Math.max(limit * 3, 30),
     };
 
@@ -95,6 +166,7 @@ export class UsersService {
         id: true,
         email: true,
         displayName: true,
+        avatarUrl: true,
         role: true,
         ratingAvg: true,
         ratingCount: true,
@@ -109,23 +181,118 @@ export class UsersService {
   }
 
   async updateMe(userId: string, dto: UpdateMeDto) {
+    const existing = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { avatarUrl: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('User not found');
+    }
+
     const user = await this.prisma.user.update({
       where: { id: userId },
       data: {
         displayName: dto.displayName,
         email: dto.email,
+        avatarUrl: dto.avatarUrl === undefined ? undefined : dto.avatarUrl,
       },
       select: {
         id: true,
         email: true,
         displayName: true,
+        avatarUrl: true,
         role: true,
         ratingAvg: true,
         ratingCount: true,
       },
     });
 
+    const previousAvatarUrl = this.extractAvatarUrl(existing);
+    const nextAvatarUrl =
+      dto.avatarUrl === undefined ? previousAvatarUrl : dto.avatarUrl;
+
+    if (previousAvatarUrl && previousAvatarUrl !== nextAvatarUrl) {
+      await this.removeLocalAvatarFileIfExists(previousAvatarUrl);
+    }
+
     return user;
+  }
+
+  async updateAvatar(userId: string, avatarUrl: string) {
+    const existing = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { avatarUrl: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('User not found');
+    }
+
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { avatarUrl },
+      select: {
+        id: true,
+        email: true,
+        displayName: true,
+        avatarUrl: true,
+        role: true,
+        ratingAvg: true,
+        ratingCount: true,
+      },
+    });
+
+    const previousAvatarUrl = this.extractAvatarUrl(existing);
+
+    if (previousAvatarUrl && previousAvatarUrl !== avatarUrl) {
+      await this.removeLocalAvatarFileIfExists(previousAvatarUrl);
+    }
+
+    return user;
+  }
+
+  async changePassword(userId: string, dto: ChangePasswordDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        passwordHash: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const isCurrentPasswordValid = await bcrypt.compare(
+      dto.currentPassword,
+      user.passwordHash,
+    );
+
+    if (!isCurrentPasswordValid) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    const isSamePassword = await bcrypt.compare(
+      dto.newPassword,
+      user.passwordHash,
+    );
+
+    if (isSamePassword) {
+      throw new BadRequestException(
+        'New password must be different from current password',
+      );
+    }
+
+    const nextPasswordHash = await bcrypt.hash(dto.newPassword, 10);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash: nextPasswordHash },
+    });
+
+    return { ok: true };
   }
 
   async getPublicProfile(userId: string) {
@@ -134,6 +301,7 @@ export class UsersService {
       select: {
         id: true,
         displayName: true,
+        avatarUrl: true,
         ratingAvg: true,
         ratingCount: true,
         listings: {

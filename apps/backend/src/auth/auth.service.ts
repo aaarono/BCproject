@@ -7,6 +7,7 @@ import {
 import { JwtService, type JwtSignOptions } from '@nestjs/jwt';
 import { Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import type { StringValue } from 'ms';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 
@@ -76,8 +77,11 @@ export class AuthService {
   }
 
   private async signAccessToken(userId: string, email: string, role: string) {
-    const expiresIn = (process.env.JWT_EXPIRES_IN ??
-      '1h') as JwtSignOptions['expiresIn'];
+    const rawExpiresIn = process.env.JWT_EXPIRES_IN;
+    const expiresIn: JwtSignOptions['expiresIn'] =
+      typeof rawExpiresIn === 'string' && rawExpiresIn.trim().length > 0
+        ? (rawExpiresIn as StringValue)
+        : '1h';
     return this.jwt.signAsync({ sub: userId, email, role }, { expiresIn });
   }
 
@@ -88,6 +92,7 @@ export class AuthService {
         id: true,
         email: true,
         displayName: true,
+        avatarUrl: true,
         role: true,
         ratingAvg: true,
         ratingCount: true,

@@ -36,6 +36,9 @@ type Deal = {
   listingId: string;
   buyerId: string;
   sellerId: string;
+  quantity: number;
+  unitPriceSnapshot: number;
+  totalAmountSnapshot: number;
   listing: {
     id: string;
     title: string;
@@ -172,7 +175,8 @@ export function DealRoomPage() {
             ? "Deal completed"
             : "Deal canceled";
 
-  const amountLabel = `${(deal.listing.price / 100).toFixed(2)} Kč`;
+  const amountLabel = `${(deal.totalAmountSnapshot / 100).toFixed(2)} Kč`;
+  const unitLabel = `${(deal.unitPriceSnapshot / 100).toFixed(2)} Kč`;
   const flowSteps: Array<Deal["status"]> = ["INITIATED", "FUNDED", "DELIVERED", "COMPLETED"];
   const stepIndexMap: Record<Deal["status"], number> = {
     INITIATED: 0,
@@ -208,7 +212,9 @@ export function DealRoomPage() {
             <CardContent className="space-y-4">
               <div>
                 <div className="line-clamp-1 text-base font-semibold text-foreground">{deal.listing.title ?? "Listing"}</div>
-                <div className="mt-1 text-sm text-muted-foreground">{amountLabel} · {deal.listing.type}</div>
+                <div className="mt-1 text-sm text-muted-foreground">
+                  {deal.listing.type} · {unitLabel} × {deal.quantity}
+                </div>
               </div>
 
               <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
@@ -300,7 +306,7 @@ export function DealRoomPage() {
                 listing: {
                   id: deal.listing.id,
                   title: deal.listing.title,
-                  price: deal.listing.price,
+                  price: deal.unitPriceSnapshot,
                   type: deal.listing.type,
                 },
                 buyer: deal.buyer,
@@ -326,7 +332,15 @@ export function DealRoomPage() {
               </Badge>
               <div className="border-t border-border pt-3">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Amount</span>
+                  <span className="text-muted-foreground">Unit price</span>
+                  <span className="font-semibold text-foreground">{unitLabel}</span>
+                </div>
+                <div className="mt-2 flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Quantity</span>
+                  <span className="font-semibold text-foreground">{deal.quantity}</span>
+                </div>
+                <div className="mt-2 flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Total amount</span>
                   <span className="font-semibold text-foreground">{amountLabel}</span>
                 </div>
               </div>

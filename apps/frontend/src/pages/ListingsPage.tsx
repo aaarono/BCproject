@@ -11,12 +11,14 @@ import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
 import { Card, CardContent, CardHeader } from "../components/ui/Card";
 import { Badge } from "../components/ui/Badge";
+import { Avatar } from "../components/ui/Avatar";
 
 type Meta = { total: number; page: number; limit: number; totalPages: number };
 
 type TopSeller = {
   id: string;
   displayName: string;
+  avatarUrl?: string | null;
   ratingAvg: number;
   ratingCount: number;
   completedDeals: number;
@@ -143,9 +145,13 @@ export function ListingsPage() {
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-3">
                           <div className="relative">
-                            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-warning/20 text-sm font-semibold text-warning-foreground">
-                              {initials || "TS"}
-                            </div>
+                            <Avatar
+                              src={seller.avatarUrl ?? undefined}
+                              alt={seller.displayName}
+                              fallback={initials || "TS"}
+                              className="h-11 w-11"
+                              fallbackClassName="text-sm font-semibold"
+                            />
                             <span className={`absolute -right-1 -top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-semibold ${rankClass} ${rankTextClass}`}>
                               #{rank}
                             </span>

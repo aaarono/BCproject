@@ -9,6 +9,7 @@ import { PageContainer, PageHeader } from "../components/ui/PageLayout";
 type TopSeller = {
   id: string;
   displayName: string;
+  avatarUrl?: string | null;
   ratingAvg: number;
   ratingCount: number;
   completedDeals: number;

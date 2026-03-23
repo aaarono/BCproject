@@ -16,7 +16,7 @@ export class DealsController {
   @ApiOperation({ summary: 'Create and fund a deal' })
   @Post()
   create(@CurrentUser() user: JwtPayload, @Body() dto: CreateDealDto) {
-    return this.deals.create(dto.listingId, user.sub);
+    return this.deals.create(dto.listingId, user.sub, dto.quantity);
   }
 
   @ApiOperation({ summary: 'Get all my deals' })

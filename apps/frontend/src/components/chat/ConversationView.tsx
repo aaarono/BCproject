@@ -8,6 +8,7 @@ import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Input } from "../ui/Input";
+import { Avatar } from "../ui/Avatar";
 
 function extractErrorMessage(error: unknown, fallback: string) {
   if (
@@ -53,10 +54,12 @@ type Conversation = {
   buyer: {
     id: string;
     displayName: string;
+    avatarUrl?: string | null;
   };
   seller: {
     id: string;
     displayName: string;
+    avatarUrl?: string | null;
   };
 };
 
@@ -84,6 +87,11 @@ export function ConversationView({
     user?.id === conversation.buyer.id
       ? conversation.seller.displayName
       : conversation.buyer.displayName;
+
+  const otherUserAvatar =
+    user?.id === conversation.buyer.id
+      ? conversation.seller.avatarUrl
+      : conversation.buyer.avatarUrl;
 
   const otherUserId =
     user?.id === conversation.buyer.id
@@ -219,7 +227,13 @@ export function ConversationView({
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-foreground">
-              {otherUser.slice(0, 2).toUpperCase()}
+              <Avatar
+                src={otherUserAvatar ?? undefined}
+                alt={otherUser}
+                fallback={otherUser.slice(0, 2).toUpperCase()}
+                className="h-10 w-10"
+                fallbackClassName="text-sm font-semibold"
+              />
               <span
                 className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-background ${
                   isOtherUserOnline ? "bg-emerald-500" : "bg-muted-foreground"

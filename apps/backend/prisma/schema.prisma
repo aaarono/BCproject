@@ -52,6 +52,7 @@ model User {
   email        String   @unique
   passwordHash String
   displayName  String
+  avatarUrl    String?
   role         Role     @default(BUYER)
   createdAt    DateTime @default(now())
 
@@ -168,6 +169,9 @@ model Deal {
   listingId String
   buyerId   String
   sellerId  String
+  quantity  Int        @default(1)
+  unitPriceSnapshot Int
+  totalAmountSnapshot Int
   status    DealStatus @default(INITIATED)
   createdAt DateTime   @default(now())
 

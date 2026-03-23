@@ -12,6 +12,7 @@ import { Button } from "../components/ui/Button";
 import { Card, CardContent, CardHeader } from "../components/ui/Card";
 import { ErrorState, LoadingState } from "../components/ui/PageStates";
 import { Badge } from "../components/ui/Badge";
+import { Input } from "../components/ui/Input";
 
 type Conversation = {
   id: string;
@@ -30,6 +31,7 @@ export function ListingPage() {
   const [err, setErr] = useState<string | null>(null);
   const [buyLoading, setBuyLoading] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
+  const [quantity, setQuantity] = useState(1);
 
   const isOwner = user?.id === listing?.seller.id;
 
@@ -89,7 +91,7 @@ export function ListingPage() {
     setBuyLoading(true);
 
     try {
-      const created = await http.post(`/deals`, { listingId: listing.id });
+      const created = await http.post(`/deals`, { listingId: listing.id, quantity });
       const dealId = created.data.id;
 
       nav(`/deals/${dealId}`);
@@ -104,6 +106,9 @@ export function ListingPage() {
   if (err || !listing) {
     return <ErrorState width="max-w-6xl" message={err ?? "Not found"} />;
   }
+
+  const unitPrice = listing.effectivePrice ?? listing.price;
+  const totalPrice = unitPrice * quantity;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
@@ -179,9 +184,33 @@ export function ListingPage() {
               <div className="space-y-1">
                 <div className="text-xs uppercase tracking-wide text-muted-foreground">Current price</div>
                 <div className="text-3xl font-bold text-primary">
-                  {((listing.effectivePrice ?? listing.price) / 100).toFixed(2)} Kč
+                  {(unitPrice / 100).toFixed(2)} Kč
                 </div>
+                <div className="text-xs text-muted-foreground">Per item</div>
               </div>
+
+              {!isOwner && (
+                <div className="space-y-2">
+                  <label className="block text-xs uppercase tracking-wide text-muted-foreground">Quantity</label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="1000"
+                    value={quantity}
+                    onChange={(e) => {
+                      const raw = Number(e.target.value);
+                      if (!Number.isFinite(raw)) {
+                        setQuantity(1);
+                        return;
+                      }
+
+                      const clamped = Math.min(1000, Math.max(1, Math.floor(raw)));
+                      setQuantity(clamped);
+                    }}
+                  />
+                  <div className="text-sm font-medium text-foreground">Total: {(totalPrice / 100).toFixed(2)} Kč</div>
+                </div>
+              )}
 
               {!isOwner && user && (
                 <Button fullWidth size="lg" onClick={buyNow} disabled={buyLoading}>

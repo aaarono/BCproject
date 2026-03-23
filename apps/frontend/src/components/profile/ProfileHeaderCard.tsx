@@ -1,10 +1,12 @@
 import { RatingStars } from "../review/RatingStars";
 import { Card, CardContent } from "../ui/Card";
 import { Badge } from "../ui/Badge";
+import { Avatar } from "../ui/Avatar";
 
 type Props = {
   displayName: string;
   subtitle?: string;
+  avatarUrl?: string | null;
   ratingAvg: number;
   ratingCount: number;
 };
@@ -12,6 +14,7 @@ type Props = {
 export function ProfileHeaderCard({
   displayName,
   subtitle,
+  avatarUrl,
   ratingAvg,
   ratingCount,
 }: Props) {
@@ -19,9 +22,13 @@ export function ProfileHeaderCard({
     <Card>
       <CardContent className="space-y-4 p-5">
         <div className="flex items-center gap-3">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted text-xl font-bold text-foreground">
-            {displayName.charAt(0).toUpperCase()}
-          </div>
+          <Avatar
+            src={avatarUrl ?? undefined}
+            alt={displayName}
+            fallback={displayName.slice(0, 2).toUpperCase()}
+            className="h-14 w-14"
+            fallbackClassName="text-xl font-bold"
+          />
           <div>
             <div className="text-xl font-bold text-foreground">{displayName}</div>
             {subtitle && <div className="text-sm text-muted-foreground">{subtitle}</div>}

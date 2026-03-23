@@ -16,6 +16,9 @@ describe('DealsService', () => {
     listingId: 'l1',
     buyerId: 'buyer1',
     sellerId: 'seller1',
+    quantity: 1,
+    unitPriceSnapshot: 5000,
+    totalAmountSnapshot: 5000,
     status: 'FUNDED',
     listing: {
       id: 'l1',
@@ -40,6 +43,7 @@ describe('DealsService', () => {
         update: jest.fn(),
       },
       listing: { findUnique: jest.fn() },
+      listingPriceHistory: { findMany: jest.fn() },
       wallet: { findUnique: jest.fn() },
     };
     walletService = {
@@ -67,11 +71,15 @@ describe('DealsService', () => {
       sellerId: 'seller1',
       status: 'ACTIVE',
       price: 5000,
+      salePercent: null,
+      saleStartsAt: null,
+      saleEndsAt: null,
     };
 
     it('should create and fund a deal', async () => {
       prisma.listing.findUnique.mockResolvedValue(listing);
       prisma.deal.findFirst.mockResolvedValue(null);
+      prisma.listingPriceHistory.findMany.mockResolvedValue([]);
       prisma.wallet.findUnique.mockResolvedValue({ balance: 10000 });
       prisma.deal.create.mockResolvedValue({ id: 'deal1' });
       prisma.deal.findUniqueOrThrow.mockResolvedValue(fullDeal);
@@ -116,6 +124,7 @@ describe('DealsService', () => {
     it('should throw ForbiddenException on insufficient balance', async () => {
       prisma.listing.findUnique.mockResolvedValue(listing);
       prisma.deal.findFirst.mockResolvedValue(null);
+      prisma.listingPriceHistory.findMany.mockResolvedValue([]);
       prisma.wallet.findUnique.mockResolvedValue({ balance: 100 });
 
       await expect(service.create('l1', 'buyer1')).rejects.toThrow(
@@ -173,7 +182,7 @@ describe('DealsService', () => {
         buyerId: 'buyer1',
         sellerId: 'seller1',
         status: 'DELIVERED',
-        listing: { price: 5000 },
+        totalAmountSnapshot: 5000,
       };
       prisma.deal.findUnique
         .mockResolvedValueOnce(deal) // inside $transaction
@@ -210,7 +219,7 @@ describe('DealsService', () => {
         sellerId: 'seller1',
         buyerId: 'buyer1',
         status: 'FUNDED',
-        listing: { price: 5000 },
+        totalAmountSnapshot: 5000,
       };
       prisma.deal.findUnique
         .mockResolvedValueOnce(deal) // inside $transaction
@@ -233,7 +242,7 @@ describe('DealsService', () => {
         sellerId: 'seller1',
         buyerId: 'buyer1',
         status: 'INITIATED',
-        listing: { price: 5000 },
+        totalAmountSnapshot: 5000,
       };
       prisma.deal.findUnique
         .mockResolvedValueOnce(deal)
@@ -250,7 +259,7 @@ describe('DealsService', () => {
         id: 'deal1',
         sellerId: 'seller1',
         status: 'FUNDED',
-        listing: { price: 5000 },
+        totalAmountSnapshot: 5000,
       });
       await expect(service.cancel('deal1', 'buyer1')).rejects.toThrow(
         ForbiddenException,

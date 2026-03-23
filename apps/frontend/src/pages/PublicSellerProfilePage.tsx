@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader } from "../components/ui/Card";
 import { Badge } from "../components/ui/Badge";
 import { ErrorState, LoadingState } from "../components/ui/PageStates";
 import { Button } from "../components/ui/Button";
+import { Avatar } from "../components/ui/Avatar";
 
 type Listing = {
   id: string;
@@ -40,6 +41,7 @@ type Review = {
 type SellerProfile = {
   id: string;
   displayName: string;
+  avatarUrl?: string | null;
   ratingAvg: number;
   ratingCount: number;
   listings: Listing[];
@@ -92,9 +94,13 @@ export function PublicSellerProfilePage() {
         <CardContent className="p-6">
           <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start">
             <div className="relative">
-              <div className="flex h-24 w-24 items-center justify-center rounded-full bg-muted text-2xl font-bold text-foreground sm:h-28 sm:w-28">
-                {profile.displayName.slice(0, 2).toUpperCase()}
-              </div>
+              <Avatar
+                src={profile.avatarUrl ?? undefined}
+                alt={profile.displayName}
+                fallback={profile.displayName.slice(0, 2).toUpperCase()}
+                className="h-24 w-24 sm:h-28 sm:w-28"
+                fallbackClassName="text-2xl font-bold"
+              />
               <span className="absolute bottom-1 right-1 h-5 w-5 rounded-full border-4 border-card bg-online" />
             </div>
 

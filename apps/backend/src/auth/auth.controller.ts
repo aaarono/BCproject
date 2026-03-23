@@ -1,11 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Post,
-  Res,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Post, Res, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { AuthService } from './auth.service';
@@ -34,7 +27,10 @@ export class AuthController {
 
   @ApiOperation({ summary: 'Register a new user' })
   @Post('register')
-  async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) res: Response) {
+  async register(
+    @Body() dto: RegisterDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const result = await this.auth.register(dto);
     res.cookie(
       AuthController.ACCESS_COOKIE,
@@ -46,7 +42,10 @@ export class AuthController {
 
   @ApiOperation({ summary: 'Login with email and password' })
   @Post('login')
-  async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
+  async login(
+    @Body() dto: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const result = await this.auth.login(dto.email, dto.password);
     res.cookie(
       AuthController.ACCESS_COOKIE,
@@ -72,11 +71,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Get('me')
   me(@CurrentUser() user: JwtPayload) {
-    return {
-      id: user.sub,
-      email: user.email,
-      role: user.role,
-    };
+    return this.auth.getMyProfile(user.sub);
   }
 
   @ApiOperation({ summary: 'Get full profile of current user' })

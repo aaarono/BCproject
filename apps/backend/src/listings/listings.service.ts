@@ -88,15 +88,20 @@ export class ListingsService {
     return Math.round((price * (100 - salePercent)) / 100);
   }
 
-  private enrichPricingMeta<T extends {
-    id: string;
-    price: number;
-    salePercent: number | null;
-    saleStartsAt: Date | null;
-    saleEndsAt: Date | null;
-  }>(listing: T, referencePrice30d: number | null) {
+  private enrichPricingMeta<
+    T extends {
+      id: string;
+      price: number;
+      salePercent: number | null;
+      saleStartsAt: Date | null;
+      saleEndsAt: Date | null;
+    },
+  >(listing: T, referencePrice30d: number | null) {
     const referencePrice = referencePrice30d ?? listing.price;
-    const discountedPrice = this.discountedPrice(listing.price, listing.salePercent);
+    const discountedPrice = this.discountedPrice(
+      listing.price,
+      listing.salePercent,
+    );
     const isOnSale =
       this.isSaleTimeActive(listing) && discountedPrice < referencePrice;
 
@@ -109,13 +114,15 @@ export class ListingsService {
     };
   }
 
-  private async withPricingMeta<T extends {
-    id: string;
-    price: number;
-    salePercent: number | null;
-    saleStartsAt: Date | null;
-    saleEndsAt: Date | null;
-  }>(listings: T[]) {
+  private async withPricingMeta<
+    T extends {
+      id: string;
+      price: number;
+      salePercent: number | null;
+      saleStartsAt: Date | null;
+      saleEndsAt: Date | null;
+    },
+  >(listings: T[]) {
     if (listings.length === 0) return listings;
 
     const historyWindowStart = this.getHistoryWindowStart();
@@ -139,7 +146,10 @@ export class ListingsService {
     }
 
     return listings.map((listing) =>
-      this.enrichPricingMeta(listing, referenceByListingId.get(listing.id) ?? null),
+      this.enrichPricingMeta(
+        listing,
+        referenceByListingId.get(listing.id) ?? null,
+      ),
     );
   }
 
@@ -181,8 +191,9 @@ export class ListingsService {
       if (query.maxPrice !== undefined) where.price.lte = query.maxPrice;
     }
 
-    let orderBy: Prisma.ListingOrderByWithRelationInput | Prisma.ListingOrderByWithRelationInput[] =
-      { createdAt: 'desc' };
+    let orderBy:
+      | Prisma.ListingOrderByWithRelationInput
+      | Prisma.ListingOrderByWithRelationInput[] = { createdAt: 'desc' };
 
     switch (query.sort) {
       case ListingSortDto.PRICE_ASC:
@@ -214,8 +225,22 @@ export class ListingsService {
             select: {
               id: true,
               displayName: true,
+              avatarUrl: true,
               ratingAvg: true,
               ratingCount: true,
+              achievements: {
+                orderBy: { unlockedAt: 'desc' },
+                take: 3,
+                select: {
+                  unlockedAt: true,
+                  definition: {
+                    select: {
+                      code: true,
+                      title: true,
+                    },
+                  },
+                },
+              },
             },
           },
         },
@@ -239,8 +264,22 @@ export class ListingsService {
           select: {
             id: true,
             displayName: true,
+            avatarUrl: true,
             ratingAvg: true,
             ratingCount: true,
+            achievements: {
+              orderBy: { unlockedAt: 'desc' },
+              take: 3,
+              select: {
+                unlockedAt: true,
+                definition: {
+                  select: {
+                    code: true,
+                    title: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -320,7 +359,9 @@ export class ListingsService {
         salePercent:
           dto.salePercent !== undefined ? dto.salePercent : listing.salePercent,
         saleStartsAt:
-          dto.saleStartsAt !== undefined ? dto.saleStartsAt : listing.saleStartsAt,
+          dto.saleStartsAt !== undefined
+            ? dto.saleStartsAt
+            : listing.saleStartsAt,
         saleEndsAt:
           dto.saleEndsAt !== undefined ? dto.saleEndsAt : listing.saleEndsAt,
       });
@@ -333,7 +374,8 @@ export class ListingsService {
           price: dto.price ?? undefined,
           type: dto.type ?? undefined,
           category: dto.category ?? undefined,
-          tags: dto.tags !== undefined ? this.normalizeTags(dto.tags) : undefined,
+          tags:
+            dto.tags !== undefined ? this.normalizeTags(dto.tags) : undefined,
           salePercent: saleData.salePercent,
           saleStartsAt: saleData.saleStartsAt,
           saleEndsAt: saleData.saleEndsAt,
@@ -343,8 +385,22 @@ export class ListingsService {
             select: {
               id: true,
               displayName: true,
+              avatarUrl: true,
               ratingAvg: true,
               ratingCount: true,
+              achievements: {
+                orderBy: { unlockedAt: 'desc' },
+                take: 3,
+                select: {
+                  unlockedAt: true,
+                  definition: {
+                    select: {
+                      code: true,
+                      title: true,
+                    },
+                  },
+                },
+              },
             },
           },
         },

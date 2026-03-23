@@ -46,12 +46,20 @@ type SellerProfile = {
   ratingCount: number;
   listings: Listing[];
   reviewsReceived: Review[];
+  achievements: Achievement[];
+};
+
+type Achievement = {
+  code: string;
+  title: string;
+  description: string;
+  unlockedAt: string;
 };
 
 export function PublicSellerProfilePage() {
   const { id } = useParams<{ id: string }>();
   const [profile, setProfile] = useState<SellerProfile | null>(null);
-  const [activeTab, setActiveTab] = useState<"listings" | "reviews">("listings");
+  const [activeTab, setActiveTab] = useState<"listings" | "reviews" | "achievements">("listings");
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
@@ -156,7 +164,7 @@ export function PublicSellerProfilePage() {
         </CardContent>
       </Card>
 
-      <div className="grid w-full grid-cols-2 gap-2 rounded-xl border border-border bg-card p-2 sm:w-[320px]">
+      <div className="grid w-full grid-cols-3 gap-2 rounded-xl border border-border bg-card p-2 sm:w-[480px]">
         <button
           type="button"
           onClick={() => setActiveTab("listings")}
@@ -174,6 +182,15 @@ export function PublicSellerProfilePage() {
           }`}
         >
           Reviews ({profile.reviewsReceived.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("achievements")}
+          className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+            activeTab === "achievements" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent"
+          }`}
+        >
+          Achievements ({profile.achievements.length})
         </button>
       </div>
 
@@ -239,6 +256,32 @@ export function PublicSellerProfilePage() {
                   </div>
 
                   {review.comment && <div className="text-sm whitespace-pre-wrap text-foreground">{review.comment}</div>}
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {activeTab === "achievements" && (
+          <Card>
+            <CardHeader>
+              <div className="text-xl font-semibold text-foreground">Achievements</div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {profile.achievements.length === 0 && (
+                <div className="text-sm text-muted-foreground">No achievements unlocked yet.</div>
+              )}
+
+              {profile.achievements.map((achievement) => (
+                <div key={achievement.code} className="rounded-xl border border-border bg-muted p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="font-medium text-foreground">{achievement.title}</div>
+                    <Badge variant="outline">{achievement.code}</Badge>
+                  </div>
+                  <div className="text-sm text-muted-foreground">{achievement.description}</div>
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    Unlocked: {new Date(achievement.unlockedAt).toLocaleDateString()}
+                  </div>
                 </div>
               ))}
             </CardContent>

@@ -15,6 +15,195 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private readonly achievementThresholds = {
+    trustedSellerMinDeals: 5,
+    trustedSellerMinRatingAvg: 4.5,
+    trustedSellerMinRatingCount: 3,
+    topRatedMinRatingAvg: 4.8,
+    topRatedMinRatingCount: 10,
+    catalogBuilderMinActiveListings: 10,
+  } as const;
+
+  private resolveEligibleAchievements(stats: {
+    completedDeals: number;
+    activeListings: number;
+    ratingAvg: number;
+    ratingCount: number;
+  }) {
+    const eligible: string[] = [];
+
+    if (stats.completedDeals >= 1) {
+      eligible.push('FIRST_SALE');
+    }
+
+    if (
+      stats.completedDeals >=
+        this.achievementThresholds.trustedSellerMinDeals &&
+      stats.ratingAvg >= this.achievementThresholds.trustedSellerMinRatingAvg &&
+      stats.ratingCount >=
+        this.achievementThresholds.trustedSellerMinRatingCount
+    ) {
+      eligible.push('TRUSTED_SELLER');
+    }
+
+    if (
+      stats.ratingAvg >= this.achievementThresholds.topRatedMinRatingAvg &&
+      stats.ratingCount >= this.achievementThresholds.topRatedMinRatingCount
+    ) {
+      eligible.push('TOP_RATED');
+    }
+
+    if (
+      stats.activeListings >=
+      this.achievementThresholds.catalogBuilderMinActiveListings
+    ) {
+      eligible.push('CATALOG_BUILDER');
+    }
+
+    return eligible;
+  }
+
+  private async getAchievementsByUserIds(userIds: string[]) {
+    if (userIds.length === 0) {
+      return new Map<
+        string,
+        Array<{ code: string; title: string; unlockedAt: Date }>
+      >();
+    }
+
+    const rows = await this.prisma.userAchievement.findMany({
+      where: {
+        userId: {
+          in: userIds,
+        },
+      },
+      orderBy: {
+        unlockedAt: 'desc',
+      },
+      select: {
+        userId: true,
+        unlockedAt: true,
+        definition: {
+          select: {
+            code: true,
+            title: true,
+          },
+        },
+      },
+    });
+
+    const byUserId = new Map<
+      string,
+      Array<{ code: string; title: string; unlockedAt: Date }>
+    >();
+
+    for (const row of rows) {
+      const current = byUserId.get(row.userId) ?? [];
+      if (current.length < 3) {
+        current.push({
+          code: row.definition.code,
+          title: row.definition.title,
+          unlockedAt: row.unlockedAt,
+        });
+        byUserId.set(row.userId, current);
+      }
+    }
+
+    return byUserId;
+  }
+
+  private async syncAchievementsForUser(userId: string) {
+    const [user, completedDeals, activeListings] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          ratingAvg: true,
+          ratingCount: true,
+        },
+      }),
+      this.prisma.deal.count({
+        where: {
+          sellerId: userId,
+          status: 'COMPLETED',
+        },
+      }),
+      this.prisma.listing.count({
+        where: {
+          sellerId: userId,
+          status: 'ACTIVE',
+        },
+      }),
+    ]);
+
+    if (!user) {
+      return;
+    }
+
+    const eligibleCodes = this.resolveEligibleAchievements({
+      completedDeals,
+      activeListings,
+      ratingAvg: user.ratingAvg,
+      ratingCount: user.ratingCount,
+    });
+
+    if (eligibleCodes.length === 0) {
+      return;
+    }
+
+    const definitions = await this.prisma.achievementDefinition.findMany({
+      where: {
+        code: {
+          in: eligibleCodes,
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (definitions.length === 0) {
+      return;
+    }
+
+    await this.prisma.userAchievement.createMany({
+      data: definitions.map((definition) => ({
+        userId,
+        definitionId: definition.id,
+      })),
+      skipDuplicates: true,
+    });
+  }
+
+  private async getAchievementsForUser(userId: string) {
+    await this.syncAchievementsForUser(userId);
+
+    const achievements = await this.prisma.userAchievement.findMany({
+      where: {
+        userId,
+      },
+      orderBy: {
+        unlockedAt: 'desc',
+      },
+      select: {
+        unlockedAt: true,
+        definition: {
+          select: {
+            code: true,
+            title: true,
+            description: true,
+          },
+        },
+      },
+    });
+
+    return achievements.map((item) => ({
+      code: item.definition.code,
+      title: item.definition.title,
+      description: item.definition.description,
+      unlockedAt: item.unlockedAt,
+    }));
+  }
+
   private getLocalAvatarPathFromUrl(url: string | null | undefined) {
     if (!url) return null;
 
@@ -153,9 +342,17 @@ export class UsersService {
       }),
     );
 
+    const sellerIds = enriched.map((seller) => seller.id);
+    const achievementsBySellerId =
+      await this.getAchievementsByUserIds(sellerIds);
+
     return enriched
       .filter((seller) => seller.ratingCount > 0 || seller.completedDeals > 0)
       .sort((a, b) => b.score - a.score)
+      .map((seller) => ({
+        ...seller,
+        achievements: achievementsBySellerId.get(seller.id) ?? [],
+      }))
       .slice(0, limit);
   }
 
@@ -177,7 +374,12 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    return user;
+    const achievements = await this.getAchievementsForUser(userId);
+
+    return {
+      ...user,
+      achievements,
+    };
   }
 
   async updateMe(userId: string, dto: UpdateMeDto) {
@@ -346,6 +548,11 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    return user;
+    const achievements = await this.getAchievementsForUser(userId);
+
+    return {
+      ...user,
+      achievements,
+    };
   }
 }

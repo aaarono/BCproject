@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   DealCancellationActor,
   DealStatus,
@@ -7,6 +11,7 @@ import {
   Role,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { CreateAchievementDto } from './dto/create-achievement.dto';
 import { ListAdminQueryDto } from './dto/list-admin-query.dto';
 
 @Injectable()
@@ -250,6 +255,206 @@ export class AdminService {
         total,
         totalPages: Math.max(1, Math.ceil(total / limit)),
       },
+    };
+  }
+
+  async listAchievements(query: ListAdminQueryDto) {
+    const { page, limit, skip } = this.normalizePagination(query);
+    const search = query.search?.trim();
+
+    const where: Prisma.AchievementDefinitionWhereInput = search
+      ? {
+          OR: [
+            { code: { contains: search, mode: 'insensitive' } },
+            { title: { contains: search, mode: 'insensitive' } },
+            { description: { contains: search, mode: 'insensitive' } },
+          ],
+        }
+      : {};
+
+    const [data, total] = await Promise.all([
+      this.prisma.achievementDefinition.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          code: true,
+          title: true,
+          description: true,
+          createdAt: true,
+          _count: {
+            select: {
+              users: true,
+            },
+          },
+        },
+      }),
+      this.prisma.achievementDefinition.count({ where }),
+    ]);
+
+    return {
+      data,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+    };
+  }
+
+  async createAchievement(dto: CreateAchievementDto) {
+    try {
+      return await this.prisma.achievementDefinition.create({
+        data: {
+          code: dto.code.trim().toUpperCase(),
+          title: dto.title.trim(),
+          description: dto.description.trim(),
+        },
+        select: {
+          id: true,
+          code: true,
+          title: true,
+          description: true,
+          createdAt: true,
+        },
+      });
+    } catch (error: unknown) {
+      if (
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        (error as { code?: string }).code === 'P2002'
+      ) {
+        throw new ConflictException('Achievement code already exists');
+      }
+
+      throw error;
+    }
+  }
+
+  async listAchievementAssignments(query: ListAdminQueryDto) {
+    const { page, limit, skip } = this.normalizePagination(query);
+
+    const [data, total] = await Promise.all([
+      this.prisma.achievementAssignment.findMany({
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          createdAt: true,
+          admin: {
+            select: {
+              id: true,
+              displayName: true,
+              email: true,
+            },
+          },
+          user: {
+            select: {
+              id: true,
+              displayName: true,
+              email: true,
+            },
+          },
+          definition: {
+            select: {
+              code: true,
+              title: true,
+            },
+          },
+        },
+      }),
+      this.prisma.achievementAssignment.count(),
+    ]);
+
+    return {
+      data,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+    };
+  }
+
+  async assignAchievementToUser(
+    userId: string,
+    achievementCode: string,
+    adminId: string,
+  ) {
+    const normalizedCode = achievementCode.trim().toUpperCase();
+
+    const [user, definition, admin] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, displayName: true, email: true },
+      }),
+      this.prisma.achievementDefinition.findUnique({
+        where: { code: normalizedCode },
+        select: { id: true, code: true, title: true, description: true },
+      }),
+      this.prisma.user.findUnique({
+        where: { id: adminId },
+        select: { id: true, displayName: true, email: true },
+      }),
+    ]);
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (!admin) {
+      throw new NotFoundException('Admin user not found');
+    }
+
+    if (!definition) {
+      throw new NotFoundException('Achievement definition not found');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.userAchievement.createMany({
+        data: [
+          {
+            userId: user.id,
+            definitionId: definition.id,
+          },
+        ],
+        skipDuplicates: true,
+      });
+
+      await tx.achievementAssignment.create({
+        data: {
+          adminId: admin.id,
+          userId: user.id,
+          definitionId: definition.id,
+        },
+      });
+    });
+
+    const userAchievement = await this.prisma.userAchievement.findFirst({
+      where: {
+        userId: user.id,
+        definitionId: definition.id,
+      },
+      select: {
+        unlockedAt: true,
+      },
+    });
+
+    return {
+      admin,
+      user,
+      achievement: {
+        code: definition.code,
+        title: definition.title,
+        description: definition.description,
+      },
+      unlockedAt: userAchievement?.unlockedAt ?? new Date(),
     };
   }
 

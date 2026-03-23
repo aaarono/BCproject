@@ -78,6 +78,49 @@ model User {
 
   reviewsGiven    Review[] @relation("BuyerReviews")
   reviewsReceived Review[] @relation("SellerReviews")
+  achievements    UserAchievement[]
+  createdAchievementAssignments AchievementAssignment[] @relation("AdminAchievementAssignments")
+  assignedAchievements          AchievementAssignment[] @relation("UserAchievementAssignments")
+}
+
+model AchievementDefinition {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  title       String
+  description String
+  createdAt   DateTime @default(now())
+
+  users UserAchievement[]
+  manualAssignments AchievementAssignment[]
+}
+
+model UserAchievement {
+  id           String   @id @default(cuid())
+  userId       String
+  definitionId String
+  unlockedAt   DateTime @default(now())
+
+  user       User                  @relation(fields: [userId], references: [id])
+  definition AchievementDefinition @relation(fields: [definitionId], references: [id])
+
+  @@unique([userId, definitionId])
+  @@index([userId, unlockedAt])
+}
+
+model AchievementAssignment {
+  id           String   @id @default(cuid())
+  adminId      String
+  userId       String
+  definitionId String
+  createdAt    DateTime @default(now())
+
+  admin      User                  @relation("AdminAchievementAssignments", fields: [adminId], references: [id])
+  user       User                  @relation("UserAchievementAssignments", fields: [userId], references: [id])
+  definition AchievementDefinition @relation(fields: [definitionId], references: [id])
+
+  @@index([createdAt])
+  @@index([adminId, createdAt])
+  @@index([userId, createdAt])
 }
 
 model Listing {

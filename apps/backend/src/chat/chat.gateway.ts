@@ -238,9 +238,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const pair = cookieHeader
       .split(';')
       .map((chunk) => chunk.trim())
-      .find((chunk) =>
-        chunk.startsWith(`${ChatGateway.ACCESS_COOKIE}=`),
-      );
+      .find((chunk) => chunk.startsWith(`${ChatGateway.ACCESS_COOKIE}=`));
 
     if (!pair) return null;
 

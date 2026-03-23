@@ -28,6 +28,13 @@ export type Listing = {
     avatarUrl?: string | null;
     ratingAvg: number;
     ratingCount: number;
+    achievements?: Array<{
+      unlockedAt: string;
+      definition: {
+        code: string;
+        title: string;
+      };
+    }>;
   };
 };
 

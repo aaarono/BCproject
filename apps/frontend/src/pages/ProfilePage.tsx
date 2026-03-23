@@ -17,6 +17,14 @@ type Profile = {
   role: "BUYER" | "SELLER" | "ADMIN";
   ratingAvg: number;
   ratingCount: number;
+  achievements: Achievement[];
+};
+
+type Achievement = {
+  code: string;
+  title: string;
+  description: string;
+  unlockedAt: string;
 };
 
 type MyListing = {
@@ -210,18 +218,22 @@ export function ProfilePage() {
                 <div className="text-xl font-semibold text-foreground">Achievements</div>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="rounded-xl border border-border bg-muted p-3">
-                  <div className="font-medium text-foreground">Trusted Seller</div>
-                  <div className="text-sm text-muted-foreground">Maintain a high rating with completed successful deals.</div>
-                </div>
-                <div className="rounded-xl border border-border bg-muted p-3">
-                  <div className="font-medium text-foreground">Fast Responder</div>
-                  <div className="text-sm text-muted-foreground">Reply quickly to conversations and keep buyer confidence high.</div>
-                </div>
-                <div className="rounded-xl border border-border bg-muted p-3">
-                  <div className="font-medium text-foreground">Marketplace Builder</div>
-                  <div className="text-sm text-muted-foreground">Create active listings and keep inventory fresh.</div>
-                </div>
+                {profile.achievements.length === 0 && (
+                  <div className="text-sm text-muted-foreground">No achievements unlocked yet.</div>
+                )}
+
+                {profile.achievements.map((achievement) => (
+                  <div key={achievement.code} className="rounded-xl border border-border bg-muted p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="font-medium text-foreground">{achievement.title}</div>
+                      <Badge variant="outline">{achievement.code}</Badge>
+                    </div>
+                    <div className="text-sm text-muted-foreground">{achievement.description}</div>
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      Unlocked: {new Date(achievement.unlockedAt).toLocaleDateString()}
+                    </div>
+                  </div>
+                ))}
               </CardContent>
             </Card>
           )}

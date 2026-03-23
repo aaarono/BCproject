@@ -15,6 +15,11 @@ type TopSeller = {
   completedDeals: number;
   activeListings: number;
   score: number;
+  achievements?: Array<{
+    code: string;
+    title: string;
+    unlockedAt: string;
+  }>;
 };
 
 export function TopSellersPage() {

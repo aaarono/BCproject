@@ -61,6 +61,16 @@ export function MarketplaceListingCard({ listing }: { listing: Listing }) {
           </div>
         </div>
 
+        {listing.seller.achievements && listing.seller.achievements.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {listing.seller.achievements.slice(0, 2).map((achievement) => (
+              <Badge key={achievement.definition.code} variant="outline" className="text-[10px]">
+                {achievement.definition.title}
+              </Badge>
+            ))}
+          </div>
+        )}
+
         <div className="flex items-end justify-between gap-4 border-t border-border pt-3">
           <div className="min-w-0 space-y-0.5">
             {listing.isOnSale ? (

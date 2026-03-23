@@ -20,9 +20,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const pair = cookieHeader
       .split(';')
       .map((chunk) => chunk.trim())
-      .find((chunk) =>
-        chunk.startsWith(`${JwtStrategy.ACCESS_COOKIE}=`),
-      );
+      .find((chunk) => chunk.startsWith(`${JwtStrategy.ACCESS_COOKIE}=`));
 
     if (!pair) return null;
     const value = pair.substring(`${JwtStrategy.ACCESS_COOKIE}=`.length);

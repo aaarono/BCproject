@@ -23,6 +23,11 @@ type TopSeller = {
   ratingCount: number;
   completedDeals: number;
   activeListings?: number;
+  achievements?: Array<{
+    code: string;
+    title: string;
+    unlockedAt: string;
+  }>;
 };
 
 export function ListingsPage() {
@@ -161,6 +166,19 @@ export function ListingsPage() {
                             <div className="text-xs text-muted-foreground">
                               {seller.completedDeals} deals · {seller.ratingAvg.toFixed(1)}★
                             </div>
+                            {seller.achievements && seller.achievements.length > 0 && (
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                {seller.achievements.slice(0, 2).map((achievement) => (
+                                  <Badge
+                                    key={achievement.code}
+                                    variant="outline"
+                                    className="text-[10px]"
+                                  >
+                                    {achievement.title}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>

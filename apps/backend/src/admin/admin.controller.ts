@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Post,
   Param,
   Patch,
   Query,
@@ -19,9 +20,13 @@ import {
   DealStatus,
   ListingStatus,
 } from '@prisma/client';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import type { JwtPayload } from '../auth/jwt.strategy';
 import { AdminGuard } from './admin.guard';
 import { AdminService } from './admin.service';
+import { AssignAchievementDto } from './dto/assign-achievement.dto';
+import { CreateAchievementDto } from './dto/create-achievement.dto';
 import { ListAdminQueryDto } from './dto/list-admin-query.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 
@@ -48,6 +53,20 @@ export class AdminController {
   @Patch('users/:id/role')
   updateUserRole(@Param('id') id: string, @Body() dto: UpdateUserRoleDto) {
     return this.adminService.updateUserRole(id, dto.role);
+  }
+
+  @ApiOperation({ summary: 'Assign achievement to a user' })
+  @Post('users/:id/achievements')
+  assignAchievementToUser(
+    @Param('id') id: string,
+    @Body() dto: AssignAchievementDto,
+    @CurrentUser() admin: JwtPayload,
+  ) {
+    return this.adminService.assignAchievementToUser(
+      id,
+      dto.achievementCode,
+      admin.sub,
+    );
   }
 
   @ApiOperation({ summary: 'List listings for moderation' })
@@ -92,6 +111,24 @@ export class AdminController {
   @Get('reviews')
   listReviews(@Query() query: ListAdminQueryDto) {
     return this.adminService.listReviews(query);
+  }
+
+  @ApiOperation({ summary: 'List achievements for admin panel' })
+  @Get('achievements')
+  listAchievements(@Query() query: ListAdminQueryDto) {
+    return this.adminService.listAchievements(query);
+  }
+
+  @ApiOperation({ summary: 'Create achievement definition' })
+  @Post('achievements')
+  createAchievement(@Body() dto: CreateAchievementDto) {
+    return this.adminService.createAchievement(dto);
+  }
+
+  @ApiOperation({ summary: 'List manual achievement assignment history' })
+  @Get('achievements/assignments')
+  listAchievementAssignments(@Query() query: ListAdminQueryDto) {
+    return this.adminService.listAchievementAssignments(query);
   }
 
   @ApiOperation({ summary: 'Delete review as admin' })

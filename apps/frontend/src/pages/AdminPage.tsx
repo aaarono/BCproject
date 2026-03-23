@@ -67,6 +67,36 @@ type ReviewItem = {
   seller: { id: string; displayName: string; email: string };
 };
 
+type AchievementItem = {
+  id: string;
+  code: string;
+  title: string;
+  description: string;
+  createdAt: string;
+  _count?: {
+    users: number;
+  };
+};
+
+type AchievementAssignmentItem = {
+  id: string;
+  createdAt: string;
+  admin: {
+    id: string;
+    displayName: string;
+    email: string;
+  };
+  user: {
+    id: string;
+    displayName: string;
+    email: string;
+  };
+  definition: {
+    code: string;
+    title: string;
+  };
+};
+
 type ListResponse<T> = {
   data: T[];
   meta: { page: number; limit: number; total: number; totalPages: number };
@@ -77,13 +107,21 @@ function formatAmount(cents: number) {
 }
 
 export function AdminPage() {
-  const [activeTab, setActiveTab] = useState<"users" | "listings" | "deals" | "reviews">("users");
+  const [activeTab, setActiveTab] = useState<"users" | "listings" | "deals" | "reviews" | "achievements">("users");
   const [dealCancellationFilter, setDealCancellationFilter] = useState<"ALL" | "BUYER" | "SELLER" | "SYSTEM">("ALL");
   const [overview, setOverview] = useState<Overview | null>(null);
   const [users, setUsers] = useState<UserItem[]>([]);
   const [listings, setListings] = useState<ListingItem[]>([]);
   const [deals, setDeals] = useState<DealItem[]>([]);
   const [reviews, setReviews] = useState<ReviewItem[]>([]);
+  const [achievements, setAchievements] = useState<AchievementItem[]>([]);
+  const [achievementAssignments, setAchievementAssignments] = useState<AchievementAssignmentItem[]>([]);
+
+  const [achievementCode, setAchievementCode] = useState("");
+  const [achievementTitle, setAchievementTitle] = useState("");
+  const [achievementDescription, setAchievementDescription] = useState("");
+  const [selectedAchievementCode, setSelectedAchievementCode] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState("");
 
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
@@ -93,7 +131,7 @@ export function AdminPage() {
 
   const tabClass = useMemo(
     () =>
-      (tab: "users" | "listings" | "deals" | "reviews") =>
+      (tab: "users" | "listings" | "deals" | "reviews" | "achievements") =>
         `rounded-lg px-3 py-2 text-sm font-medium transition ${
           activeTab === tab ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent"
         }`,
@@ -114,12 +152,14 @@ export function AdminPage() {
           : {}),
       };
 
-      const [overviewRes, usersRes, listingsRes, dealsRes, reviewsRes] = await Promise.all([
+      const [overviewRes, usersRes, listingsRes, dealsRes, reviewsRes, achievementsRes, assignmentHistoryRes] = await Promise.all([
         http.get<Overview>("/admin/overview"),
         http.get<ListResponse<UserItem>>("/admin/users", { params: queryParams }),
         http.get<ListResponse<ListingItem>>("/admin/listings", { params: queryParams }),
         http.get<ListResponse<DealItem>>("/admin/deals", { params: dealsParams }),
         http.get<ListResponse<ReviewItem>>("/admin/reviews", { params: { limit: 20 } }),
+        http.get<ListResponse<AchievementItem>>("/admin/achievements", { params: queryParams }),
+        http.get<ListResponse<AchievementAssignmentItem>>("/admin/achievements/assignments", { params: { limit: 20 } }),
       ]);
 
       setOverview(overviewRes.data);
@@ -127,6 +167,8 @@ export function AdminPage() {
       setListings(listingsRes.data.data);
       setDeals(dealsRes.data.data);
       setReviews(reviewsRes.data.data);
+      setAchievements(achievementsRes.data.data);
+      setAchievementAssignments(assignmentHistoryRes.data.data);
     } catch (error: unknown) {
       setErr(extractHttpErrorMessage(error, "Failed to load admin data"));
     } finally {
@@ -199,6 +241,66 @@ export function AdminPage() {
     }
   }
 
+  async function createAchievement() {
+    setBusy(true);
+    setErr(null);
+    setSuccess(null);
+
+    try {
+      const code = achievementCode.trim().toUpperCase();
+      const title = achievementTitle.trim();
+      const description = achievementDescription.trim();
+
+      if (!code || !title || !description) {
+        setErr("Code, title and description are required.");
+        return;
+      }
+
+      await http.post("/admin/achievements", {
+        code,
+        title,
+        description,
+      });
+
+      setAchievementCode("");
+      setAchievementTitle("");
+      setAchievementDescription("");
+      await loadAll();
+      setSuccess("Achievement created.");
+    } catch (error: unknown) {
+      setErr(extractHttpErrorMessage(error, "Failed to create achievement"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function assignAchievement() {
+    setBusy(true);
+    setErr(null);
+    setSuccess(null);
+
+    try {
+      const userId = selectedUserId.trim();
+      const code = selectedAchievementCode.trim().toUpperCase();
+
+      if (!userId || !code) {
+        setErr("Select user and achievement first.");
+        return;
+      }
+
+      await http.post(`/admin/users/${userId}/achievements`, {
+        achievementCode: code,
+      });
+
+      await loadAll();
+      setSuccess("Achievement assigned to user.");
+    } catch (error: unknown) {
+      setErr(extractHttpErrorMessage(error, "Failed to assign achievement"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (loading) return <LoadingState width="max-w-7xl" />;
   if (err && !overview) return <ErrorState width="max-w-7xl" message={err} />;
 
@@ -222,11 +324,12 @@ export function AdminPage() {
 
       <Card>
         <CardHeader className="space-y-3">
-          <div className="grid w-full grid-cols-2 gap-2 rounded-xl border border-border bg-card p-2 sm:w-[460px] sm:grid-cols-4">
+          <div className="grid w-full grid-cols-2 gap-2 rounded-xl border border-border bg-card p-2 sm:w-[580px] sm:grid-cols-5">
             <button type="button" className={tabClass("users")} onClick={() => setActiveTab("users")}>Users</button>
             <button type="button" className={tabClass("listings")} onClick={() => setActiveTab("listings")}>Listings</button>
             <button type="button" className={tabClass("deals")} onClick={() => setActiveTab("deals")}>Deals</button>
             <button type="button" className={tabClass("reviews")} onClick={() => setActiveTab("reviews")}>Reviews</button>
+            <button type="button" className={tabClass("achievements")} onClick={() => setActiveTab("achievements")}>Achievements</button>
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row">
@@ -381,6 +484,110 @@ export function AdminPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {activeTab === "achievements" && (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-border bg-muted p-3">
+                <div className="mb-3 text-sm font-medium text-foreground">Create new achievement</div>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <Input
+                    placeholder="Code (e.g. FAST_RESPONDER)"
+                    value={achievementCode}
+                    onChange={(e) => setAchievementCode(e.target.value)}
+                  />
+                  <Input
+                    placeholder="Title"
+                    value={achievementTitle}
+                    onChange={(e) => setAchievementTitle(e.target.value)}
+                  />
+                  <Button type="button" disabled={busy} onClick={() => createAchievement().catch(() => {})}>
+                    {busy ? "Creating..." : "Create"}
+                  </Button>
+                </div>
+                <div className="mt-2">
+                  <Input
+                    placeholder="Description"
+                    value={achievementDescription}
+                    onChange={(e) => setAchievementDescription(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-border bg-muted p-3">
+                <div className="mb-3 text-sm font-medium text-foreground">Assign achievement to user</div>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <select
+                    className="h-10 rounded-lg border border-input bg-background px-3 text-sm text-foreground"
+                    value={selectedUserId}
+                    onChange={(e) => setSelectedUserId(e.target.value)}
+                  >
+                    <option value="">Select user</option>
+                    {users.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.displayName} ({user.email})
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    className="h-10 rounded-lg border border-input bg-background px-3 text-sm text-foreground"
+                    value={selectedAchievementCode}
+                    onChange={(e) => setSelectedAchievementCode(e.target.value)}
+                  >
+                    <option value="">Select achievement</option>
+                    {achievements.map((achievement) => (
+                      <option key={achievement.id} value={achievement.code}>
+                        {achievement.title} ({achievement.code})
+                      </option>
+                    ))}
+                  </select>
+                  <Button type="button" disabled={busy} onClick={() => assignAchievement().catch(() => {})}>
+                    {busy ? "Assigning..." : "Assign"}
+                  </Button>
+                </div>
+              </div>
+
+              {achievements.map((achievement) => (
+                <div key={achievement.id} className="rounded-xl border border-border bg-muted p-3">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="font-medium text-foreground">{achievement.title}</div>
+                      <div className="mt-1 text-sm text-muted-foreground">{achievement.description}</div>
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        Created: {new Date(achievement.createdAt).toLocaleDateString()}
+                        {achievement._count ? ` · Unlocked by ${achievement._count.users} users` : ""}
+                      </div>
+                    </div>
+                    <Badge variant="outline">{achievement.code}</Badge>
+                  </div>
+                </div>
+              ))}
+
+              <div className="rounded-xl border border-border bg-muted p-3">
+                <div className="mb-3 text-sm font-medium text-foreground">Manual assignment history</div>
+                <div className="space-y-2">
+                  {achievementAssignments.length === 0 && (
+                    <div className="text-sm text-muted-foreground">No manual assignments yet.</div>
+                  )}
+
+                  {achievementAssignments.map((entry) => (
+                    <div key={entry.id} className="rounded-lg border border-border bg-background p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="text-sm text-foreground">
+                          <span className="font-medium">{entry.admin.displayName}</span> assigned
+                          <span className="font-medium"> {entry.definition.title}</span> to
+                          <span className="font-medium"> {entry.user.displayName}</span>
+                        </div>
+                        <Badge variant="outline">{entry.definition.code}</Badge>
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {new Date(entry.createdAt).toLocaleString()} · Admin: {entry.admin.email} · User: {entry.user.email}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
         </CardContent>

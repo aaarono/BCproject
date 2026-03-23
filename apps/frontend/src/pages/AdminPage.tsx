@@ -48,6 +48,7 @@ type ListingItem = {
 type DealItem = {
   id: string;
   status: "INITIATED" | "FUNDED" | "DELIVERED" | "COMPLETED" | "CANCELED";
+  canceledByActor?: "BUYER" | "SELLER" | "SYSTEM" | null;
   quantity: number;
   unitPriceSnapshot: number;
   totalAmountSnapshot: number;
@@ -77,6 +78,7 @@ function formatAmount(cents: number) {
 
 export function AdminPage() {
   const [activeTab, setActiveTab] = useState<"users" | "listings" | "deals" | "reviews">("users");
+  const [dealCancellationFilter, setDealCancellationFilter] = useState<"ALL" | "BUYER" | "SELLER" | "SYSTEM">("ALL");
   const [overview, setOverview] = useState<Overview | null>(null);
   const [users, setUsers] = useState<UserItem[]>([]);
   const [listings, setListings] = useState<ListingItem[]>([]);
@@ -105,12 +107,18 @@ export function AdminPage() {
     try {
       const normalizedQuery = query.trim();
       const queryParams = normalizedQuery ? { search: normalizedQuery, limit: 20 } : { limit: 20 };
+      const dealsParams = {
+        limit: 20,
+        ...(dealCancellationFilter !== "ALL"
+          ? { canceledByActor: dealCancellationFilter }
+          : {}),
+      };
 
       const [overviewRes, usersRes, listingsRes, dealsRes, reviewsRes] = await Promise.all([
         http.get<Overview>("/admin/overview"),
         http.get<ListResponse<UserItem>>("/admin/users", { params: queryParams }),
         http.get<ListResponse<ListingItem>>("/admin/listings", { params: queryParams }),
-        http.get<ListResponse<DealItem>>("/admin/deals", { params: { limit: 20 } }),
+        http.get<ListResponse<DealItem>>("/admin/deals", { params: dealsParams }),
         http.get<ListResponse<ReviewItem>>("/admin/reviews", { params: { limit: 20 } }),
       ]);
 
@@ -129,7 +137,7 @@ export function AdminPage() {
   useEffect(() => {
     loadAll().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [dealCancellationFilter]);
 
   async function refreshByTab() {
     setBusy(true);
@@ -227,6 +235,22 @@ export function AdminPage() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
+            {activeTab === "deals" && (
+              <select
+                className="h-10 rounded-lg border border-input bg-background px-3 text-sm text-foreground"
+                value={dealCancellationFilter}
+                onChange={(e) =>
+                  setDealCancellationFilter(
+                    e.target.value as "ALL" | "BUYER" | "SELLER" | "SYSTEM",
+                  )
+                }
+              >
+                <option value="ALL">All cancellation sources</option>
+                <option value="BUYER">Canceled by buyer</option>
+                <option value="SELLER">Canceled by seller</option>
+                <option value="SYSTEM">Canceled by timeout</option>
+              </select>
+            )}
             <Button type="button" variant="outline" onClick={() => loadAll().catch(() => {})} disabled={busy}>
               Reload
             </Button>
@@ -321,7 +345,14 @@ export function AdminPage() {
                         {formatAmount(deal.unitPriceSnapshot)} × {deal.quantity} = {formatAmount(deal.totalAmountSnapshot)}
                       </div>
                     </div>
-                    <Badge variant="outline">{deal.status}</Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">{deal.status}</Badge>
+                      {deal.status === "CANCELED" && deal.canceledByActor && (
+                        <Badge variant="muted">
+                          By {deal.canceledByActor === "SYSTEM" ? "timeout" : deal.canceledByActor.toLowerCase()}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}

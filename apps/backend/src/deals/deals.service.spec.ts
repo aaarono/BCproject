@@ -148,7 +148,12 @@ describe('DealsService', () => {
 
       const result = await service.markDelivered('deal1', 'seller1');
       expect(prisma.deal.update).toHaveBeenCalledWith(
-        expect.objectContaining({ data: { status: 'DELIVERED' } }),
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: 'DELIVERED',
+            expiresAt: null,
+          }),
+        }),
       );
     });
 
@@ -254,14 +259,38 @@ describe('DealsService', () => {
       expect(walletService.refundToBuyer).not.toHaveBeenCalled();
     });
 
-    it('should throw ForbiddenException if not seller', async () => {
+    it('should allow buyer to cancel funded deal with refund', async () => {
+      const deal = {
+        id: 'deal1',
+        sellerId: 'seller1',
+        buyerId: 'buyer1',
+        status: 'FUNDED',
+        totalAmountSnapshot: 5000,
+      };
+      prisma.deal.findUnique
+        .mockResolvedValueOnce(deal)
+        .mockResolvedValueOnce(fullDeal);
+      prisma.deal.update.mockResolvedValue({});
+
+      await service.cancel('deal1', 'buyer1');
+
+      expect(walletService.refundToBuyer).toHaveBeenCalledWith(
+        prisma,
+        'buyer1',
+        'deal1',
+        5000,
+      );
+    });
+
+    it('should throw ForbiddenException if not participant', async () => {
       prisma.deal.findUnique.mockResolvedValue({
         id: 'deal1',
         sellerId: 'seller1',
+        buyerId: 'buyer1',
         status: 'FUNDED',
         totalAmountSnapshot: 5000,
       });
-      await expect(service.cancel('deal1', 'buyer1')).rejects.toThrow(
+      await expect(service.cancel('deal1', 'stranger')).rejects.toThrow(
         ForbiddenException,
       );
     });

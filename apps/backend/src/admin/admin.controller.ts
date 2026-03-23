@@ -14,7 +14,11 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
-import { DealStatus, ListingStatus } from '@prisma/client';
+import {
+  DealCancellationActor,
+  DealStatus,
+  ListingStatus,
+} from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from './admin.guard';
 import { AdminService } from './admin.service';
@@ -70,12 +74,18 @@ export class AdminController {
 
   @ApiOperation({ summary: 'List deals for admin panel' })
   @ApiQuery({ name: 'status', required: false, enum: DealStatus })
+  @ApiQuery({
+    name: 'canceledByActor',
+    required: false,
+    enum: DealCancellationActor,
+  })
   @Get('deals')
   listDeals(
     @Query() query: ListAdminQueryDto,
     @Query('status') status?: DealStatus,
+    @Query('canceledByActor') canceledByActor?: DealCancellationActor,
   ) {
-    return this.adminService.listDeals(query, status);
+    return this.adminService.listDeals(query, status, canceledByActor);
   }
 
   @ApiOperation({ summary: 'List reviews for moderation' })

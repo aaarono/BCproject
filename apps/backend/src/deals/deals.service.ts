@@ -7,6 +7,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { WalletService } from 'src/wallet/wallet.service';
 import { ChatGateway } from 'src/chat/chat.gateway';
+import { getDealExpiresAt } from './deal-timeout.util';
 
 @Injectable()
 export class DealsService {
@@ -165,6 +166,7 @@ export class DealsService {
           quantity,
           unitPriceSnapshot,
           totalAmountSnapshot,
+          expiresAt: getDealExpiresAt(),
           status: 'FUNDED',
         },
       });
@@ -231,7 +233,11 @@ export class DealsService {
 
       await tx.deal.update({
         where: { id: dealId },
-        data: { status: 'FUNDED' },
+        data: {
+          status: 'FUNDED',
+          expiresAt: getDealExpiresAt(),
+          canceledByActor: null,
+        },
       });
     });
 
@@ -250,7 +256,11 @@ export class DealsService {
 
     await this.prisma.deal.update({
       where: { id: dealId },
-      data: { status: 'DELIVERED' },
+      data: {
+        status: 'DELIVERED',
+        expiresAt: null,
+        canceledByActor: null,
+      },
     });
 
     const fullDeal = await this.getFullDeal(dealId);
@@ -292,7 +302,11 @@ export class DealsService {
 
       await tx.deal.update({
         where: { id: dealId },
-        data: { status: 'COMPLETED' },
+        data: {
+          status: 'COMPLETED',
+          expiresAt: null,
+          canceledByActor: null,
+        },
       });
     });
 
@@ -317,8 +331,10 @@ export class DealsService {
 
       if (!deal) throw new NotFoundException('Deal not found');
 
-      if (deal.sellerId !== userId) {
-        throw new ForbiddenException('Only seller can cancel this deal');
+      if (deal.sellerId !== userId && deal.buyerId !== userId) {
+        throw new ForbiddenException(
+          'Only deal participants can cancel this deal',
+        );
       }
 
       if (!['INITIATED', 'FUNDED'].includes(deal.status)) {
@@ -336,7 +352,11 @@ export class DealsService {
 
       await tx.deal.update({
         where: { id: dealId },
-        data: { status: 'CANCELED' },
+        data: {
+          status: 'CANCELED',
+          expiresAt: null,
+          canceledByActor: deal.buyerId === userId ? 'BUYER' : 'SELLER',
+        },
       });
     });
 

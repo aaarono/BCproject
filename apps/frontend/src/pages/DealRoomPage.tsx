@@ -32,7 +32,9 @@ function extractErrorMessage(error: unknown, fallback: string) {
 type Deal = {
   id: string;
   status: "INITIATED" | "FUNDED" | "DELIVERED" | "COMPLETED" | "CANCELED";
+  canceledByActor?: "BUYER" | "SELLER" | "SYSTEM" | null;
   createdAt: string;
+  expiresAt?: string | null;
   listingId: string;
   buyerId: string;
   sellerId: string;
@@ -70,6 +72,11 @@ export function DealRoomPage() {
   const [err, setErr] = useState<string | null>(null);
   const [actionErr, setActionErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  function formatExpiration(expiresAt?: string | null) {
+    if (!expiresAt) return null;
+    return `Auto-cancel at ${new Date(expiresAt).toLocaleString()}`;
+  }
 
   async function loadSellerConversation(dealData: Deal) {
     const res = await http.get(
@@ -173,10 +180,17 @@ export function DealRoomPage() {
           ? "Waiting for buyer confirmation"
           : deal.status === "COMPLETED"
             ? "Deal completed"
-            : "Deal canceled";
+            : deal.canceledByActor === "BUYER"
+              ? "Deal canceled by buyer"
+              : deal.canceledByActor === "SELLER"
+                ? "Deal canceled by seller"
+                : deal.canceledByActor === "SYSTEM"
+                  ? "Deal auto-canceled by timeout"
+                  : "Deal canceled";
 
   const amountLabel = `${(deal.totalAmountSnapshot / 100).toFixed(2)} Kč`;
   const unitLabel = `${(deal.unitPriceSnapshot / 100).toFixed(2)} Kč`;
+  const expirationLabel = formatExpiration(deal.expiresAt);
   const flowSteps: Array<Deal["status"]> = ["INITIATED", "FUNDED", "DELIVERED", "COMPLETED"];
   const stepIndexMap: Record<Deal["status"], number> = {
     INITIATED: 0,
@@ -221,6 +235,13 @@ export function DealRoomPage() {
                 <Clock className="h-4 w-4 shrink-0" />
                 <span>{statusDescription}</span>
               </div>
+
+              {(deal.status === "INITIATED" || deal.status === "FUNDED") && expirationLabel && (
+                <div className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                  <Clock className="h-4 w-4" />
+                  <span>{expirationLabel}</span>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-[11px] text-muted-foreground">
@@ -277,10 +298,10 @@ export function DealRoomPage() {
                   </Button>
                 )}
 
-                {isSeller && (deal.status === "INITIATED" || deal.status === "FUNDED") && (
+                {(isSeller || isBuyer) && (deal.status === "INITIATED" || deal.status === "FUNDED") && (
                   <Button variant="outline" disabled={busy} onClick={() => act(() => http.post(`/deals/${deal.id}/cancel`))}>
                     <XCircle className="h-4 w-4" />
-                    {busy ? "Processing..." : "Cancel (refund)"}
+                    {busy ? "Processing..." : "Cancel deal"}
                   </Button>
                 )}
               </div>
@@ -377,6 +398,12 @@ export function DealRoomPage() {
                 <span className="text-muted-foreground">Created</span>
                 <span>{new Date(deal.createdAt).toLocaleString()}</span>
               </div>
+              {deal.expiresAt && (deal.status === "INITIATED" || deal.status === "FUNDED") && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Expires</span>
+                  <span>{new Date(deal.expiresAt).toLocaleString()}</span>
+                </div>
+              )}
               {deal.fundedAt && (
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Funded</span>
@@ -399,6 +426,16 @@ export function DealRoomPage() {
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Canceled</span>
                   <span>{new Date(deal.canceledAt).toLocaleString()}</span>
+                </div>
+              )}
+              {deal.status === "CANCELED" && deal.canceledByActor && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Canceled by</span>
+                  <span>
+                    {deal.canceledByActor === "SYSTEM"
+                      ? "System timeout"
+                      : deal.canceledByActor.toLowerCase()}
+                  </span>
                 </div>
               )}
             </CardContent>

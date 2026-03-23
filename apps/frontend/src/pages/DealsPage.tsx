@@ -13,7 +13,9 @@ import { EmptyState } from "../components/ui/EmptyState";
 type Deal = {
   id: string;
   status: "INITIATED" | "FUNDED" | "DELIVERED" | "COMPLETED" | "CANCELED";
+  canceledByActor?: "BUYER" | "SELLER" | "SYSTEM" | null;
   createdAt: string;
+  expiresAt?: string | null;
   quantity: number;
   unitPriceSnapshot: number;
   totalAmountSnapshot: number;
@@ -27,6 +29,11 @@ export function DealsPage() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+
+  function formatExpiration(expiresAt?: string | null) {
+    if (!expiresAt) return null;
+    return `Auto-cancel at ${new Date(expiresAt).toLocaleString()}`;
+  }
 
   const title = useMemo(() => {
     if (!user) return "My deals";
@@ -119,6 +126,16 @@ export function DealsPage() {
                         <Badge variant="outline" className="text-[10px]">
                           With {counterparty}
                         </Badge>
+                        {d.status === "CANCELED" && d.canceledByActor && (
+                          <Badge variant="muted" className="text-[10px]">
+                            Canceled by {d.canceledByActor === "SYSTEM" ? "timeout" : d.canceledByActor.toLowerCase()}
+                          </Badge>
+                        )}
+                        {(d.status === "INITIATED" || d.status === "FUNDED") && (
+                          <Badge variant="muted" className="text-[10px]">
+                            {formatExpiration(d.expiresAt)}
+                          </Badge>
+                        )}
                       </div>
 
                       <div className="flex items-center justify-between text-xs">

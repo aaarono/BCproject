@@ -1,5 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { DealStatus, ListingStatus, Prisma, Role } from '@prisma/client';
+import {
+  DealCancellationActor,
+  DealStatus,
+  ListingStatus,
+  Prisma,
+  Role,
+} from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ListAdminQueryDto } from './dto/list-admin-query.dto';
 
@@ -148,11 +154,16 @@ export class AdminService {
     };
   }
 
-  async listDeals(query: ListAdminQueryDto, status?: DealStatus) {
+  async listDeals(
+    query: ListAdminQueryDto,
+    status?: DealStatus,
+    canceledByActor?: DealCancellationActor,
+  ) {
     const { page, limit, skip } = this.normalizePagination(query);
 
     const where: Prisma.DealWhereInput = {
       ...(status ? { status } : {}),
+      ...(canceledByActor ? { canceledByActor } : {}),
     };
 
     const [data, total] = await Promise.all([
@@ -164,6 +175,7 @@ export class AdminService {
         select: {
           id: true,
           status: true,
+          canceledByActor: true,
           quantity: true,
           unitPriceSnapshot: true,
           totalAmountSnapshot: true,

@@ -40,6 +40,12 @@ enum DealStatus {
   CANCELED
 }
 
+enum DealCancellationActor {
+  BUYER
+  SELLER
+  SYSTEM
+}
+
 enum WalletTxType {
   TOPUP
   ESCROW_LOCK
@@ -172,6 +178,8 @@ model Deal {
   quantity  Int        @default(1)
   unitPriceSnapshot Int
   totalAmountSnapshot Int
+  expiresAt DateTime?
+  canceledByActor DealCancellationActor?
   status    DealStatus @default(INITIATED)
   createdAt DateTime   @default(now())
 
@@ -182,6 +190,7 @@ model Deal {
 
   @@index([buyerId])
   @@index([sellerId])
+  @@index([status, expiresAt])
 }
 
 model Review {

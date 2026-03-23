@@ -15,6 +15,7 @@ import {
   LogIn,
   UserPlus,
   LogOut,
+  Shield,
 } from "lucide-react";
 import { Button } from "../ui/Button";
 import { http } from "../../api/http";
@@ -145,6 +146,15 @@ export function Navbar() {
               Deals
             </NavLink>
           )}
+          {user?.role === "ADMIN" && (
+            <NavLink
+              to="/admin"
+              className={({ isActive }) => (isActive ? activeDesktopClass : idleDesktopClass)}
+            >
+              <Shield className="h-4 w-4" />
+              Admin
+            </NavLink>
+          )}
         </nav>
 
         <div className="hidden items-center gap-2 md:flex">
@@ -208,6 +218,12 @@ export function Navbar() {
                       <Settings className="h-4 w-4" />
                       Settings
                     </Link>
+                    {user?.role === "ADMIN" && (
+                      <Link to="/admin" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground hover:bg-accent">
+                        <Shield className="h-4 w-4" />
+                        Admin
+                      </Link>
+                    )}
                     <div className="my-1 h-px bg-border" />
                     <button
                       type="button"
@@ -265,6 +281,9 @@ export function Navbar() {
                 <Item to="/deals" onClick={closeMobile} icon={<Handshake className="h-4 w-4" />}>Deals</Item>
                 <Item to="/wallet" onClick={closeMobile} icon={<ShoppingBag className="h-4 w-4" />}>Wallet</Item>
                 <Item to="/create-listing" onClick={closeMobile} icon={<Plus className="h-4 w-4" />}>Create Listing</Item>
+                {user.role === "ADMIN" && (
+                  <Item to="/admin" onClick={closeMobile} icon={<Shield className="h-4 w-4" />}>Admin</Item>
+                )}
                 <NavLink
                   to="/inbox"
                   onClick={closeMobile}

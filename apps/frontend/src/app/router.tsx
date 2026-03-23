@@ -1,5 +1,6 @@
 import { createBrowserRouter, Outlet } from "react-router-dom";
 import { RequireAuth } from "../auth/RequireAuth";
+import { RequireAdmin } from "../auth/RequireAdmin";
 import App from "../App";
 import { ListingsPage } from "../pages/ListingsPage";
 import { ListingPage } from "../pages/ListingPage";
@@ -18,6 +19,7 @@ import { PublicSellerProfilePage } from "../pages/PublicSellerProfilePage";
 import { EditListingPage } from "../pages/EditListingPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
 import { TopSellersPage } from "../pages/TopSellersPage";
+import { AdminPage } from "../pages/AdminPage";
 
 export const router = createBrowserRouter([
   {
@@ -65,6 +67,14 @@ export const router = createBrowserRouter([
           <RequireAuth>
             <SettingsPage />
           </RequireAuth>
+        ),
+      },
+      {
+        path: "/admin",
+        element: (
+          <RequireAdmin>
+            <AdminPage />
+          </RequireAdmin>
         ),
       },
       {

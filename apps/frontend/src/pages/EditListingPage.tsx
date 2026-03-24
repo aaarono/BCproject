@@ -5,6 +5,7 @@ import { ListingForm, type ListingFormValues } from "../components/listing/Listi
 import type { Listing } from "../types/listing";
 import { extractHttpErrorMessage } from "../utils/httpError";
 import { ErrorState, LoadingState } from "../components/ui/PageStates";
+import { centsToDollarsInput, dollarsToCents } from "../lib/currency";
 
 function toDateTimeLocal(value?: string | null) {
   if (!value) return "";
@@ -41,6 +42,7 @@ export function EditListingPage() {
     setErr(null);
 
     const parsedPrice = Number(values.price);
+    const parsedPriceCents = dollarsToCents(parsedPrice);
 
     if (!values.title.trim()) {
       setErr("Title is required");
@@ -52,7 +54,7 @@ export function EditListingPage() {
       return;
     }
 
-    if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
+    if (!Number.isFinite(parsedPrice) || parsedPriceCents <= 0) {
       setErr("Price must be greater than 0");
       return;
     }
@@ -105,7 +107,7 @@ export function EditListingPage() {
       await http.patch(`/listings/${id}`, {
         title: values.title.trim(),
         description: values.description.trim(),
-        price: parsedPrice,
+        price: parsedPriceCents,
         type: values.type,
         category: values.category,
         tags,
@@ -134,7 +136,7 @@ export function EditListingPage() {
         initialValues={{
           title: listing.title,
           description: listing.description,
-          price: String(listing.price),
+          price: centsToDollarsInput(listing.price),
           type: listing.type,
           category: listing.category,
           tags: listing.tags.join(", "),

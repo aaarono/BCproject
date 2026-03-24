@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { http } from "../api/http";
 import { ListingForm, type ListingFormValues } from "../components/listing/ListingForm";
 import { extractHttpErrorMessage } from "../utils/httpError";
+import { dollarsToCents } from "../lib/currency";
 
 type CreateListingResponse = {
   id: string;
@@ -17,6 +18,7 @@ export function CreateListingPage() {
     setErr(null);
 
     const parsedPrice = Number(values.price);
+    const parsedPriceCents = dollarsToCents(parsedPrice);
 
     if (!values.title.trim()) {
       setErr("Title is required");
@@ -28,7 +30,7 @@ export function CreateListingPage() {
       return;
     }
 
-    if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
+    if (!Number.isFinite(parsedPrice) || parsedPriceCents <= 0) {
       setErr("Price must be greater than 0");
       return;
     }
@@ -81,7 +83,7 @@ export function CreateListingPage() {
       const res = await http.post<CreateListingResponse>("/listings", {
         title: values.title.trim(),
         description: values.description.trim(),
-        price: parsedPrice,
+        price: parsedPriceCents,
         type: values.type,
         category: values.category,
         tags,

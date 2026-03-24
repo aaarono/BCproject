@@ -191,22 +191,33 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     this.server.to(this.room(body.conversationId)).emit('message:new', message);
 
-    const conversation = await this.conversationsService.getById(
+    const senderConversation = await this.conversationsService.getById(
       body.conversationId,
       userId,
     );
 
-    const inboxConversation = {
-      ...conversation,
-      messages: [message],
-    };
+    const buyerConversation = await this.conversationsService.getById(
+      body.conversationId,
+      senderConversation.buyerId,
+    );
 
-    this.server.to(this.userRoom(conversation.buyerId)).emit('inbox:update', {
-      conversation: inboxConversation,
+    const sellerConversation = await this.conversationsService.getById(
+      body.conversationId,
+      senderConversation.sellerId,
+    );
+
+    this.server.to(this.userRoom(senderConversation.buyerId)).emit('inbox:update', {
+      conversation: {
+        ...buyerConversation,
+        messages: [message],
+      },
     });
 
-    this.server.to(this.userRoom(conversation.sellerId)).emit('inbox:update', {
-      conversation: inboxConversation,
+    this.server.to(this.userRoom(senderConversation.sellerId)).emit('inbox:update', {
+      conversation: {
+        ...sellerConversation,
+        messages: [message],
+      },
     });
 
     return { ok: true, message };

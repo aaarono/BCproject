@@ -10,6 +10,13 @@ import { Bell, Camera, Monitor, Moon, Save, Shield, Sun, User } from "lucide-rea
 import { cn } from "../lib/cn";
 import { Avatar } from "../components/ui/Avatar";
 import { useAuth } from "../auth/AuthContext";
+import {
+  applyThemeMode,
+  getStoredThemeMode,
+  setThemeMode as persistThemeMode,
+  subscribeToSystemThemeChanges,
+  type ThemeMode,
+} from "../lib/theme";
 
 type Profile = {
   id: string;
@@ -27,7 +34,6 @@ export function SettingsPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState("");
   const [notifications, setNotifications] = useState({
     newMessage: true,
     dealUpdates: true,
@@ -41,7 +47,7 @@ export function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [passwordSaving, setPasswordSaving] = useState(false);
-  const [themeMode, setThemeMode] = useState<"light" | "dark" | "system">("system");
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() => getStoredThemeMode());
   const [err, setErr] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
@@ -51,7 +57,6 @@ export function SettingsPage() {
     setProfile(res.data);
     setDisplayName(res.data.displayName);
     setEmail(res.data.email);
-    setAvatarUrl(res.data.avatarUrl ?? "");
   }
 
   useEffect(() => {
@@ -66,16 +71,16 @@ export function SettingsPage() {
   }, []);
 
   useEffect(() => {
-    if (themeMode === "system") {
-      document.documentElement.classList.remove("dark");
-      return;
-    }
+    applyThemeMode(themeMode);
+    persistThemeMode(themeMode);
+  }, [themeMode]);
 
-    if (themeMode === "dark") {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
+  useEffect(() => {
+    return subscribeToSystemThemeChanges(() => {
+      if (themeMode === "system") {
+        applyThemeMode("system");
+      }
+    });
   }, [themeMode]);
 
   async function save() {
@@ -87,13 +92,11 @@ export function SettingsPage() {
       const res = await http.patch<Profile>("/users/me", {
         displayName,
         email,
-        avatarUrl,
       });
 
       setProfile(res.data);
       setDisplayName(res.data.displayName);
       setEmail(res.data.email);
-      setAvatarUrl(res.data.avatarUrl ?? "");
       await refreshMe();
       setSuccess("Settings saved successfully.");
     } catch (error: unknown) {
@@ -166,7 +169,6 @@ export function SettingsPage() {
       });
 
       setProfile(res.data);
-      setAvatarUrl(res.data.avatarUrl ?? "");
       await refreshMe();
       setSuccess("Avatar updated successfully.");
     } catch (error: unknown) {
@@ -241,7 +243,7 @@ export function SettingsPage() {
           <CardContent className="space-y-5">
             <div className="flex items-center gap-4">
               <Avatar
-                src={avatarUrl || undefined}
+                src={profile?.avatarUrl ?? undefined}
                 alt={displayName || profile?.displayName || "User"}
                 fallback={(displayName || profile?.displayName || "U").slice(0, 2).toUpperCase()}
                 className="h-16 w-16"
@@ -283,18 +285,6 @@ export function SettingsPage() {
                 <label className="mb-1 block text-sm font-medium text-foreground">Email</label>
                 <Input value={email} onChange={(e) => setEmail(e.target.value)} />
               </div>
-            </div>
-
-            <div>
-              <label className="mb-1 block text-sm font-medium text-foreground">Avatar URL</label>
-              <Input
-                placeholder="https://example.com/avatar.png"
-                value={avatarUrl}
-                onChange={(e) => setAvatarUrl(e.target.value)}
-              />
-              <p className="mt-1 text-xs text-muted-foreground">
-                Leave empty to remove avatar.
-              </p>
             </div>
 
             {err && <div className="text-sm text-destructive">{err}</div>}

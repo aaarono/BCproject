@@ -6,6 +6,21 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class WalletService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private getTransactionDescription(type: string) {
+    switch (type) {
+      case 'TOPUP':
+        return 'Wallet top-up';
+      case 'ESCROW_LOCK':
+        return 'Funds locked in escrow';
+      case 'ESCROW_RELEASE':
+        return 'Escrow released';
+      case 'REFUND':
+        return 'Refund received';
+      default:
+        return 'Wallet transaction';
+    }
+  }
+
   async getOrCreateWallet(userId: string) {
     return this.prisma.wallet.upsert({
       where: { userId },
@@ -15,7 +30,59 @@ export class WalletService {
   }
 
   async getMyWallet(userId: string) {
-    return this.getOrCreateWallet(userId);
+    const wallet = await this.getOrCreateWallet(userId);
+
+    const lockedAggregate = await this.prisma.deal.aggregate({
+      where: {
+        buyerId: userId,
+        status: {
+          in: ['FUNDED', 'DELIVERED'],
+        },
+      },
+      _sum: {
+        totalAmountSnapshot: true,
+      },
+    });
+
+    return {
+      ...wallet,
+      lockedBalance: lockedAggregate._sum.totalAmountSnapshot ?? 0,
+    };
+  }
+
+  async getMyTransactions(userId: string, limit = 20) {
+    const normalizedLimit = Number.isFinite(limit)
+      ? Math.min(Math.max(limit, 1), 100)
+      : 20;
+
+    const [wallet, transactions] = await Promise.all([
+      this.getOrCreateWallet(userId),
+      this.prisma.walletTransaction.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        take: normalizedLimit,
+        select: {
+          id: true,
+          type: true,
+          amount: true,
+          dealId: true,
+          createdAt: true,
+        },
+      }),
+    ]);
+
+    let sumOfNewerTransactions = 0;
+
+    return transactions.map((tx) => {
+      const balanceAfter = wallet.balance - sumOfNewerTransactions;
+      sumOfNewerTransactions += tx.amount;
+
+      return {
+        ...tx,
+        description: this.getTransactionDescription(tx.type),
+        balanceAfter,
+      };
+    });
   }
 
   async topUpMock(userId: string, amount: number) {

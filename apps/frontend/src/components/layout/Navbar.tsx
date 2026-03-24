@@ -22,6 +22,7 @@ import { http } from "../../api/http";
 import { getSocket } from "../../api/socket";
 import { Badge } from "../ui/Badge";
 import { Avatar } from "../ui/Avatar";
+import { formatUsdFromCents } from "../../lib/currency";
 
 function Item({
   to,
@@ -70,7 +71,7 @@ export function Navbar() {
 
     const [walletResult, conversationsResult] = await Promise.allSettled([
       http.get<{ userId: string; balance: number }>("/wallet/me"),
-      http.get<Array<{ id: string }>>("/conversations/me"),
+      http.get<Array<{ id: string; unreadCount?: number }>>("/conversations/me"),
     ]);
 
     if (walletResult.status === "fulfilled") {
@@ -78,7 +79,11 @@ export function Navbar() {
     }
 
     if (conversationsResult.status === "fulfilled") {
-      setInboxCount(conversationsResult.value.data.length);
+      const unreadTotal = conversationsResult.value.data.reduce(
+        (sum, conversation) => sum + (conversation.unreadCount ?? 0),
+        0,
+      );
+      setInboxCount(unreadTotal);
     }
   }
 
@@ -94,13 +99,28 @@ export function Navbar() {
     if (!user) return;
 
     const socket = getSocket();
-    const handleInboxUpdate = () => {
+    const refreshStats = () => {
       refreshHeaderStats().catch(() => {});
     };
 
-    socket.on("inbox:update", handleInboxUpdate);
+    socket.on("inbox:update", refreshStats);
+    socket.on("deal:update", refreshStats);
     return () => {
-      socket.off("inbox:update", handleInboxUpdate);
+      socket.off("inbox:update", refreshStats);
+      socket.off("deal:update", refreshStats);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  useEffect(() => {
+    const handleInboxRead = () => {
+      refreshHeaderStats().catch(() => {});
+    };
+
+    window.addEventListener("inbox:read", handleInboxRead);
+
+    return () => {
+      window.removeEventListener("inbox:read", handleInboxRead);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
@@ -164,7 +184,7 @@ export function Navbar() {
                 to="/wallet"
                 className="flex items-center gap-1.5 rounded-lg bg-primary/10 px-3 py-1.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/20"
               >
-                {walletBalance !== null ? `${(walletBalance / 100).toFixed(2)} Kč` : "..."}
+                {walletBalance !== null ? formatUsdFromCents(walletBalance) : "..."}
               </Link>
 
               <Button asChild size="sm">

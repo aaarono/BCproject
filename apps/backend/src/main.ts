@@ -18,7 +18,11 @@ async function bootstrap() {
 
   app.use('/uploads', express.static(uploadsRoot));
 
-  app.use(helmet());
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }),
+  );
 
   app.enableCors({
     origin: process.env.CORS_ORIGIN || 'http://localhost:5173',

@@ -18,6 +18,7 @@ import { Button } from "../components/ui/Button";
 import { Badge } from "../components/ui/Badge";
 import { ErrorState, LoadingState } from "../components/ui/PageStates";
 import { EmptyState } from "../components/ui/EmptyState";
+import { formatUsdFromCents } from "../lib/currency";
 
 type Listing = {
   id: string;
@@ -201,7 +202,7 @@ export function MyListingsPage() {
                     </div>
 
                     <div className="text-right">
-                      <div className="font-semibold text-foreground">{(listing.price / 100).toFixed(2)} Kč</div>
+                      <div className="font-semibold text-foreground">{formatUsdFromCents(listing.price)}</div>
                     </div>
                   </div>
 

@@ -361,6 +361,7 @@ export class UsersService {
       where: { id: userId },
       select: {
         id: true,
+        createdAt: true,
         email: true,
         displayName: true,
         avatarUrl: true,
@@ -502,6 +503,7 @@ export class UsersService {
       where: { id: userId },
       select: {
         id: true,
+        createdAt: true,
         displayName: true,
         avatarUrl: true,
         ratingAvg: true,

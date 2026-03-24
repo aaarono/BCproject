@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { DealStatusBadge } from "../components/profile/DealStatusBadge";
 import { ErrorState, LoadingState } from "../components/ui/PageStates";
+import { formatUsdFromCents } from "../lib/currency";
 
 function extractErrorMessage(error: unknown, fallback: string) {
   if (
@@ -188,8 +189,8 @@ export function DealRoomPage() {
                   ? "Deal auto-canceled by timeout"
                   : "Deal canceled";
 
-  const amountLabel = `${(deal.totalAmountSnapshot / 100).toFixed(2)} Kč`;
-  const unitLabel = `${(deal.unitPriceSnapshot / 100).toFixed(2)} Kč`;
+  const amountLabel = formatUsdFromCents(deal.totalAmountSnapshot);
+  const unitLabel = formatUsdFromCents(deal.unitPriceSnapshot);
   const expirationLabel = formatExpiration(deal.expiresAt);
   const flowSteps: Array<Deal["status"]> = ["INITIATED", "FUNDED", "DELIVERED", "COMPLETED"];
   const stepIndexMap: Record<Deal["status"], number> = {

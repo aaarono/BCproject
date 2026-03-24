@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { WalletService } from './wallet.service';
@@ -17,6 +17,16 @@ export class WalletController {
   @Get('me')
   getMyWallet(@CurrentUser() user: JwtPayload) {
     return this.wallet.getMyWallet(user.sub);
+  }
+
+  @ApiOperation({ summary: 'Get my wallet transaction history' })
+  @Get('me/transactions')
+  getMyTransactions(
+    @CurrentUser() user: JwtPayload,
+    @Query('limit') limit?: string,
+  ) {
+    const parsedLimit = limit ? Number(limit) : undefined;
+    return this.wallet.getMyTransactions(user.sub, parsedLimit);
   }
 
   @ApiOperation({ summary: 'Mock top-up wallet balance' })

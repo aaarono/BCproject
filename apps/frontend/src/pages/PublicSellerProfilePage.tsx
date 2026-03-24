@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { http } from "../api/http";
-import { Calendar, CheckCircle2, Flag, MessageSquare, ShoppingBag, Star } from "lucide-react";
+import { Calendar, CheckCircle2, Flag, ShoppingBag, Star } from "lucide-react";
 import { RatingStars } from "../components/review/RatingStars";
 import { extractHttpErrorMessage } from "../utils/httpError";
 import { Card, CardContent, CardHeader } from "../components/ui/Card";
@@ -9,6 +9,7 @@ import { Badge } from "../components/ui/Badge";
 import { ErrorState, LoadingState } from "../components/ui/PageStates";
 import { Button } from "../components/ui/Button";
 import { Avatar } from "../components/ui/Avatar";
+import { formatUsdFromCents } from "../lib/currency";
 
 type Listing = {
   id: string;
@@ -40,6 +41,7 @@ type Review = {
 
 type SellerProfile = {
   id: string;
+  createdAt: string;
   displayName: string;
   avatarUrl?: string | null;
   ratingAvg: number;
@@ -120,12 +122,6 @@ export function PublicSellerProfilePage() {
                 </div>
 
                 <div className="flex gap-2">
-                  <Button asChild>
-                    <Link to="/inbox">
-                      <MessageSquare className="h-4 w-4" />
-                      Contact
-                    </Link>
-                  </Button>
                   <Button variant="outline" size="sm">
                     <Flag className="h-4 w-4" />
                     Report
@@ -156,7 +152,7 @@ export function PublicSellerProfilePage() {
 
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Calendar className="h-5 w-5" />
-                  <span>Member profile</span>
+                  <span>Member since {new Date(profile.createdAt).toLocaleDateString()}</span>
                 </div>
               </div>
             </div>
@@ -220,7 +216,7 @@ export function PublicSellerProfilePage() {
                       </div>
                     </div>
 
-                    <div className="font-semibold text-foreground">{(listing.price / 100).toFixed(2)} Kč</div>
+                    <div className="font-semibold text-foreground">{formatUsdFromCents(listing.price)}</div>
                   </div>
                 </Link>
               ))}

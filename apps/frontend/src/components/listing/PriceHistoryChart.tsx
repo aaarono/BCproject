@@ -1,8 +1,9 @@
 import type { PriceHistoryPoint } from "../../types/listing";
 import { Card, CardContent, CardHeader } from "../ui/Card";
+import { formatUsdFromCents } from "../../lib/currency";
 
 function formatPrice(value: number) {
-  return `${(value / 100).toFixed(2)} Kč`;
+  return formatUsdFromCents(value);
 }
 
 export function PriceHistoryChart({ points }: { points: PriceHistoryPoint[] }) {

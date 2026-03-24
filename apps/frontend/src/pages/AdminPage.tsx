@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
 import { ErrorState, LoadingState } from "../components/ui/PageStates";
 import { PageContainer, PageHeader } from "../components/ui/PageLayout";
+import { formatUsdFromCents } from "../lib/currency";
 
 type Overview = {
   users: number;
@@ -103,7 +104,7 @@ type ListResponse<T> = {
 };
 
 function formatAmount(cents: number) {
-  return `${(cents / 100).toFixed(2)} Kč`;
+  return formatUsdFromCents(cents);
 }
 
 export function AdminPage() {

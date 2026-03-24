@@ -146,15 +146,16 @@ export function ListingForm({
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">Price (in cents)</label>
+            <label className="mb-1 block text-sm font-medium text-foreground">Price (USD)</label>
             <Input
               type="number"
+              step="0.01"
               min="1"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
-              placeholder="e.g. 15000"
+              placeholder="e.g. 150.00"
             />
-            <div className="mt-1 text-xs text-muted-foreground">Example: 15000 = 150.00 Kč</div>
+            <div className="mt-1 text-xs text-muted-foreground">Example: 150.00 = $150.00</div>
           </div>
         </CardContent>
       </Card>

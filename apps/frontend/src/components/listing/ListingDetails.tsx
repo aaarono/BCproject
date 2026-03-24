@@ -3,6 +3,7 @@ import { Briefcase, Gamepad2, Star, Tag } from "lucide-react";
 import type { Listing } from "../../types/listing";
 import { Card, CardContent } from "../ui/Card";
 import { Badge } from "../ui/Badge";
+import { formatUsdFromCents } from "../../lib/currency";
 
 export function ListingDetails({ listing }: { listing: Listing }) {
   const effectivePrice = listing.effectivePrice ?? listing.price;
@@ -62,16 +63,16 @@ export function ListingDetails({ listing }: { listing: Listing }) {
           <div className="space-y-1">
             {listing.isOnSale ? (
               <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground line-through">{(listing.price / 100).toFixed(2)} Kč</span>
-                <span className="text-2xl font-bold text-primary">{(effectivePrice / 100).toFixed(2)} Kč</span>
+                <span className="text-sm text-muted-foreground line-through">{formatUsdFromCents(listing.price)}</span>
+                <span className="text-2xl font-bold text-primary">{formatUsdFromCents(effectivePrice)}</span>
               </div>
             ) : (
-              <span className="text-2xl font-bold text-foreground">{(effectivePrice / 100).toFixed(2)} Kč</span>
+              <span className="text-2xl font-bold text-foreground">{formatUsdFromCents(effectivePrice)}</span>
             )}
 
             {listing.referencePrice30d !== undefined && (
               <div className="text-xs text-muted-foreground">
-                Lowest price in 30 days: {(listing.referencePrice30d / 100).toFixed(2)} Kč
+                Lowest price in 30 days: {formatUsdFromCents(listing.referencePrice30d)}
               </div>
             )}
           </div>

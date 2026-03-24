@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader } from "../components/ui/Card";
 import { ErrorState, LoadingState } from "../components/ui/PageStates";
 import { Badge } from "../components/ui/Badge";
 import { Input } from "../components/ui/Input";
+import { formatUsdFromCents } from "../lib/currency";
 
 type Conversation = {
   id: string;
@@ -184,7 +185,7 @@ export function ListingPage() {
               <div className="space-y-1">
                 <div className="text-xs uppercase tracking-wide text-muted-foreground">Current price</div>
                 <div className="text-3xl font-bold text-primary">
-                  {(unitPrice / 100).toFixed(2)} Kč
+                  {formatUsdFromCents(unitPrice)}
                 </div>
                 <div className="text-xs text-muted-foreground">Per item</div>
               </div>
@@ -208,7 +209,7 @@ export function ListingPage() {
                       setQuantity(clamped);
                     }}
                   />
-                  <div className="text-sm font-medium text-foreground">Total: {(totalPrice / 100).toFixed(2)} Kč</div>
+                  <div className="text-sm font-medium text-foreground">Total: {formatUsdFromCents(totalPrice)}</div>
                 </div>
               )}
 

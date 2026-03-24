@@ -130,3 +130,47 @@ select,
 textarea {
   font: inherit;
 }
+
+.range-dual {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 2rem;
+  background: transparent;
+  pointer-events: none;
+}
+
+.range-dual::-webkit-slider-runnable-track {
+  height: 0.5rem;
+  background: transparent;
+}
+
+.range-dual::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  pointer-events: auto;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 9999px;
+  border: 2px solid var(--primary);
+  background: var(--background);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.15);
+  cursor: pointer;
+  margin-top: -0.25rem;
+}
+
+.range-dual::-moz-range-track {
+  height: 0.5rem;
+  background: transparent;
+}
+
+.range-dual::-moz-range-thumb {
+  pointer-events: auto;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 9999px;
+  border: 2px solid var(--primary);
+  background: var(--background);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.15);
+  cursor: pointer;
+}

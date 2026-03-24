@@ -1,19 +1,30 @@
 import { useEffect, useState } from "react";
 import { http } from "../api/http";
 import { Link } from "react-router-dom";
-import { Trophy, ChevronDown, X } from "lucide-react";
-import { useAuth } from "../auth/AuthContext";
+import { Trophy, Star, X } from "lucide-react";
 import { extractHttpErrorMessage } from "../utils/httpError";
 import type { Listing } from "../types/listing";
 import { MarketplaceListingCard } from "../components/listing/MarketplaceListingCard";
-import { PageContainer, PageHeader } from "../components/ui/PageLayout";
+import { PageContainer } from "../components/ui/PageLayout";
 import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
 import { Card, CardContent, CardHeader } from "../components/ui/Card";
 import { Badge } from "../components/ui/Badge";
 import { Avatar } from "../components/ui/Avatar";
+import { dollarsToCents, formatUsdFromCents } from "../lib/currency";
 
 type Meta = { total: number; page: number; limit: number; totalPages: number };
+
+type DebouncedFilters = {
+  search: string;
+  type: "" | "GOOD" | "SERVICE";
+  category: "" | "GAMES" | "ACCOUNTS" | "BOOSTING" | "MENTORING" | "GAME_CURRENCY" | "OTHER";
+  sort: "NEWEST" | "PRICE_ASC" | "PRICE_DESC" | "RATING" | "SALE";
+  minPrice: string;
+  maxPrice: string;
+  minRating: string;
+  tagsKey: string;
+};
 
 type TopSeller = {
   id: string;
@@ -30,6 +41,11 @@ type TopSeller = {
   }>;
 };
 
+const SUGGESTED_TAGS = ["boost", "ranked", "eu", "na", "coaching", "mmr", "instant", "verified"];
+const PRICE_MIN = 0;
+const PRICE_MAX = 2000;
+const PRICE_STEP = 5;
+
 export function ListingsPage() {
   const [items, setItems] = useState<Listing[]>([]);
   const [weeklyTopSellers, setWeeklyTopSellers] = useState<TopSeller[]>([]);
@@ -41,51 +57,109 @@ export function ListingsPage() {
   const [category, setCategory] = useState<
     "" | "GAMES" | "ACCOUNTS" | "BOOSTING" | "MENTORING" | "GAME_CURRENCY" | "OTHER"
   >("");
-  const [tags, setTags] = useState("");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState("");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
+  const [draftPriceRange, setDraftPriceRange] = useState<[number, number]>([
+    PRICE_MIN,
+    PRICE_MAX,
+  ]);
   const [minRating, setMinRating] = useState("");
   const [sort, setSort] = useState<"NEWEST" | "PRICE_ASC" | "PRICE_DESC" | "RATING" | "SALE">("NEWEST");
   const [page, setPage] = useState(1);
   const [reloadNonce, setReloadNonce] = useState(0);
-  const { user } = useAuth();
-  const minPriceValue = minPrice === "" ? 0 : Number(minPrice);
-  const maxPriceValue = maxPrice === "" ? 200000 : Number(maxPrice);
-  const rangeMin = Math.max(0, Math.min(minPriceValue, 200000));
-  const rangeMax = Math.max(rangeMin, Math.min(maxPriceValue, 200000));
-  const rangeLeft = (rangeMin / 200000) * 100;
-  const rangeWidth = Math.max(((rangeMax - rangeMin) / 200000) * 100, 0);
+  const [debouncedFilters, setDebouncedFilters] = useState<DebouncedFilters>({
+    search: "",
+    type: "",
+    category: "",
+    sort: "NEWEST",
+    minPrice: "",
+    maxPrice: "",
+    minRating: "",
+    tagsKey: "",
+  });
+  const minPriceValue = minPrice === "" ? PRICE_MIN : Number(minPrice);
+  const maxPriceValue = maxPrice === "" ? PRICE_MAX : Number(maxPrice);
+  const appliedMin = Math.max(PRICE_MIN, Math.min(minPriceValue, PRICE_MAX));
+  const appliedMax = Math.max(appliedMin, Math.min(maxPriceValue, PRICE_MAX));
+  const rangeMin = draftPriceRange[0];
+  const rangeMax = draftPriceRange[1];
+  const rangeLeft = (rangeMin / PRICE_MAX) * 100;
+  const rangeWidth = Math.max(((rangeMax - rangeMin) / PRICE_MAX) * 100, 0);
 
-  const hasActiveFilters = Boolean(search || type || category || tags || minPrice || maxPrice || minRating);
-  const activeFilterCount = [search, type, category, tags, minPrice, maxPrice, minRating].filter(Boolean).length;
+  const hasActiveFilters = Boolean(search || type || category || selectedTags.length > 0 || minPrice || maxPrice || minRating);
+  const activeFilterCount = [search, type, category, selectedTags.length > 0 ? "tags" : "", minPrice, maxPrice, minRating].filter(Boolean).length;
+
+  function formatUsdValue(value: number) {
+    return formatUsdFromCents(dollarsToCents(value));
+  }
+
+  function addTag(rawTag: string) {
+    const normalized = rawTag.trim().toLowerCase().replace(/\s+/g, "-");
+    if (!normalized || selectedTags.includes(normalized)) return;
+    setSelectedTags((prev) => [...prev, normalized].slice(0, 8));
+    setPage(1);
+  }
+
+  function removeTag(tag: string) {
+    setSelectedTags((prev) => prev.filter((item) => item !== tag));
+    setPage(1);
+  }
 
   function resetFilters() {
     setSearch("");
     setType("");
     setCategory("");
-    setTags("");
+    setSelectedTags([]);
+    setTagInput("");
     setMinPrice("");
     setMaxPrice("");
+    setDraftPriceRange([PRICE_MIN, PRICE_MAX]);
     setMinRating("");
     setSort("NEWEST");
     setPage(1);
   }
 
+  function commitDraftPriceRange(nextMin: number, nextMax: number) {
+    setMinPrice(nextMin <= PRICE_MIN ? "" : String(nextMin));
+    setMaxPrice(nextMax >= PRICE_MAX ? "" : String(nextMax));
+    setPage(1);
+  }
+
+  useEffect(() => {
+    setDraftPriceRange([appliedMin, appliedMax]);
+  }, [appliedMin, appliedMax]);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setDebouncedFilters({
+        search,
+        type,
+        category,
+        sort,
+        minPrice,
+        maxPrice,
+        minRating,
+        tagsKey: selectedTags.join(","),
+      });
+    }, 300);
+
+    return () => clearTimeout(timeout);
+  }, [search, type, category, sort, minPrice, maxPrice, minRating, selectedTags]);
+
   useEffect(() => {
     const params: Record<string, string | number> = { page, limit: 12 };
-    if (search) params.search = search;
-    if (type) params.type = type;
-    if (category) params.category = category;
-    if (sort) params.sort = sort;
-    if (minPrice) params.minPrice = Number(minPrice);
-    if (maxPrice) params.maxPrice = Number(maxPrice);
-    if (minRating) params.minRating = Number(minRating);
+    if (debouncedFilters.search) params.search = debouncedFilters.search;
+    if (debouncedFilters.type) params.type = debouncedFilters.type;
+    if (debouncedFilters.category) params.category = debouncedFilters.category;
+    if (debouncedFilters.sort) params.sort = debouncedFilters.sort;
+    if (debouncedFilters.minPrice) params.minPrice = dollarsToCents(Number(debouncedFilters.minPrice));
+    if (debouncedFilters.maxPrice) params.maxPrice = dollarsToCents(Number(debouncedFilters.maxPrice));
+    if (debouncedFilters.minRating) params.minRating = Number(debouncedFilters.minRating);
+    if (debouncedFilters.tagsKey) params.tags = debouncedFilters.tagsKey;
 
-    const normalizedTags = tags
-      .split(",")
-      .map((tag) => tag.trim().toLowerCase())
-      .filter(Boolean);
-    if (normalizedTags.length) params.tags = normalizedTags.join(",");
+    setListingsLoading(true);
 
     http
       .get<{ data: Listing[]; meta: Meta }>("/listings", { params })
@@ -101,7 +175,7 @@ export function ListingsPage() {
       .finally(() => {
         setListingsLoading(false);
       });
-  }, [page, search, type, category, sort, minPrice, maxPrice, minRating, tags, reloadNonce]);
+  }, [page, debouncedFilters, reloadNonce]);
 
   useEffect(() => {
     http
@@ -112,20 +186,11 @@ export function ListingsPage() {
 
   return (
     <PageContainer width="max-w-7xl" className="space-y-6">
-      <PageHeader
-        title="Listings"
-        subtitle="Discover trusted offers with escrow-protected checkout."
-        right={user ? `Signed in as ${user.email}` : "Guest mode"}
-      />
-
       {!hasActiveFilters && (
         <section className="space-y-3">
           <div className="flex items-center gap-2">
             <Trophy className="h-5 w-5 text-warning" />
             <h2 className="text-lg font-semibold text-foreground">Weekly Top Sellers</h2>
-            <Link to="/top-sellers" className="ml-auto text-sm font-medium text-foreground underline">
-              View all
-            </Link>
           </div>
 
           {weeklyTopSellers.length === 0 ? (
@@ -145,45 +210,46 @@ export function ListingsPage() {
                   .slice(0, 2);
 
                 return (
-                  <Card key={seller.id} className="border-warning/30 bg-card/90 transition hover:shadow-md">
-                    <CardContent className="space-y-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="relative">
-                            <Avatar
-                              src={seller.avatarUrl ?? undefined}
-                              alt={seller.displayName}
-                              fallback={initials || "TS"}
-                              className="h-11 w-11"
-                              fallbackClassName="text-sm font-semibold"
-                            />
-                            <span className={`absolute -right-1 -top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-semibold ${rankClass} ${rankTextClass}`}>
-                              #{rank}
-                            </span>
-                          </div>
-                          <div>
-                            <div className="text-sm font-semibold text-foreground">{seller.displayName}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {seller.completedDeals} deals · {seller.ratingAvg.toFixed(1)}★
+                  <Link key={seller.id} to={`/users/${seller.id}`} className="block">
+                    <Card className="border-warning/30 bg-card/90 transition hover:shadow-md">
+                      <CardContent className="space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="relative">
+                              <Avatar
+                                src={seller.avatarUrl ?? undefined}
+                                alt={seller.displayName}
+                                fallback={initials || "TS"}
+                                className="h-11 w-11"
+                                fallbackClassName="text-sm font-semibold"
+                              />
+                              <span className={`absolute -right-1 -top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-semibold ${rankClass} ${rankTextClass}`}>
+                                #{rank}
+                              </span>
                             </div>
-                            {seller.achievements && seller.achievements.length > 0 && (
-                              <div className="mt-1 flex flex-wrap gap-1">
-                                {seller.achievements.slice(0, 2).map((achievement) => (
-                                  <Badge
-                                    key={achievement.code}
-                                    variant="outline"
-                                    className="text-[10px]"
-                                  >
-                                    {achievement.title}
-                                  </Badge>
-                                ))}
+                            <div>
+                              <div className="text-sm font-semibold text-foreground">{seller.displayName}</div>
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <span>{seller.completedDeals} deals</span>
+                                <span>·</span>
+                                <Star className="h-3 w-3 fill-warning text-warning" />
+                                <span>{seller.ratingAvg.toFixed(1)}</span>
                               </div>
-                            )}
+                              {seller.achievements && seller.achievements.length > 0 && (
+                                <div className="mt-1 flex flex-wrap gap-1">
+                                  {seller.achievements.slice(0, 2).map((achievement) => (
+                                    <Badge key={achievement.code} variant="outline" className="text-[10px]">
+                                      {achievement.title}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                      </CardContent>
+                    </Card>
+                  </Link>
                 );
               })}
             </div>
@@ -199,15 +265,11 @@ export function ListingsPage() {
                 <span>Filters</span>
                 {activeFilterCount > 0 && <Badge className="bg-sale text-sale-foreground">{activeFilterCount}</Badge>}
               </div>
-              <div className="text-xs text-muted-foreground">Narrow listings by type, category and price.</div>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <details open className="group rounded-lg border border-border bg-muted/40 px-3 py-2">
-                <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-medium text-foreground">
-                  Type
-                  <ChevronDown className="h-4 w-4 text-muted-foreground transition group-open:rotate-180" />
-                </summary>
-                <div className="mt-3 flex flex-wrap gap-2">
+            <CardContent className="space-y-5">
+              <div className="space-y-3">
+                <div className="text-sm font-medium text-foreground">Type</div>
+                <div className="flex flex-wrap gap-2">
                   <Button variant={type === "" ? "default" : "outline"} size="sm" onClick={() => { setType(""); setPage(1); }}>
                     All
                   </Button>
@@ -218,25 +280,15 @@ export function ListingsPage() {
                     Services
                   </Button>
                 </div>
-              </details>
+              </div>
 
-              <details open className="group rounded-lg border border-border bg-muted/40 px-3 py-2">
-                <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-medium text-foreground">
-                  Category
-                  <ChevronDown className="h-4 w-4 text-muted-foreground transition group-open:rotate-180" />
-                </summary>
-                <div className="mt-3 flex flex-wrap gap-2">
+              <div className="space-y-3">
+                <div className="text-sm font-medium text-foreground">Category</div>
+                <div className="flex flex-wrap gap-2">
                   <Button variant={category === "" ? "default" : "outline"} size="sm" onClick={() => { setCategory(""); setPage(1); }}>
                     All
                   </Button>
-                  {[
-                    "GAMES",
-                    "ACCOUNTS",
-                    "BOOSTING",
-                    "MENTORING",
-                    "GAME_CURRENCY",
-                    "OTHER",
-                  ].map((categoryOption) => (
+                  {["GAMES", "ACCOUNTS", "BOOSTING", "MENTORING", "GAME_CURRENCY", "OTHER"].map((categoryOption) => (
                     <Button
                       key={categoryOption}
                       variant={category === categoryOption ? "default" : "outline"}
@@ -250,75 +302,150 @@ export function ListingsPage() {
                     </Button>
                   ))}
                 </div>
-              </details>
+              </div>
 
-              <Input
-                type="text"
-                placeholder="Tags: eu, alliance"
-                value={tags}
-                onChange={(e) => { setTags(e.target.value); setPage(1); }}
-                className="bg-muted"
-              />
-
-              <div className="space-y-2 rounded-xl border border-border bg-muted/60 p-3">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-medium text-foreground">Price range</span>
-                  <span className="text-muted-foreground">{rangeMin} - {rangeMax} ¢</span>
-                </div>
-
-                <div className="relative h-2 rounded-full bg-border">
-                  <div
-                    className="absolute h-2 rounded-full bg-primary"
-                    style={{ left: `${rangeLeft}%`, width: `${rangeWidth}%` }}
-                  />
-                </div>
-
-                <div className="relative">
-                  <input
-                    type="range"
-                    min={0}
-                    max={200000}
-                    step={500}
-                    value={rangeMin}
-                    onChange={(e) => {
-                      const nextValue = Number(e.target.value);
-                      setMinPrice(String(Math.min(nextValue, rangeMax)));
-                      setPage(1);
+              <div className="space-y-3">
+                <div className="text-sm font-medium text-foreground">Tags</div>
+                <div className="flex gap-2">
+                  <Input
+                    type="text"
+                    placeholder="Add tag"
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addTag(tagInput);
+                        setTagInput("");
+                      }
                     }}
-                    className="w-full accent-primary"
+                    className="bg-muted"
                   />
-                  <input
-                    type="range"
-                    min={0}
-                    max={200000}
-                    step={500}
-                    value={rangeMax}
-                    onChange={(e) => {
-                      const nextValue = Number(e.target.value);
-                      setMaxPrice(String(Math.max(nextValue, rangeMin)));
-                      setPage(1);
-                    }}
-                    className="-mt-2 w-full accent-primary"
-                  />
+                  <Button type="button" variant="outline" onClick={() => { addTag(tagInput); setTagInput(""); }}>
+                    Add
+                  </Button>
+                </div>
+                {selectedTags.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedTags.map((tag) => (
+                      <Badge key={tag} variant="muted" className="gap-1">
+                        #{tag}
+                        <button type="button" onClick={() => removeTag(tag)}>
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  {SUGGESTED_TAGS.map((tag) => (
+                    <Button
+                      key={tag}
+                      type="button"
+                      size="sm"
+                      variant={selectedTags.includes(tag) ? "default" : "outline"}
+                      onClick={() => {
+                        if (selectedTags.includes(tag)) {
+                          removeTag(tag);
+                        } else {
+                          addTag(tag);
+                        }
+                      }}
+                    >
+                      #{tag}
+                    </Button>
+                  ))}
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <Input
-                  type="number"
-                  placeholder="Min ¢"
-                  value={minPrice}
-                  onChange={(e) => { setMinPrice(e.target.value); setPage(1); }}
-                  className="bg-muted"
-                />
+              <div className="space-y-2 rounded-xl border border-border bg-muted/60 p-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-medium text-foreground">Price Range</span>
+                  <span className="text-muted-foreground">{formatUsdValue(rangeMin)} - {formatUsdValue(rangeMax)}</span>
+                </div>
 
-                <Input
-                  type="number"
-                  placeholder="Max ¢"
-                  value={maxPrice}
-                  onChange={(e) => { setMaxPrice(e.target.value); setPage(1); }}
-                  className="bg-muted"
-                />
+                <div className="relative h-8">
+                  <div className="absolute left-0 right-0 top-1/2 h-2 -translate-y-1/2 rounded-full bg-border" />
+                  <div
+                    className="absolute top-1/2 h-2 -translate-y-1/2 rounded-full bg-primary"
+                    style={{ left: `${rangeLeft}%`, width: `${rangeWidth}%` }}
+                  />
+                  <input
+                    type="range"
+                    min={PRICE_MIN}
+                    max={PRICE_MAX}
+                    step={PRICE_STEP}
+                    value={rangeMin}
+                    onChange={(e) => {
+                      const nextValue = Number(e.target.value);
+                      setDraftPriceRange((prev) => [
+                        Math.min(nextValue, prev[1]),
+                        prev[1],
+                      ]);
+                    }}
+                    onMouseUp={() =>
+                      commitDraftPriceRange(draftPriceRange[0], draftPriceRange[1])
+                    }
+                    onTouchEnd={() =>
+                      commitDraftPriceRange(draftPriceRange[0], draftPriceRange[1])
+                    }
+                    onKeyUp={() =>
+                      commitDraftPriceRange(draftPriceRange[0], draftPriceRange[1])
+                    }
+                    className="range-dual range-dual-min absolute inset-0 z-20"
+                  />
+                  <input
+                    type="range"
+                    min={PRICE_MIN}
+                    max={PRICE_MAX}
+                    step={PRICE_STEP}
+                    value={rangeMax}
+                    onChange={(e) => {
+                      const nextValue = Number(e.target.value);
+                      setDraftPriceRange((prev) => [
+                        prev[0],
+                        Math.max(nextValue, prev[0]),
+                      ]);
+                    }}
+                    onMouseUp={() =>
+                      commitDraftPriceRange(draftPriceRange[0], draftPriceRange[1])
+                    }
+                    onTouchEnd={() =>
+                      commitDraftPriceRange(draftPriceRange[0], draftPriceRange[1])
+                    }
+                    onKeyUp={() =>
+                      commitDraftPriceRange(draftPriceRange[0], draftPriceRange[1])
+                    }
+                    className="range-dual range-dual-max absolute inset-0 z-30"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={rangeMin}
+                    onChange={(e) => {
+                      const value = Number(e.target.value) || 0;
+                      const nextMin = Math.max(PRICE_MIN, Math.min(value, rangeMax));
+                      setDraftPriceRange((prev) => [nextMin, prev[1]]);
+                      commitDraftPriceRange(nextMin, rangeMax);
+                    }}
+                    className="bg-muted"
+                  />
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={rangeMax}
+                    onChange={(e) => {
+                      const value = Number(e.target.value) || PRICE_MAX;
+                      const nextMax = Math.min(PRICE_MAX, Math.max(value, rangeMin));
+                      setDraftPriceRange((prev) => [prev[0], nextMax]);
+                      commitDraftPriceRange(rangeMin, nextMax);
+                    }}
+                    className="bg-muted"
+                  />
+                </div>
               </div>
 
               <Input
@@ -356,14 +483,7 @@ export function ListingsPage() {
                 <select
                   value={sort}
                   onChange={(e) => {
-                    setSort(
-                      e.target.value as
-                        | "NEWEST"
-                        | "PRICE_ASC"
-                        | "PRICE_DESC"
-                        | "RATING"
-                        | "SALE",
-                    );
+                    setSort(e.target.value as "NEWEST" | "PRICE_ASC" | "PRICE_DESC" | "RATING" | "SALE");
                     setPage(1);
                   }}
                   className="h-10 rounded-lg border border-input bg-muted px-3 text-sm text-foreground"
@@ -391,14 +511,7 @@ export function ListingsPage() {
                   value={category}
                   onChange={(e) => {
                     setCategory(
-                      e.target.value as
-                        | ""
-                        | "GAMES"
-                        | "ACCOUNTS"
-                        | "BOOSTING"
-                        | "MENTORING"
-                        | "GAME_CURRENCY"
-                        | "OTHER",
+                      e.target.value as "" | "GAMES" | "ACCOUNTS" | "BOOSTING" | "MENTORING" | "GAME_CURRENCY" | "OTHER",
                     );
                     setPage(1);
                   }}
@@ -412,6 +525,34 @@ export function ListingsPage() {
                   <option value="GAME_CURRENCY">Game currency</option>
                   <option value="OTHER">Other</option>
                 </select>
+
+                <Input
+                  type="text"
+                  placeholder="Tag and press Enter"
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addTag(tagInput);
+                      setTagInput("");
+                    }
+                  }}
+                  className="bg-muted sm:col-span-2"
+                />
+
+                {selectedTags.length > 0 && (
+                  <div className="flex flex-wrap gap-2 sm:col-span-2">
+                    {selectedTags.map((tag) => (
+                      <Badge key={tag} variant="muted" className="gap-1">
+                        #{tag}
+                        <button type="button" onClick={() => removeTag(tag)}>
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center justify-between text-sm">
@@ -449,8 +590,8 @@ export function ListingsPage() {
             </div>
           ) : items.length > 0 ? (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {items.map((x) => (
-                <MarketplaceListingCard key={x.id} listing={x} />
+              {items.map((listing) => (
+                <MarketplaceListingCard key={listing.id} listing={listing} />
               ))}
             </div>
           ) : (
@@ -464,12 +605,7 @@ export function ListingsPage() {
 
           {!listingsLoading && !listingsErr && meta.totalPages > 1 && (
             <div className="mt-6 flex items-center justify-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-              >
+              <Button variant="outline" size="sm" onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))} disabled={page === 1}>
                 Previous
               </Button>
               <span className="text-sm text-muted-foreground">
@@ -478,7 +614,7 @@ export function ListingsPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setPage((p) => Math.min(meta.totalPages, p + 1))}
+                onClick={() => setPage((currentPage) => Math.min(meta.totalPages, currentPage + 1))}
                 disabled={page === meta.totalPages}
               >
                 Next

@@ -187,6 +187,8 @@ model Conversation {
   listingId String
   buyerId   String
   sellerId  String
+  buyerLastReadAt  DateTime?
+  sellerLastReadAt DateTime?
   createdAt DateTime @default(now())
 
   listing Listing @relation(fields: [listingId], references: [id])

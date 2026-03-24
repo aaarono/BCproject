@@ -43,6 +43,7 @@ type Conversation = {
   listingId: string;
   buyerId: string;
   sellerId: string;
+  unreadCount?: number;
   createdAt: string;
   listing: {
     id: string;

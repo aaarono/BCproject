@@ -3,6 +3,7 @@ import { Package, Briefcase, Tag, Star } from "lucide-react";
 import type { Listing } from "../../types/listing";
 import { Badge } from "../ui/Badge";
 import { Avatar } from "../ui/Avatar";
+import { formatUsdFromCents } from "../../lib/currency";
 
 function formatCategory(category: Listing["category"]) {
   return category.toLowerCase().replaceAll("_", " ");
@@ -76,17 +77,17 @@ export function MarketplaceListingCard({ listing }: { listing: Listing }) {
             {listing.isOnSale ? (
               <>
                 <div className="flex items-center gap-2">
-                  <span className="text-lg font-bold text-primary">{(effectivePrice / 100).toFixed(2)} Kč</span>
-                  <span className="text-sm text-muted-foreground line-through">{(listing.price / 100).toFixed(2)} Kč</span>
+                  <span className="text-lg font-bold text-primary">{formatUsdFromCents(effectivePrice)}</span>
+                  <span className="text-sm text-muted-foreground line-through">{formatUsdFromCents(listing.price)}</span>
                 </div>
                 {listing.referencePrice30d !== undefined && listing.referencePrice30d !== null && (
                   <p className="text-[10px] text-muted-foreground">
-                    Lowest 30d: {(listing.referencePrice30d / 100).toFixed(2)} Kč
+                    Lowest 30d: {formatUsdFromCents(listing.referencePrice30d)}
                   </p>
                 )}
               </>
             ) : (
-              <span className="text-lg font-bold text-foreground">{(effectivePrice / 100).toFixed(2)} Kč</span>
+              <span className="text-lg font-bold text-foreground">{formatUsdFromCents(effectivePrice)}</span>
             )}
           </div>
 

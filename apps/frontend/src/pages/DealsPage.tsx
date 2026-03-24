@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader } from "../components/ui/Card";
 import { DealStatusBadge } from "../components/profile/DealStatusBadge";
 import { ErrorState, LoadingState } from "../components/ui/PageStates";
 import { EmptyState } from "../components/ui/EmptyState";
+import { formatUsdFromCents } from "../lib/currency";
 
 type Deal = {
   id: string;
@@ -70,7 +71,7 @@ export function DealsPage() {
   if (loading) return <LoadingState width="max-w-5xl" />;
   if (err) return <ErrorState width="max-w-5xl" message={err} />;
 
-  const formatAmount = (value: number) => `${(value / 100).toFixed(2)} Kč`;
+  const formatAmount = (value: number) => formatUsdFromCents(value);
 
   return (
     <div className="mx-auto max-w-5xl space-y-4 px-4 py-6 sm:px-6">

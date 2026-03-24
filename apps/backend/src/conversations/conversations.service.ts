@@ -9,6 +9,55 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class ConversationsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private async getUnreadCountForConversation(
+    conversationId: string,
+    userId: string,
+    lastReadAt: Date | null,
+  ) {
+    return this.prisma.message.count({
+      where: {
+        conversationId,
+        senderId: {
+          not: userId,
+        },
+        ...(lastReadAt
+          ? {
+              createdAt: {
+                gt: lastReadAt,
+              },
+            }
+          : {}),
+      },
+    });
+  }
+
+  private async markConversationAsRead(conversationId: string, userId: string) {
+    const conversation = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      select: {
+        id: true,
+        buyerId: true,
+        sellerId: true,
+      },
+    });
+
+    if (!conversation) {
+      throw new NotFoundException('Conversation not found');
+    }
+
+    this.assertParticipant(conversation, userId);
+
+    const now = new Date();
+
+    await this.prisma.conversation.update({
+      where: { id: conversationId },
+      data:
+        conversation.buyerId === userId
+          ? { buyerLastReadAt: now }
+          : { sellerLastReadAt: now },
+    });
+  }
+
   private assertParticipant(
     conv: { buyerId: string; sellerId: string },
     userId: string,
@@ -40,6 +89,8 @@ export class ConversationsService {
         listingId,
         buyerId,
         sellerId: listing.sellerId,
+        buyerLastReadAt: new Date(),
+        sellerLastReadAt: new Date(),
       },
     });
   }
@@ -47,7 +98,12 @@ export class ConversationsService {
   async getById(id: string, userId: string) {
     const conv = await this.prisma.conversation.findUnique({
       where: { id },
-      include: {
+      select: {
+        id: true,
+        listingId: true,
+        buyerId: true,
+        sellerId: true,
+        createdAt: true,
         listing: {
           select: {
             id: true,
@@ -59,22 +115,29 @@ export class ConversationsService {
         },
         buyer: { select: { id: true, displayName: true, avatarUrl: true } },
         seller: { select: { id: true, displayName: true, avatarUrl: true } },
+        buyerLastReadAt: true,
+        sellerLastReadAt: true,
       },
     });
     if (!conv) throw new NotFoundException('Conversation not found');
 
     this.assertParticipant(conv, userId);
-    return conv;
+
+    const lastReadAt = conv.buyerId === userId ? conv.buyerLastReadAt : conv.sellerLastReadAt;
+    const unreadCount = await this.getUnreadCountForConversation(
+      conv.id,
+      userId,
+      lastReadAt,
+    );
+
+    return {
+      ...conv,
+      unreadCount,
+    };
   }
 
   async getMessages(conversationId: string, userId: string) {
-    const conv = await this.prisma.conversation.findUnique({
-      where: { id: conversationId },
-      select: { id: true, buyerId: true, sellerId: true },
-    });
-    if (!conv) throw new NotFoundException('Conversation not found');
-
-    this.assertParticipant(conv, userId);
+    await this.markConversationAsRead(conversationId, userId);
 
     return this.prisma.message.findMany({
       where: { conversationId },
@@ -126,7 +189,12 @@ export class ConversationsService {
       where: {
         OR: [{ buyerId: userId }, { sellerId: userId }],
       },
-      include: {
+      select: {
+        id: true,
+        listingId: true,
+        buyerId: true,
+        sellerId: true,
+        createdAt: true,
         listing: {
           select: {
             id: true,
@@ -142,6 +210,7 @@ export class ConversationsService {
             avatarUrl: true,
           },
         },
+        buyerLastReadAt: true,
         seller: {
           select: {
             id: true,
@@ -149,6 +218,7 @@ export class ConversationsService {
             avatarUrl: true,
           },
         },
+        sellerLastReadAt: true,
         messages: {
           orderBy: {
             createdAt: 'desc',
@@ -169,6 +239,26 @@ export class ConversationsService {
       },
     });
 
-    return conversations;
+    const withUnread = await Promise.all(
+      conversations.map(async (conversation) => {
+        const lastReadAt =
+          conversation.buyerId === userId
+            ? conversation.buyerLastReadAt
+            : conversation.sellerLastReadAt;
+
+        const unreadCount = await this.getUnreadCountForConversation(
+          conversation.id,
+          userId,
+          lastReadAt,
+        );
+
+        return {
+          ...conversation,
+          unreadCount,
+        };
+      }),
+    );
+
+    return withUnread;
   }
 }

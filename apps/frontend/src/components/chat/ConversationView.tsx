@@ -9,6 +9,7 @@ import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Input } from "../ui/Input";
 import { Avatar } from "../ui/Avatar";
+import { formatUsdFromCents } from "../../lib/currency";
 
 function extractErrorMessage(error: unknown, fallback: string) {
   if (
@@ -110,6 +111,7 @@ export function ConversationView({
   async function loadMessages() {
     const res = await http.get<Message[]>(`/conversations/${conversation.id}/messages`);
     setMessages(res.data);
+    window.dispatchEvent(new Event("inbox:read"));
   }
 
   async function loadActiveDeal() {
@@ -276,7 +278,7 @@ export function ConversationView({
             Related listing
           </Badge>
           <span className="line-clamp-1 font-medium text-foreground">{conversation.listing.title}</span>
-          <span className="ml-auto shrink-0 text-muted-foreground">{(conversation.listing.price / 100).toFixed(2)} Kč</span>
+          <span className="ml-auto shrink-0 text-muted-foreground">{formatUsdFromCents(conversation.listing.price)}</span>
         </Link>
       </div>
 

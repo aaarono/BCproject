@@ -1,16 +1,19 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { http } from "../api/http";
+import { Calendar, CheckCircle2, Settings, ShoppingBag, Star, User } from "lucide-react";
 import { RatingStars } from "../components/review/RatingStars";
-import { ProfileHeaderCard } from "../components/profile/ProfileHeaderCard";
 import { extractHttpErrorMessage } from "../utils/httpError";
 import { Card, CardContent, CardHeader } from "../components/ui/Card";
 import { Badge } from "../components/ui/Badge";
 import { ErrorState, LoadingState } from "../components/ui/PageStates";
-import { PageContainer, PageHeader } from "../components/ui/PageLayout";
+import { Button } from "../components/ui/Button";
+import { Avatar } from "../components/ui/Avatar";
+import { formatUsdFromCents } from "../lib/currency";
 
 type Profile = {
   id: string;
+  createdAt: string;
   email: string;
   displayName: string;
   avatarUrl?: string | null;
@@ -75,7 +78,7 @@ export function ProfilePage() {
 
   async function loadMyListings() {
     const res = await http.get<MyListing[]>("/listings/me");
-    setMyListings(res.data.slice(0, 3));
+    setMyListings(res.data);
   }
 
   useEffect(() => {
@@ -98,147 +101,202 @@ export function ProfilePage() {
     return <ErrorState width="max-w-6xl" message={err ?? "Profile not found"} />;
 
   return (
-    <PageContainer width="max-w-7xl" className="space-y-6">
-      <PageHeader title="Profile" subtitle="Your seller reputation, listings, and feedback history." />
+    <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6">
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start">
+            <div className="relative">
+              <Avatar
+                src={profile.avatarUrl ?? undefined}
+                alt={profile.displayName}
+                fallback={profile.displayName.slice(0, 2).toUpperCase()}
+                className="h-24 w-24 sm:h-28 sm:w-28"
+                fallbackClassName="text-2xl font-bold"
+              />
+              <span className="absolute bottom-1 right-1 h-5 w-5 rounded-full border-4 border-card bg-online" />
+            </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-1 space-y-4">
-          <ProfileHeaderCard
-            displayName={profile.displayName}
-            subtitle={profile.email}
-            avatarUrl={profile.avatarUrl}
-            ratingAvg={profile.ratingAvg}
-            ratingCount={profile.ratingCount}
-          />
-        </div>
-        <div className="lg:col-span-2 space-y-6">
-          <div className="grid w-full grid-cols-3 gap-2 rounded-xl border border-border bg-card p-2">
-            <button
-              type="button"
-              onClick={() => setActiveTab("listings")}
-              className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
-                activeTab === "listings" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent"
-              }`}
-            >
-              Listings
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("reviews")}
-              className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
-                activeTab === "reviews" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent"
-              }`}
-            >
-              Reviews
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("achievements")}
-              className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
-                activeTab === "achievements" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent"
-              }`}
-            >
-              Achievements
-            </button>
+            <div className="flex-1 text-center sm:text-left">
+              <div className="flex flex-col items-center gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h1 className="text-2xl font-bold text-foreground">{profile.displayName}</h1>
+                  <p className="text-muted-foreground">{profile.email}</p>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button asChild>
+                    <Link to="/settings">
+                      <Settings className="h-4 w-4" />
+                      Settings
+                    </Link>
+                  </Button>
+                  <Button asChild variant="outline" size="sm">
+                    <Link to={`/users/${profile.id}`}>
+                      <User className="h-4 w-4" />
+                      Public view
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+
+              <div className="mt-6 flex flex-wrap justify-center gap-6 text-sm sm:justify-start">
+                <div className="flex items-center gap-2">
+                  <Star className="h-5 w-5 fill-warning text-warning" />
+                  <span className="text-lg font-semibold text-foreground">{profile.ratingAvg.toFixed(1)}</span>
+                  <span className="text-muted-foreground">({profile.ratingCount} reviews)</span>
+                </div>
+
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <CheckCircle2 className="h-5 w-5 text-success" />
+                  <span>
+                    <strong className="text-foreground">{reviews.length}</strong> completed deals
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <ShoppingBag className="h-5 w-5" />
+                  <span>
+                    <strong className="text-foreground">{myListings.length}</strong> active listings
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Calendar className="h-5 w-5" />
+                  <span>Member since {new Date(profile.createdAt).toLocaleDateString()}</span>
+                </div>
+              </div>
+            </div>
           </div>
+        </CardContent>
+      </Card>
 
-          {activeTab === "listings" && (
-            <Card>
-              <CardHeader className="flex items-center justify-between gap-3">
-                <div className="text-xl font-semibold text-foreground">My listings</div>
-                <Link className="text-sm font-medium text-foreground underline" to="/my-listings">
-                  View all
-                </Link>
-              </CardHeader>
-
-              <CardContent className="space-y-3">
-                {myListings.length === 0 && <div className="text-sm text-muted-foreground">No listings yet.</div>}
-
-                {myListings.map((listing) => (
-                  <Link
-                    key={listing.id}
-                    to={`/listings/${listing.id}`}
-                    className="block rounded-xl border border-border bg-muted p-3 transition hover:bg-accent"
-                  >
-                    <div className="flex justify-between gap-4">
-                      <div>
-                        <div className="font-medium text-foreground">{listing.title}</div>
-                        <div className="line-clamp-2 text-sm text-muted-foreground">{listing.description}</div>
-                        <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                          <Badge variant="outline">{listing.type}</Badge>
-                          <Badge variant="muted">{listing.status}</Badge>
-                        </div>
-                      </div>
-
-                      <div className="font-semibold text-foreground">{(listing.price / 100).toFixed(2)} Kč</div>
-                    </div>
-                  </Link>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-
-          {activeTab === "reviews" && (
-            <Card>
-              <CardHeader>
-                <div className="text-xl font-semibold text-foreground">Reviews</div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {reviews.length === 0 && <div className="text-sm text-muted-foreground">No reviews yet.</div>}
-
-                {reviews.map((review) => (
-                  <div key={review.id} className="space-y-2 rounded-xl border border-border bg-muted p-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <Link className="font-medium text-foreground underline" to={`/users/${review.buyer.id}`}>
-                        {review.buyer.displayName}
-                      </Link>
-                      <div className="flex items-center gap-2">
-                        <RatingStars value={review.rating} />
-                        <span className="text-sm text-muted-foreground">{review.rating}/5</span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1 text-xs text-muted-foreground">
-                      <div>{new Date(review.createdAt).toLocaleString()}</div>
-                      <div>
-                        Listing: <span className="font-medium text-foreground">{review.deal.listing.title}</span>
-                      </div>
-                    </div>
-
-                    {review.comment && <div className="text-sm whitespace-pre-wrap text-foreground">{review.comment}</div>}
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-
-          {activeTab === "achievements" && (
-            <Card>
-              <CardHeader>
-                <div className="text-xl font-semibold text-foreground">Achievements</div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {profile.achievements.length === 0 && (
-                  <div className="text-sm text-muted-foreground">No achievements unlocked yet.</div>
-                )}
-
-                {profile.achievements.map((achievement) => (
-                  <div key={achievement.code} className="rounded-xl border border-border bg-muted p-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="font-medium text-foreground">{achievement.title}</div>
-                      <Badge variant="outline">{achievement.code}</Badge>
-                    </div>
-                    <div className="text-sm text-muted-foreground">{achievement.description}</div>
-                    <div className="mt-2 text-xs text-muted-foreground">
-                      Unlocked: {new Date(achievement.unlockedAt).toLocaleDateString()}
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-        </div>
+      <div className="grid w-full grid-cols-3 gap-2 rounded-xl border border-border bg-card p-2 sm:w-[480px]">
+        <button
+          type="button"
+          onClick={() => setActiveTab("listings")}
+          className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+            activeTab === "listings" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent"
+          }`}
+        >
+          Listings ({myListings.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("reviews")}
+          className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+            activeTab === "reviews" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent"
+          }`}
+        >
+          Reviews ({reviews.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("achievements")}
+          className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+            activeTab === "achievements" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent"
+          }`}
+        >
+          Achievements ({profile.achievements.length})
+        </button>
       </div>
-    </PageContainer>
+
+      <div className="space-y-6">
+        {activeTab === "listings" && (
+          <Card>
+            <CardHeader className="flex items-center justify-between gap-3">
+              <div className="text-xl font-semibold text-foreground">My listings</div>
+              <Link className="text-sm font-medium text-foreground underline" to="/my-listings">
+                View all
+              </Link>
+            </CardHeader>
+
+            <CardContent className="space-y-3">
+              {myListings.length === 0 && <div className="text-sm text-muted-foreground">No listings yet.</div>}
+
+              {myListings.map((listing) => (
+                <Link
+                  key={listing.id}
+                  to={`/listings/${listing.id}`}
+                  className="block rounded-xl border border-border bg-muted p-3 transition hover:bg-accent"
+                >
+                  <div className="flex justify-between gap-4">
+                    <div>
+                      <div className="font-medium text-foreground">{listing.title}</div>
+                      <div className="line-clamp-2 text-sm text-muted-foreground">{listing.description}</div>
+                      <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                        <Badge variant="outline">{listing.type}</Badge>
+                        <Badge variant="muted">{listing.status}</Badge>
+                      </div>
+                    </div>
+
+                    <div className="font-semibold text-foreground">{formatUsdFromCents(listing.price)}</div>
+                  </div>
+                </Link>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {activeTab === "reviews" && (
+          <Card>
+            <CardHeader>
+              <div className="text-xl font-semibold text-foreground">Reviews</div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {reviews.length === 0 && <div className="text-sm text-muted-foreground">No reviews yet.</div>}
+
+              {reviews.map((review) => (
+                <div key={review.id} className="space-y-2 rounded-xl border border-border bg-muted p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <Link className="font-medium text-foreground underline" to={`/users/${review.buyer.id}`}>
+                      {review.buyer.displayName}
+                    </Link>
+                    <div className="flex items-center gap-2">
+                      <RatingStars value={review.rating} />
+                      <span className="text-sm text-muted-foreground">{review.rating}/5</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1 text-xs text-muted-foreground">
+                    <div>{new Date(review.createdAt).toLocaleString()}</div>
+                    <div>
+                      Listing: <span className="font-medium text-foreground">{review.deal.listing.title}</span>
+                    </div>
+                  </div>
+
+                  {review.comment && <div className="text-sm whitespace-pre-wrap text-foreground">{review.comment}</div>}
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {activeTab === "achievements" && (
+          <Card>
+            <CardHeader>
+              <div className="text-xl font-semibold text-foreground">Achievements</div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {profile.achievements.length === 0 && (
+                <div className="text-sm text-muted-foreground">No achievements unlocked yet.</div>
+              )}
+
+              {profile.achievements.map((achievement) => (
+                <div key={achievement.code} className="rounded-xl border border-border bg-muted p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="font-medium text-foreground">{achievement.title}</div>
+                    <Badge variant="outline">{achievement.code}</Badge>
+                  </div>
+                  <div className="text-sm text-muted-foreground">{achievement.description}</div>
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    Unlocked: {new Date(achievement.unlockedAt).toLocaleDateString()}
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </div>
   );
 }

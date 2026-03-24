@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -32,30 +33,61 @@ export class ConversationsService {
   }
 
   private async markConversationAsRead(conversationId: string, userId: string) {
-    const conversation = await this.prisma.conversation.findUnique({
-      where: { id: conversationId },
-      select: {
-        id: true,
-        buyerId: true,
-        sellerId: true,
-      },
-    });
+    await this.prisma.$transaction(async (tx) => {
+      const conversation = await tx.conversation.findUnique({
+        where: { id: conversationId },
+        select: {
+          id: true,
+          buyerId: true,
+          sellerId: true,
+        },
+      });
 
-    if (!conversation) {
-      throw new NotFoundException('Conversation not found');
+      if (!conversation) {
+        throw new NotFoundException('Conversation not found');
+      }
+
+      this.assertParticipant(conversation, userId);
+
+      const now = new Date();
+
+      await tx.conversation.update({
+        where: { id: conversationId },
+        data:
+          conversation.buyerId === userId
+            ? { buyerLastReadAt: now }
+            : { sellerLastReadAt: now },
+      });
+    });
+  }
+
+  private async getUnreadCountsForConversations(
+    conversationIds: string[],
+    userId: string,
+  ) {
+    if (conversationIds.length === 0) {
+      return new Map<string, number>();
     }
 
-    this.assertParticipant(conversation, userId);
+    const rows = await this.prisma.$queryRaw<
+      Array<{ conversationId: string; unreadCount: number }>
+    >(Prisma.sql`
+      SELECT
+        m."conversationId" as "conversationId",
+        COUNT(*)::int as "unreadCount"
+      FROM "Message" m
+      INNER JOIN "Conversation" c ON c."id" = m."conversationId"
+      WHERE m."conversationId" IN (${Prisma.join(conversationIds)})
+        AND m."senderId" <> ${userId}
+        AND m."createdAt" > CASE
+          WHEN c."buyerId" = ${userId}
+            THEN COALESCE(c."buyerLastReadAt", to_timestamp(0))
+          ELSE COALESCE(c."sellerLastReadAt", to_timestamp(0))
+        END
+      GROUP BY m."conversationId"
+    `);
 
-    const now = new Date();
-
-    await this.prisma.conversation.update({
-      where: { id: conversationId },
-      data:
-        conversation.buyerId === userId
-          ? { buyerLastReadAt: now }
-          : { sellerLastReadAt: now },
-    });
+    return new Map(rows.map((row) => [row.conversationId, Number(row.unreadCount)]));
   }
 
   private assertParticipant(
@@ -239,25 +271,15 @@ export class ConversationsService {
       },
     });
 
-    const withUnread = await Promise.all(
-      conversations.map(async (conversation) => {
-        const lastReadAt =
-          conversation.buyerId === userId
-            ? conversation.buyerLastReadAt
-            : conversation.sellerLastReadAt;
-
-        const unreadCount = await this.getUnreadCountForConversation(
-          conversation.id,
-          userId,
-          lastReadAt,
-        );
-
-        return {
-          ...conversation,
-          unreadCount,
-        };
-      }),
+    const unreadCounts = await this.getUnreadCountsForConversations(
+      conversations.map((conversation) => conversation.id),
+      userId,
     );
+
+    const withUnread = conversations.map((conversation) => ({
+      ...conversation,
+      unreadCount: unreadCounts.get(conversation.id) ?? 0,
+    }));
 
     return withUnread;
   }

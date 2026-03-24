@@ -1,5 +1,5 @@
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../../auth/AuthContext";
 import {
   Menu,
@@ -61,8 +61,11 @@ export function Navbar() {
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [inboxCount, setInboxCount] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
+  const refreshTimeoutRef = useRef<number | null>(null);
+  const refreshInFlightRef = useRef(false);
+  const refreshQueuedRef = useRef(false);
 
-  async function refreshHeaderStats() {
+  const refreshHeaderStats = useCallback(async () => {
     if (!user) {
       setWalletBalance(null);
       setInboxCount(0);
@@ -85,22 +88,56 @@ export function Navbar() {
       );
       setInboxCount(unreadTotal);
     }
-  }
+  }, [user]);
+
+  const runScheduledRefresh = useCallback(async () => {
+    if (refreshInFlightRef.current) {
+      refreshQueuedRef.current = true;
+      return;
+    }
+
+    refreshInFlightRef.current = true;
+    try {
+      await refreshHeaderStats();
+    } finally {
+      refreshInFlightRef.current = false;
+      if (refreshQueuedRef.current) {
+        refreshQueuedRef.current = false;
+        window.setTimeout(() => {
+          runScheduledRefresh().catch(() => {});
+        }, 100);
+      }
+    }
+  }, [refreshHeaderStats]);
+
+  const scheduleHeaderStatsRefresh = useCallback(
+    (delayMs = 120) => {
+      if (refreshTimeoutRef.current !== null) {
+        window.clearTimeout(refreshTimeoutRef.current);
+      }
+
+      refreshTimeoutRef.current = window.setTimeout(() => {
+        refreshTimeoutRef.current = null;
+        runScheduledRefresh().catch(() => {});
+      }, delayMs);
+    },
+    [runScheduledRefresh],
+  );
 
   useEffect(() => {
-    refreshHeaderStats().catch(() => {
+    scheduleHeaderStatsRefresh(0);
+  }, [scheduleHeaderStatsRefresh, user?.id]);
+
+  useEffect(() => {
+    if (!user) {
       setWalletBalance(null);
       setInboxCount(0);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
-
-  useEffect(() => {
-    if (!user) return;
+      return;
+    }
 
     const socket = getSocket();
     const refreshStats = () => {
-      refreshHeaderStats().catch(() => {});
+      scheduleHeaderStatsRefresh();
     };
 
     socket.on("inbox:update", refreshStats);
@@ -109,12 +146,11 @@ export function Navbar() {
       socket.off("inbox:update", refreshStats);
       socket.off("deal:update", refreshStats);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [scheduleHeaderStatsRefresh, user]);
 
   useEffect(() => {
     const handleInboxRead = () => {
-      refreshHeaderStats().catch(() => {});
+      scheduleHeaderStatsRefresh();
     };
 
     window.addEventListener("inbox:read", handleInboxRead);
@@ -122,8 +158,15 @@ export function Navbar() {
     return () => {
       window.removeEventListener("inbox:read", handleInboxRead);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [scheduleHeaderStatsRefresh]);
+
+  useEffect(() => {
+    return () => {
+      if (refreshTimeoutRef.current !== null) {
+        window.clearTimeout(refreshTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const closeMobile = () => setMobileOpen(false);
 

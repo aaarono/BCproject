@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useReducer, useState } from "react";
 import { http } from "../api/http";
 import { Link } from "react-router-dom";
 import { Trophy, Star, X } from "lucide-react";
@@ -26,6 +26,38 @@ type DebouncedFilters = {
   tagsKey: string;
 };
 
+type ListingTypeFilter = "" | "GOOD" | "SERVICE";
+type ListingCategoryFilter = "" | "GAMES" | "ACCOUNTS" | "BOOSTING" | "MENTORING" | "GAME_CURRENCY" | "OTHER";
+type ListingSortFilter = "NEWEST" | "PRICE_ASC" | "PRICE_DESC" | "RATING" | "SALE";
+
+type ListingsFiltersState = {
+  search: string;
+  type: ListingTypeFilter;
+  category: ListingCategoryFilter;
+  selectedTags: string[];
+  tagInput: string;
+  minPrice: string;
+  maxPrice: string;
+  draftPriceRange: [number, number];
+  minRating: string;
+  sort: ListingSortFilter;
+  page: number;
+};
+
+type ListingsFiltersAction =
+  | { type: "setSearch"; value: string }
+  | { type: "setType"; value: ListingTypeFilter }
+  | { type: "setCategory"; value: ListingCategoryFilter }
+  | { type: "setSelectedTags"; value: string[] }
+  | { type: "setTagInput"; value: string }
+  | { type: "setMinPrice"; value: string }
+  | { type: "setMaxPrice"; value: string }
+  | { type: "setDraftPriceRange"; value: [number, number] }
+  | { type: "setMinRating"; value: string }
+  | { type: "setSort"; value: ListingSortFilter }
+  | { type: "setPage"; value: number }
+  | { type: "resetFilters" };
+
 type TopSeller = {
   id: string;
   displayName: string;
@@ -46,28 +78,67 @@ const PRICE_MIN = 0;
 const PRICE_MAX = 2000;
 const PRICE_STEP = 5;
 
+const initialFiltersState: ListingsFiltersState = {
+  search: "",
+  type: "",
+  category: "",
+  selectedTags: [],
+  tagInput: "",
+  minPrice: "",
+  maxPrice: "",
+  draftPriceRange: [PRICE_MIN, PRICE_MAX],
+  minRating: "",
+  sort: "NEWEST",
+  page: 1,
+};
+
+function listingsFiltersReducer(
+  state: ListingsFiltersState,
+  action: ListingsFiltersAction,
+): ListingsFiltersState {
+  switch (action.type) {
+    case "setSearch":
+      return { ...state, search: action.value, page: 1 };
+    case "setType":
+      return { ...state, type: action.value, page: 1 };
+    case "setCategory":
+      return { ...state, category: action.value, page: 1 };
+    case "setSelectedTags":
+      return { ...state, selectedTags: action.value, page: 1 };
+    case "setTagInput":
+      return { ...state, tagInput: action.value };
+    case "setMinPrice":
+      return { ...state, minPrice: action.value, page: 1 };
+    case "setMaxPrice":
+      return { ...state, maxPrice: action.value, page: 1 };
+    case "setDraftPriceRange":
+      return { ...state, draftPriceRange: action.value };
+    case "setMinRating":
+      return { ...state, minRating: action.value, page: 1 };
+    case "setSort":
+      return { ...state, sort: action.value, page: 1 };
+    case "setPage":
+      return { ...state, page: action.value };
+    case "resetFilters":
+      return {
+        ...initialFiltersState,
+        page: 1,
+      };
+    default:
+      return state;
+  }
+}
+
 export function ListingsPage() {
   const [items, setItems] = useState<Listing[]>([]);
   const [weeklyTopSellers, setWeeklyTopSellers] = useState<TopSeller[]>([]);
   const [listingsLoading, setListingsLoading] = useState(true);
   const [listingsErr, setListingsErr] = useState<string | null>(null);
   const [meta, setMeta] = useState<Meta>({ total: 0, page: 1, limit: 12, totalPages: 1 });
-  const [search, setSearch] = useState("");
-  const [type, setType] = useState<"" | "GOOD" | "SERVICE">("");
-  const [category, setCategory] = useState<
-    "" | "GAMES" | "ACCOUNTS" | "BOOSTING" | "MENTORING" | "GAME_CURRENCY" | "OTHER"
-  >("");
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [tagInput, setTagInput] = useState("");
-  const [minPrice, setMinPrice] = useState("");
-  const [maxPrice, setMaxPrice] = useState("");
-  const [draftPriceRange, setDraftPriceRange] = useState<[number, number]>([
-    PRICE_MIN,
-    PRICE_MAX,
-  ]);
-  const [minRating, setMinRating] = useState("");
-  const [sort, setSort] = useState<"NEWEST" | "PRICE_ASC" | "PRICE_DESC" | "RATING" | "SALE">("NEWEST");
-  const [page, setPage] = useState(1);
+  const [filtersState, dispatchFilters] = useReducer(
+    listingsFiltersReducer,
+    initialFiltersState,
+  );
   const [reloadNonce, setReloadNonce] = useState(0);
   const [debouncedFilters, setDebouncedFilters] = useState<DebouncedFilters>({
     search: "",
@@ -79,6 +150,66 @@ export function ListingsPage() {
     minRating: "",
     tagsKey: "",
   });
+
+  const {
+    search,
+    type,
+    category,
+    selectedTags,
+    tagInput,
+    minPrice,
+    maxPrice,
+    draftPriceRange,
+    minRating,
+    sort,
+    page,
+  } = filtersState;
+
+  function setSearch(value: string) {
+    dispatchFilters({ type: "setSearch", value });
+  }
+
+  function setType(value: ListingTypeFilter) {
+    dispatchFilters({ type: "setType", value });
+  }
+
+  function setCategory(value: ListingCategoryFilter) {
+    dispatchFilters({ type: "setCategory", value });
+  }
+
+  function setTagInput(value: string) {
+    dispatchFilters({ type: "setTagInput", value });
+  }
+
+  function setMinPrice(value: string) {
+    dispatchFilters({ type: "setMinPrice", value });
+  }
+
+  function setMaxPrice(value: string) {
+    dispatchFilters({ type: "setMaxPrice", value });
+  }
+
+  function setDraftPriceRange(
+    value: [number, number] | ((prev: [number, number]) => [number, number]),
+  ) {
+    const nextValue =
+      typeof value === "function" ? value(filtersState.draftPriceRange) : value;
+    dispatchFilters({ type: "setDraftPriceRange", value: nextValue });
+  }
+
+  function setMinRating(value: string) {
+    dispatchFilters({ type: "setMinRating", value });
+  }
+
+  function setSort(value: ListingSortFilter) {
+    dispatchFilters({ type: "setSort", value });
+  }
+
+  function setPage(value: number | ((currentPage: number) => number)) {
+    const nextValue =
+      typeof value === "function" ? value(filtersState.page) : value;
+    dispatchFilters({ type: "setPage", value: nextValue });
+  }
   const minPriceValue = minPrice === "" ? PRICE_MIN : Number(minPrice);
   const maxPriceValue = maxPrice === "" ? PRICE_MAX : Number(maxPrice);
   const appliedMin = Math.max(PRICE_MIN, Math.min(minPriceValue, PRICE_MAX));
@@ -98,27 +229,21 @@ export function ListingsPage() {
   function addTag(rawTag: string) {
     const normalized = rawTag.trim().toLowerCase().replace(/\s+/g, "-");
     if (!normalized || selectedTags.includes(normalized)) return;
-    setSelectedTags((prev) => [...prev, normalized].slice(0, 8));
-    setPage(1);
+    dispatchFilters({
+      type: "setSelectedTags",
+      value: [...selectedTags, normalized].slice(0, 8),
+    });
   }
 
   function removeTag(tag: string) {
-    setSelectedTags((prev) => prev.filter((item) => item !== tag));
-    setPage(1);
+    dispatchFilters({
+      type: "setSelectedTags",
+      value: selectedTags.filter((item) => item !== tag),
+    });
   }
 
   function resetFilters() {
-    setSearch("");
-    setType("");
-    setCategory("");
-    setSelectedTags([]);
-    setTagInput("");
-    setMinPrice("");
-    setMaxPrice("");
-    setDraftPriceRange([PRICE_MIN, PRICE_MAX]);
-    setMinRating("");
-    setSort("NEWEST");
-    setPage(1);
+    dispatchFilters({ type: "resetFilters" });
   }
 
   function commitDraftPriceRange(nextMin: number, nextMax: number) {

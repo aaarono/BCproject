@@ -1,36 +1,79 @@
+import { lazy, Suspense, type ReactNode } from "react";
 import { createBrowserRouter, Outlet } from "react-router-dom";
 import { RequireAuth } from "../auth/RequireAuth";
 import { RequireAdmin } from "../auth/RequireAdmin";
 import App from "../App";
-import { ListingsPage } from "../pages/ListingsPage";
-import { ListingPage } from "../pages/ListingPage";
-import { LoginPage } from "../pages/LoginPage";
-import { RegisterPage } from "../pages/RegisterPage";
-import { WalletPage } from "../pages/WalletPage";
-import { ConversationPage } from "../pages/ConversationPage";
-import { DealsPage } from "../pages/DealsPage";
-import { DealRoomPage } from "../pages/DealRoomPage";
-import { ProfilePage } from "../pages/ProfilePage";
-import { MyListingsPage } from "../pages/MyListingsPage";
-import { SettingsPage } from "../pages/SettingsPage";
-import { CreateListingPage } from "../pages/CreateListingPage";
-import { InboxPage } from "../pages/InboxPage";
-import { PublicSellerProfilePage } from "../pages/PublicSellerProfilePage";
-import { EditListingPage } from "../pages/EditListingPage";
-import { NotFoundPage } from "../pages/NotFoundPage";
-import { TopSellersPage } from "../pages/TopSellersPage";
-import { AdminPage } from "../pages/AdminPage";
+import { LoadingState } from "../components/ui/PageStates";
+
+const ListingsPage = lazy(() =>
+  import("../pages/ListingsPage").then((module) => ({ default: module.ListingsPage })),
+);
+const ListingPage = lazy(() =>
+  import("../pages/ListingPage").then((module) => ({ default: module.ListingPage })),
+);
+const LoginPage = lazy(() =>
+  import("../pages/LoginPage").then((module) => ({ default: module.LoginPage })),
+);
+const RegisterPage = lazy(() =>
+  import("../pages/RegisterPage").then((module) => ({ default: module.RegisterPage })),
+);
+const WalletPage = lazy(() =>
+  import("../pages/WalletPage").then((module) => ({ default: module.WalletPage })),
+);
+const ConversationPage = lazy(() =>
+  import("../pages/ConversationPage").then((module) => ({ default: module.ConversationPage })),
+);
+const DealsPage = lazy(() =>
+  import("../pages/DealsPage").then((module) => ({ default: module.DealsPage })),
+);
+const DealRoomPage = lazy(() =>
+  import("../pages/DealRoomPage").then((module) => ({ default: module.DealRoomPage })),
+);
+const ProfilePage = lazy(() =>
+  import("../pages/ProfilePage").then((module) => ({ default: module.ProfilePage })),
+);
+const MyListingsPage = lazy(() =>
+  import("../pages/MyListingsPage").then((module) => ({ default: module.MyListingsPage })),
+);
+const SettingsPage = lazy(() =>
+  import("../pages/SettingsPage").then((module) => ({ default: module.SettingsPage })),
+);
+const CreateListingPage = lazy(() =>
+  import("../pages/CreateListingPage").then((module) => ({ default: module.CreateListingPage })),
+);
+const InboxPage = lazy(() =>
+  import("../pages/InboxPage").then((module) => ({ default: module.InboxPage })),
+);
+const PublicSellerProfilePage = lazy(() =>
+  import("../pages/PublicSellerProfilePage").then((module) => ({ default: module.PublicSellerProfilePage })),
+);
+const EditListingPage = lazy(() =>
+  import("../pages/EditListingPage").then((module) => ({ default: module.EditListingPage })),
+);
+const NotFoundPage = lazy(() =>
+  import("../pages/NotFoundPage").then((module) => ({ default: module.NotFoundPage })),
+);
+const TopSellersPage = lazy(() =>
+  import("../pages/TopSellersPage").then((module) => ({ default: module.TopSellersPage })),
+);
+const AdminPage = lazy(() =>
+  import("../pages/AdminPage").then((module) => ({ default: module.AdminPage })),
+);
+
+function withSuspense(element: ReactNode) {
+  return <Suspense fallback={<LoadingState />}>{element}</Suspense>;
+}
 
 export const router = createBrowserRouter([
   {
     element: <App />,
     children: [
-      { path: "/", element: <ListingsPage /> },
-      { path: "/top-sellers", element: <TopSellersPage /> },
-      { path: "/listings/:id", element: <ListingPage /> },
+      { path: "/", element: withSuspense(<ListingsPage />) },
+      { path: "/top-sellers", element: withSuspense(<TopSellersPage />) },
+      { path: "/listings/:id", element: withSuspense(<ListingPage />) },
 
-      { path: "/login", element: <LoginPage /> },
-      { path: "/register", element: <RegisterPage /> },
+      { path: "/login", element: withSuspense(<LoginPage />) },
+      { path: "/register", element: withSuspense(<RegisterPage />) },
 
       {
         element: (
@@ -39,17 +82,17 @@ export const router = createBrowserRouter([
           </RequireAuth>
         ),
         children: [
-          { path: "/deals", element: <DealsPage /> },
-          { path: "/deals/:id", element: <DealRoomPage /> },
-          { path: "/wallet", element: <WalletPage /> },
-          { path: "/conversations/:id", element: <ConversationPage /> },
+          { path: "/deals", element: withSuspense(<DealsPage />) },
+          { path: "/deals/:id", element: withSuspense(<DealRoomPage />) },
+          { path: "/wallet", element: withSuspense(<WalletPage />) },
+          { path: "/conversations/:id", element: withSuspense(<ConversationPage />) },
         ],
       },
       {
         path: "/profile",
         element: (
           <RequireAuth>
-            <ProfilePage />
+            {withSuspense(<ProfilePage />)}
           </RequireAuth>
         ),
       },
@@ -57,7 +100,7 @@ export const router = createBrowserRouter([
         path: "/my-listings",
         element: (
           <RequireAuth>
-            <MyListingsPage />
+            {withSuspense(<MyListingsPage />)}
           </RequireAuth>
         ),
       },
@@ -65,7 +108,7 @@ export const router = createBrowserRouter([
         path: "/settings",
         element: (
           <RequireAuth>
-            <SettingsPage />
+            {withSuspense(<SettingsPage />)}
           </RequireAuth>
         ),
       },
@@ -73,7 +116,7 @@ export const router = createBrowserRouter([
         path: "/admin",
         element: (
           <RequireAdmin>
-            <AdminPage />
+            {withSuspense(<AdminPage />)}
           </RequireAdmin>
         ),
       },
@@ -81,7 +124,7 @@ export const router = createBrowserRouter([
         path: "/create-listing",
         element: (
           <RequireAuth>
-            <CreateListingPage />
+            {withSuspense(<CreateListingPage />)}
           </RequireAuth>
         ),
       },
@@ -89,23 +132,23 @@ export const router = createBrowserRouter([
         path: "/inbox",
         element: (
           <RequireAuth>
-            <InboxPage />
+            {withSuspense(<InboxPage />)}
           </RequireAuth>
         ),
       },
       {
         path: "/users/:id",
-        element: <PublicSellerProfilePage />,
+        element: withSuspense(<PublicSellerProfilePage />),
       },
       {
         path: "/listings/:id/edit",
         element: (
           <RequireAuth>
-            <EditListingPage />
+            {withSuspense(<EditListingPage />)}
           </RequireAuth>
         ),
       },
-      { path: "*", element: <NotFoundPage /> },
+      { path: "*", element: withSuspense(<NotFoundPage />) },
     ],
   },
 ]);

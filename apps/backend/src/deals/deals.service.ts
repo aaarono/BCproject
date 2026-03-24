@@ -248,19 +248,30 @@ export class DealsService {
   }
 
   async markDelivered(dealId: string, sellerId: string) {
-    const deal = await this.getDeal(dealId);
-    if (deal.sellerId !== sellerId)
-      throw new ForbiddenException('Not your deal');
-    if (deal.status !== 'FUNDED')
-      throw new ForbiddenException('Invalid status');
+    await this.prisma.$transaction(async (tx) => {
+      const deal = await tx.deal.findUnique({
+        where: { id: dealId },
+        select: {
+          id: true,
+          sellerId: true,
+          status: true,
+        },
+      });
 
-    await this.prisma.deal.update({
-      where: { id: dealId },
-      data: {
-        status: 'DELIVERED',
-        expiresAt: null,
-        canceledByActor: null,
-      },
+      if (!deal) throw new NotFoundException('Deal not found');
+      if (deal.sellerId !== sellerId)
+        throw new ForbiddenException('Not your deal');
+      if (deal.status !== 'FUNDED')
+        throw new ForbiddenException('Invalid status');
+
+      await tx.deal.update({
+        where: { id: dealId },
+        data: {
+          status: 'DELIVERED',
+          expiresAt: null,
+          canceledByActor: null,
+        },
+      });
     });
 
     const fullDeal = await this.getFullDeal(dealId);
@@ -401,25 +412,6 @@ export class DealsService {
       throw new ForbiddenException('Not your deal');
     }
 
-    return deal;
-  }
-
-  private async getDeal(id: string) {
-    const deal = await this.prisma.deal.findUnique({
-      where: { id },
-      include: {
-        listing: {
-          select: {
-            id: true,
-            price: true,
-            sellerId: true,
-            status: true,
-            title: true,
-          },
-        },
-      },
-    });
-    if (!deal) throw new NotFoundException('Deal not found');
     return deal;
   }
 

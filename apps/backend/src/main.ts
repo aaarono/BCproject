@@ -1,14 +1,16 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { existsSync, mkdirSync } from 'fs';
 import * as express from 'express';
 import { join } from 'path';
+import { randomUUID } from 'crypto';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const logger = new Logger('HTTP');
 
   const uploadsRoot = join(process.cwd(), 'uploads');
   const avatarUploadsPath = join(uploadsRoot, 'avatars');
@@ -18,14 +20,46 @@ async function bootstrap() {
 
   app.use('/uploads', express.static(uploadsRoot));
 
+  app.use((req, res, next) => {
+    const requestId = randomUUID();
+    const startedAt = process.hrtime.bigint();
+
+    res.setHeader('x-request-id', requestId);
+    res.on('finish', () => {
+      const durationMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
+      logger.log(
+        `${req.method} ${req.originalUrl} ${res.statusCode} ${durationMs.toFixed(1)}ms requestId=${requestId}`,
+      );
+    });
+
+    next();
+  });
+
   app.use(
     helmet({
+      contentSecurityPolicy: false,
+      frameguard: { action: 'deny' },
+      referrerPolicy: { policy: 'no-referrer' },
+      hsts:
+        process.env.NODE_ENV === 'production'
+          ? { maxAge: 31536000, includeSubDomains: true, preload: true }
+          : false,
       crossOriginResourcePolicy: { policy: 'cross-origin' },
     }),
   );
 
+  const expressApp = app.getHttpAdapter().getInstance();
+  if (typeof expressApp.disable === 'function') {
+    expressApp.disable('x-powered-by');
+  }
+
+  const corsOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
   app.enableCors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+    origin: corsOrigins,
     credentials: true,
   });
 

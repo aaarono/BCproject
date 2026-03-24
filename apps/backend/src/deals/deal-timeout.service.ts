@@ -61,7 +61,7 @@ export class DealTimeoutService implements OnModuleInit, OnModuleDestroy {
           select: { id: true },
         });
 
-        if (expiredDeals.length === 0) {
+        if (!Array.isArray(expiredDeals) || expiredDeals.length === 0) {
           return;
         }
 

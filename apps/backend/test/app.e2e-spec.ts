@@ -94,7 +94,7 @@ describe('Marketplace API (e2e)', () => {
       deal: {
         findUnique: jest.fn(),
         findFirst: jest.fn(),
-        findMany: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
         findUniqueOrThrow: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
@@ -110,6 +110,7 @@ describe('Marketplace API (e2e)', () => {
         findMany: jest.fn(),
         create: jest.fn(),
       },
+      $queryRaw: jest.fn().mockResolvedValue([{ '?column?': 1 }]),
       $transaction: jest.fn((cb) => cb(prisma)),
     };
 
@@ -140,11 +141,36 @@ describe('Marketplace API (e2e)', () => {
   });
 
   describe('Health Check', () => {
-    it('GET /health - should return ok', () => {
-      return request(app.getHttpServer())
+    it('GET /health - should return structured status', async () => {
+      const response = await request(app.getHttpServer())
         .get('/health')
-        .expect(200)
-        .expect({ ok: true });
+        .expect(200);
+
+      expect(response.body).toMatchObject({
+        ok: true,
+        services: {
+          database: 'up',
+        },
+      });
+
+      expect(typeof response.body.timestamp).toBe('string');
+      expect(typeof response.body.uptimeSeconds).toBe('number');
+      expect(prisma.$queryRaw).toHaveBeenCalled();
+    });
+
+    it('GET /health - should report db down when query fails', async () => {
+      prisma.$queryRaw.mockRejectedValueOnce(new Error('db down'));
+
+      const response = await request(app.getHttpServer())
+        .get('/health')
+        .expect(200);
+
+      expect(response.body).toMatchObject({
+        ok: false,
+        services: {
+          database: 'down',
+        },
+      });
     });
   });
 

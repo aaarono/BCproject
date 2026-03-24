@@ -200,6 +200,8 @@ model Conversation {
   @@unique([listingId, buyerId])
   @@index([sellerId])
   @@index([buyerId])
+  @@index([buyerId, buyerLastReadAt])
+  @@index([sellerId, sellerLastReadAt])
 }
 
 model Message {
@@ -213,6 +215,7 @@ model Message {
   sender       User         @relation(fields: [senderId], references: [id])
 
   @@index([conversationId, createdAt])
+  @@index([conversationId, senderId, createdAt])
 }
 
 model Deal {

@@ -327,8 +327,18 @@ export function ListingsPage() {
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {weeklyTopSellers.slice(0, 3).map((seller, index) => {
                 const rank = index + 1;
-                const rankClass = rank === 1 ? "bg-warning" : rank === 2 ? "bg-muted" : "bg-info";
-                const rankTextClass = rank === 1 ? "text-warning-foreground" : rank === 2 ? "text-foreground" : "text-info-foreground";
+                const rankCircleClass =
+                  rank === 1
+                    ? "bg-gradient-to-br from-gold to-gold-deep"
+                    : rank === 2
+                      ? "bg-gradient-to-br from-silver to-silver-deep"
+                      : "bg-gradient-to-br from-bronze to-bronze-deep";
+                const rankTextClass =
+                  rank === 1
+                    ? "text-gold-foreground"
+                    : rank === 2
+                      ? "text-silver-foreground"
+                      : "text-bronze-foreground";
                 const initials = seller.displayName
                   .split(" ")
                   .map((part) => part[0]?.toUpperCase() ?? "")
@@ -337,22 +347,23 @@ export function ListingsPage() {
 
                 return (
                   <Link key={seller.id} to={`/users/${seller.id}`} className="block">
-                    <Card className="border-warning/30 bg-card/90 transition hover:shadow-md">
+                    <Card className="border-warning/40 bg-card/95 transition hover:shadow-md">
                       <CardContent className="space-y-3">
                         <div className="flex items-start justify-between">
                           <div className="flex items-center gap-3">
-                            <div className="relative">
-                              <Avatar
-                                src={seller.avatarUrl ?? undefined}
-                                alt={seller.displayName}
-                                fallback={initials || "TS"}
-                                className="h-11 w-11"
-                                fallbackClassName="text-sm font-semibold"
-                              />
-                              <span className={`absolute -right-1 -top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-semibold ${rankClass} ${rankTextClass}`}>
-                                #{rank}
-                              </span>
-                            </div>
+                            <span
+                              className={`relative inline-flex h-8 min-w-8 items-center justify-center rounded-full px-1 text-sm font-bold ${rankTextClass}`}
+                            >
+                              <span className={`absolute inset-0 rounded-full ${rankCircleClass} opacity-70`} aria-hidden="true" />
+                              <span className="relative">#{rank}</span>
+                            </span>
+                            <Avatar
+                              src={seller.avatarUrl ?? undefined}
+                              alt={seller.displayName}
+                              fallback={initials || "TS"}
+                              className="h-[52px] w-[52px]"
+                              fallbackClassName="text-sm font-semibold"
+                            />
                             <div>
                               <div className="text-sm font-semibold text-foreground">{seller.displayName}</div>
                               <div className="flex items-center gap-1 text-xs text-muted-foreground">

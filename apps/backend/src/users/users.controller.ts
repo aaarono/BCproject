@@ -19,6 +19,7 @@ import type { JwtPayload } from '../auth/jwt.strategy';
 import { UsersService } from './users.service';
 import { UpdateMeDto } from './dto/update-me.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { UpdatePaymentCardDto } from './dto/update-payment-card.dto';
 import { diskStorage } from 'multer';
 import type { Request } from 'express';
 import { extname } from 'path';
@@ -110,6 +111,25 @@ export class UsersController {
     @Body() dto: ChangePasswordDto,
   ) {
     return this.usersService.changePassword(user.sub, dto);
+  }
+
+  @ApiOperation({ summary: 'Link or update my payment card' })
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Patch('me/payment-card')
+  updatePaymentCard(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: UpdatePaymentCardDto,
+  ) {
+    return this.usersService.updatePaymentCard(user.sub, dto.cardNumber);
+  }
+
+  @ApiOperation({ summary: 'Unlink my payment card' })
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Patch('me/payment-card/unlink')
+  unlinkPaymentCard(@CurrentUser() user: JwtPayload) {
+    return this.usersService.unlinkPaymentCard(user.sub);
   }
 
   @ApiOperation({ summary: 'Get top sellers leaderboard' })

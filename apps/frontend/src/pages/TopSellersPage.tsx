@@ -64,22 +64,22 @@ function PodiumSellerCard({
 }) {
   const reward = PODIUM_REWARDS_BY_RANK[rank] ?? 0;
   const placeLabel = rank === 1 ? "Gold" : rank === 2 ? "Silver" : "Bronze";
-  const heightClass = rank === 1 ? "sm:h-[280px]" : rank === 2 ? "sm:h-[240px]" : "sm:h-[228px]";
-  const avatarSizeClass = rank === 1 ? "h-16 w-16" : "h-14 w-14";
-  const fallbackSizeClass = rank === 1 ? "text-lg font-semibold" : "text-base font-semibold";
-  const pedestalHeightClass = rank === 1 ? "h-16" : rank === 2 ? "h-12" : "h-10";
-  const placeBadgeClass =
+  const heightClass = "sm:h-[260px]";
+  const avatarSizeClass = "h-20 w-20";
+  const fallbackSizeClass = "text-xl font-semibold";
+  const pedestalHeightClass = "h-14";
+  const pedestalBackgroundClass =
     rank === 1
-      ? "bg-warning/15 text-warning"
+      ? "bg-gradient-to-r from-gold via-gold/80 to-gold-deep"
       : rank === 2
-        ? "bg-muted text-foreground"
-        : "bg-accent text-accent-foreground";
+        ? "bg-gradient-to-r from-silver via-silver/80 to-silver-deep"
+        : "bg-gradient-to-r from-bronze via-bronze/80 to-bronze-deep";
   const pedestalLabelClass =
     rank === 1
-      ? "text-warning"
+      ? "text-gold-foreground"
       : rank === 2
-        ? "text-foreground"
-        : "text-accent-foreground";
+        ? "text-silver-foreground"
+        : "text-bronze-foreground";
   const cardAccentClass =
     rank === 1
       ? "border-warning/50 bg-accent"
@@ -91,16 +91,10 @@ function PodiumSellerCard({
     <div className="flex h-full flex-col">
       <Link
         to={`/users/${seller.id}`}
-        className={`group flex h-full min-h-[190px] flex-col justify-between rounded-t-2xl border border-b-0 p-4 text-center transition hover:bg-accent ${heightClass} ${cardAccentClass}`}
+        className={`group flex h-full min-h-[190px] flex-col justify-center rounded-t-2xl border border-b-0 p-4 text-center transition hover:bg-accent ${heightClass} ${cardAccentClass}`}
       >
-        <div className="space-y-3">
-          <div
-            className={`mx-auto inline-flex items-center rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${placeBadgeClass}`}
-          >
-            #{rank} · {placeLabel}
-          </div>
-
-          <div className="flex flex-col items-center gap-3">
+        <div className="space-y-2">
+          <div className="flex flex-col items-center gap-2">
             <Avatar
               src={seller.avatarUrl ?? undefined}
               alt={seller.displayName}
@@ -108,23 +102,24 @@ function PodiumSellerCard({
               className={avatarSizeClass}
               fallbackClassName={fallbackSizeClass}
             />
-            <div className="min-w-0">
+            <div className="min-w-0 space-y-1">
               <div className="truncate text-base font-semibold text-foreground group-hover:text-accent-foreground">
                 {seller.displayName}
               </div>
-              <div className="text-sm text-warning">★ {seller.ratingAvg.toFixed(2)}</div>
+              <div className="text-lg font-semibold text-warning">
+                ★ {seller.ratingAvg.toFixed(2)}
+              </div>
+
+              <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                <span>{seller.completedDeals} deals</span>
+                <span>•</span>
+                <span>{seller.activeListings} listings</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="space-y-1 text-xs text-muted-foreground">
-          <div className="flex items-center justify-center gap-2">
-            <span>{seller.completedDeals} deals</span>
-            <span>•</span>
-            <span>{seller.activeListings} listings</span>
-          </div>
           {showReward && (
-            <div className="pt-2 text-sm font-semibold text-foreground">
+            <div className="pt-1 text-sm font-semibold text-foreground">
               Reward: {formatUsdFromCents(reward)}
             </div>
           )}
@@ -132,9 +127,9 @@ function PodiumSellerCard({
       </Link>
 
       <div
-        className={`flex items-center justify-center rounded-b-2xl border border-border bg-muted text-sm font-semibold text-foreground ${pedestalHeightClass}`}
+        className={`flex items-center justify-center rounded-b-2xl border border-border text-sm font-semibold text-foreground ${pedestalHeightClass} ${pedestalBackgroundClass}`}
       >
-        <span className={pedestalLabelClass}>{placeLabel}</span>
+        <span className={pedestalLabelClass}>{placeLabel} #{rank}</span>
       </div>
     </div>
   );
@@ -153,7 +148,9 @@ export function TopSellersPage() {
 
     Promise.all([
       http.get<TopSeller[]>("/users/top-sellers", { params: { limit: 20 } }),
-      http.get<TopSeller[]>("/users/top-sellers/weekly", { params: { limit: 20 } }),
+      http.get<TopSeller[]>("/users/top-sellers/weekly", {
+        params: { limit: 20 },
+      }),
     ])
       .then(([overall, weekly]) => {
         if (!cancelled) {
@@ -190,7 +187,10 @@ export function TopSellersPage() {
 
   const activeItems = activeMode === "weekly" ? weeklyItems : overallItems;
   const podiumItems = useMemo(
-    () => PODIUM_ORDER.map((rank) => activeItems[rank - 1]).filter((item): item is TopSeller => Boolean(item)),
+    () =>
+      PODIUM_ORDER.map((rank) => activeItems[rank - 1]).filter(
+        (item): item is TopSeller => Boolean(item),
+      ),
     [activeItems],
   );
   const otherItems = activeItems.slice(3, 20);
@@ -208,7 +208,9 @@ export function TopSellersPage() {
             type="button"
             onClick={() => setActiveMode("weekly")}
             className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
-              activeMode === "weekly" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent"
+              activeMode === "weekly"
+                ? "bg-accent text-accent-foreground"
+                : "text-muted-foreground hover:bg-accent"
             }`}
           >
             Weekly sellers
@@ -217,20 +219,15 @@ export function TopSellersPage() {
             type="button"
             onClick={() => setActiveMode("overall")}
             className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
-              activeMode === "overall" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent"
+              activeMode === "overall"
+                ? "bg-accent text-accent-foreground"
+                : "text-muted-foreground hover:bg-accent"
             }`}
           >
             Overall sellers
           </button>
         </div>
       </div>
-
-      {activeMode === "weekly" && (
-        <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
-          <Clock3 className="h-4 w-4" />
-          Weekly leaderboard reset in <span className="font-semibold text-foreground">{countdownLabel}</span>
-        </div>
-      )}
 
       {overallItems.length === 0 && weeklyItems.length === 0 && (
         <div className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
@@ -243,12 +240,14 @@ export function TopSellersPage() {
           <div className="space-y-3 rounded-2xl border border-border bg-muted/50 p-4">
             <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-foreground">
               <Trophy className="h-4 w-4 text-warning" />
-              Podium
+              Top Sellers
             </h2>
 
             <div className="grid gap-3 sm:grid-cols-3 sm:items-end">
               {podiumItems.map((seller) => {
-                const rank = (activeItems.findIndex((item) => item.id === seller.id) + 1) as 1 | 2 | 3;
+                const rank = (activeItems.findIndex(
+                  (item) => item.id === seller.id,
+                ) + 1) as 1 | 2 | 3;
                 return (
                   <PodiumSellerCard
                     key={seller.id}
@@ -259,10 +258,21 @@ export function TopSellersPage() {
                 );
               })}
             </div>
+            {activeMode === "weekly" && (
+              <div className="flex items-center gap-2 rounded-xl bg-card px-4 py-3 text-sm text-muted-foreground">
+                <Clock3 className="h-4 w-4" />
+                Weekly leaderboard reset in{" "}
+                <span className="font-semibold text-foreground">
+                  {countdownLabel}
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="space-y-3 rounded-2xl border border-border bg-card p-4">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground">Other sellers</h2>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground">
+              Other sellers
+            </h2>
 
             {otherItems.length === 0 ? (
               <div className="rounded-xl border border-border bg-muted p-4 text-sm text-muted-foreground">

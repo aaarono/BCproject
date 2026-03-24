@@ -265,6 +265,22 @@ export class UsersService {
     return typeof avatarUrl === 'string' ? avatarUrl : null;
   }
 
+  private resolveCardBrand(cardNumberDigits: string) {
+    if (cardNumberDigits.startsWith('4')) {
+      return 'VISA';
+    }
+
+    if (/^5[1-5]/.test(cardNumberDigits)) {
+      return 'MASTERCARD';
+    }
+
+    if (/^3[47]/.test(cardNumberDigits)) {
+      return 'AMEX';
+    }
+
+    return 'CARD';
+  }
+
   async getTopSellers(limit?: string | number) {
     return this.getRankedSellers(this.normalizeTopSellersLimit(limit));
   }
@@ -379,6 +395,9 @@ export class UsersService {
         email: true,
         displayName: true,
         avatarUrl: true,
+        paymentCardLast4: true,
+        paymentCardBrand: true,
+        paymentCardLinkedAt: true,
         role: true,
         ratingAvg: true,
         ratingCount: true,
@@ -419,6 +438,9 @@ export class UsersService {
         email: true,
         displayName: true,
         avatarUrl: true,
+        paymentCardLast4: true,
+        paymentCardBrand: true,
+        paymentCardLinkedAt: true,
         role: true,
         ratingAvg: true,
         ratingCount: true,
@@ -454,6 +476,9 @@ export class UsersService {
         email: true,
         displayName: true,
         avatarUrl: true,
+        paymentCardLast4: true,
+        paymentCardBrand: true,
+        paymentCardLinkedAt: true,
         role: true,
         ratingAvg: true,
         ratingCount: true,
@@ -465,6 +490,65 @@ export class UsersService {
     if (previousAvatarUrl && previousAvatarUrl !== avatarUrl) {
       await this.removeLocalAvatarFileIfExists(previousAvatarUrl);
     }
+
+    return user;
+  }
+
+  async updatePaymentCard(userId: string, cardNumber: string) {
+    const digits = cardNumber.replace(/\D/g, '');
+
+    if (digits.length < 12 || digits.length > 19) {
+      throw new BadRequestException('Invalid card number');
+    }
+
+    const paymentCardLast4 = digits.slice(-4);
+    const paymentCardBrand = this.resolveCardBrand(digits);
+
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        paymentCardLast4,
+        paymentCardBrand,
+        paymentCardLinkedAt: new Date(),
+      },
+      select: {
+        id: true,
+        email: true,
+        displayName: true,
+        avatarUrl: true,
+        paymentCardLast4: true,
+        paymentCardBrand: true,
+        paymentCardLinkedAt: true,
+        role: true,
+        ratingAvg: true,
+        ratingCount: true,
+      },
+    });
+
+    return user;
+  }
+
+  async unlinkPaymentCard(userId: string) {
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        paymentCardLast4: null,
+        paymentCardBrand: null,
+        paymentCardLinkedAt: null,
+      },
+      select: {
+        id: true,
+        email: true,
+        displayName: true,
+        avatarUrl: true,
+        paymentCardLast4: true,
+        paymentCardBrand: true,
+        paymentCardLinkedAt: true,
+        role: true,
+        ratingAvg: true,
+        ratingCount: true,
+      },
+    });
 
     return user;
   }
@@ -529,7 +613,11 @@ export class UsersService {
             id: true,
             title: true,
             description: true,
+            imageUrl: true,
             price: true,
+            salePercent: true,
+            saleStartsAt: true,
+            saleEndsAt: true,
             type: true,
             status: true,
             createdAt: true,

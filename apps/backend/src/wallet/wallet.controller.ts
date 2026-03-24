@@ -5,6 +5,7 @@ import { WalletService } from './wallet.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/jwt.strategy';
 import { TopUpDto } from './dto/top-up.dto';
+import { WithdrawDto } from './dto/withdraw.dto';
 
 @ApiTags('Wallet')
 @ApiBearerAuth()
@@ -33,5 +34,11 @@ export class WalletController {
   @Post('topup-mock')
   topUp(@CurrentUser() user: JwtPayload, @Body() dto: TopUpDto) {
     return this.wallet.topUpMock(user.sub, dto.amount);
+  }
+
+  @ApiOperation({ summary: 'Withdraw wallet balance with platform fee' })
+  @Post('withdraw')
+  withdraw(@CurrentUser() user: JwtPayload, @Body() dto: WithdrawDto) {
+    return this.wallet.withdraw(user.sub, dto.amount);
   }
 }

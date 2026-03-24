@@ -9,7 +9,6 @@ import {
   RotateCcw,
   ShoppingBag,
   Star,
-  Trash2,
 } from "lucide-react";
 import { http } from "../api/http";
 import { extractHttpErrorMessage } from "../utils/httpError";
@@ -25,10 +24,36 @@ type Listing = {
   title: string;
   description: string;
   price: number;
+  imageUrl?: string | null;
+  salePercent?: number | null;
+  saleStartsAt?: string | null;
+  saleEndsAt?: string | null;
   type: "GOOD" | "SERVICE";
   status: "ACTIVE" | "ARCHIVED";
   createdAt?: string;
 };
+
+function getSaleState(listing: {
+  price: number;
+  salePercent?: number | null;
+  saleStartsAt?: string | null;
+  saleEndsAt?: string | null;
+}) {
+  if (!listing.salePercent || !listing.saleStartsAt || !listing.saleEndsAt) {
+    return { isOnSale: false, effectivePrice: listing.price };
+  }
+
+  const now = Date.now();
+  const startsAt = new Date(listing.saleStartsAt).getTime();
+  const endsAt = new Date(listing.saleEndsAt).getTime();
+
+  if (!Number.isFinite(startsAt) || !Number.isFinite(endsAt) || now < startsAt || now > endsAt) {
+    return { isOnSale: false, effectivePrice: listing.price };
+  }
+
+  const effectivePrice = Math.round((listing.price * (100 - listing.salePercent)) / 100);
+  return { isOnSale: effectivePrice < listing.price, effectivePrice };
+}
 
 export function MyListingsPage() {
   const [listings, setListings] = useState<Listing[]>([]);
@@ -87,17 +112,6 @@ export function MyListingsPage() {
       );
     } catch (error: unknown) {
       alert(extractHttpErrorMessage(error, "Failed to restore listing"));
-    }
-  }
-
-  async function deleteListing(id: string) {
-    if (!window.confirm("Delete this listing permanently?")) return;
-
-    try {
-      await http.delete(`/listings/${id}`);
-      setListings((prev) => prev.filter((listing) => listing.id !== id));
-    } catch (error: unknown) {
-      alert(extractHttpErrorMessage(error, "Failed to delete listing"));
     }
   }
 
@@ -176,12 +190,26 @@ export function MyListingsPage() {
       )}
 
       <div className="space-y-3">
-        {displayedListings.map((listing) => (
+        {displayedListings.map((listing) => {
+          const { isOnSale, effectivePrice } = getSaleState(listing);
+
+          return (
           <Card key={listing.id} className="py-0">
             <CardContent className="p-4">
               <div className="flex items-start gap-4">
                 <div className="relative flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground/50">
-                  {listing.type === "GOOD" ? <Gamepad2 className="h-6 w-6" /> : <Briefcase className="h-6 w-6" />}
+                  {listing.imageUrl ? (
+                    <img
+                      src={listing.imageUrl}
+                      alt={listing.title}
+                      className="h-full w-full rounded-lg object-cover"
+                      loading="lazy"
+                    />
+                  ) : listing.type === "GOOD" ? (
+                    <Gamepad2 className="h-6 w-6" />
+                  ) : (
+                    <Briefcase className="h-6 w-6" />
+                  )}
                 </div>
 
                 <div className="min-w-0 flex-1">
@@ -197,12 +225,22 @@ export function MyListingsPage() {
                         <Badge variant="outline" className="text-xs">
                           {listing.type}
                         </Badge>
+                        {isOnSale && listing.salePercent ? (
+                          <Badge className="bg-sale text-sale-foreground text-xs">-{listing.salePercent}%</Badge>
+                        ) : null}
                         {listing.createdAt && <span>{new Date(listing.createdAt).toLocaleDateString()}</span>}
                       </div>
                     </div>
 
                     <div className="text-right">
-                      <div className="font-semibold text-foreground">{formatUsdFromCents(listing.price)}</div>
+                      {isOnSale ? (
+                        <>
+                          <div className="text-xs text-muted-foreground line-through">{formatUsdFromCents(listing.price)}</div>
+                          <div className="font-semibold text-primary">{formatUsdFromCents(effectivePrice)}</div>
+                        </>
+                      ) : (
+                        <div className="font-semibold text-foreground">{formatUsdFromCents(listing.price)}</div>
+                      )}
                     </div>
                   </div>
 
@@ -230,7 +268,7 @@ export function MyListingsPage() {
                             Edit
                           </Link>
                           <button
-                            className="inline-flex items-center gap-1 rounded-lg border border-input px-2.5 py-1.5 text-foreground hover:bg-accent"
+                            className="inline-flex items-center gap-1 rounded-lg border border-destructive/30 px-2.5 py-1.5 text-destructive hover:bg-destructive/10"
                             onClick={() => archiveListing(listing.id)}
                           >
                             <Archive className="h-3.5 w-3.5" />
@@ -246,21 +284,14 @@ export function MyListingsPage() {
                           Restore
                         </button>
                       )}
-
-                      <button
-                        className="inline-flex items-center gap-1 rounded-lg border border-destructive/30 px-2.5 py-1.5 text-destructive hover:bg-destructive/10"
-                        onClick={() => deleteListing(listing.id)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        Delete
-                      </button>
                     </div>
                   </div>
                 </div>
               </div>
             </CardContent>
           </Card>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

@@ -72,6 +72,21 @@ module.exports = {
           DEFAULT: "var(--sale)",
           foreground: "var(--sale-foreground)",
         },
+        gold: {
+          DEFAULT: "var(--gold)",
+          foreground: "var(--gold-foreground)",
+          deep: "var(--gold-deep)",
+        },
+        silver: {
+          DEFAULT: "var(--silver)",
+          foreground: "var(--silver-foreground)",
+          deep: "var(--silver-deep)",
+        },
+        bronze: {
+          DEFAULT: "var(--bronze)",
+          foreground: "var(--bronze-foreground)",
+          deep: "var(--bronze-deep)",
+        },
       },
       borderRadius: {
         sm: "calc(var(--radius) - 4px)",

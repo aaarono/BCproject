@@ -6,11 +6,21 @@ import { PrismaService } from '../../prisma/prisma.service';
 describe('WalletService', () => {
   let service: WalletService;
   let prisma: any;
+  let tx: any;
 
   beforeEach(async () => {
+    tx = {
+      user: { findUnique: jest.fn() },
+      wallet: { upsert: jest.fn(), update: jest.fn() },
+      walletTransaction: { create: jest.fn() },
+    };
+
     prisma = {
       wallet: { upsert: jest.fn(), update: jest.fn() },
       walletTransaction: { create: jest.fn() },
+      user: { findUnique: jest.fn() },
+      deal: { aggregate: jest.fn() },
+      $transaction: jest.fn(async (cb: (txArg: any) => Promise<void>) => cb(tx)),
     };
 
     const module = await Test.createTestingModule({
@@ -37,19 +47,37 @@ describe('WalletService', () => {
 
   describe('topUpMock', () => {
     it('should increase balance and create transaction', async () => {
-      prisma.wallet.upsert.mockResolvedValue({ userId: 'u1', balance: 0 });
-      prisma.wallet.update.mockResolvedValue({});
-      prisma.walletTransaction.create.mockResolvedValue({});
+      tx.user.findUnique.mockResolvedValue({ paymentCardLast4: '4242' });
+      tx.wallet.upsert.mockResolvedValue({ userId: 'u1', balance: 0 });
+      tx.wallet.update.mockResolvedValue({});
+      tx.walletTransaction.create.mockResolvedValue({});
+      prisma.wallet.upsert.mockResolvedValue({ userId: 'u1', balance: 5000 });
+      prisma.user.findUnique.mockResolvedValue({
+        paymentCardLast4: '4242',
+        paymentCardBrand: 'VISA',
+        paymentCardLinkedAt: new Date(),
+      });
+      prisma.deal.aggregate.mockResolvedValue({
+        _sum: { totalAmountSnapshot: 0 },
+      });
 
       await service.topUpMock('u1', 5000);
 
-      expect(prisma.wallet.update).toHaveBeenCalledWith({
+      expect(tx.wallet.update).toHaveBeenCalledWith({
         where: { userId: 'u1' },
         data: { balance: { increment: 5000 } },
       });
-      expect(prisma.walletTransaction.create).toHaveBeenCalledWith({
+      expect(tx.walletTransaction.create).toHaveBeenCalledWith({
         data: { walletId: 'u1', userId: 'u1', type: 'TOPUP', amount: 5000 },
       });
+    });
+
+    it('should throw when payment card is not linked', async () => {
+      tx.user.findUnique.mockResolvedValue({ paymentCardLast4: null });
+
+      await expect(service.topUpMock('u1', 5000)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('should throw ForbiddenException for invalid amount', async () => {
@@ -63,25 +91,25 @@ describe('WalletService', () => {
   });
 
   describe('lockEscrow', () => {
-    let tx: any;
+    let txEscrow: any;
 
     beforeEach(() => {
-      tx = {
+      txEscrow = {
         wallet: { upsert: jest.fn(), update: jest.fn() },
         walletTransaction: { create: jest.fn() },
       };
     });
 
     it('should lock funds when balance is sufficient', async () => {
-      tx.wallet.upsert.mockResolvedValue({ userId: 'u1', balance: 10000 });
+      txEscrow.wallet.upsert.mockResolvedValue({ userId: 'u1', balance: 10000 });
 
-      await service.lockEscrow(tx, 'u1', 'deal1', 5000);
+      await service.lockEscrow(txEscrow, 'u1', 'deal1', 5000);
 
-      expect(tx.wallet.update).toHaveBeenCalledWith({
+      expect(txEscrow.wallet.update).toHaveBeenCalledWith({
         where: { userId: 'u1' },
         data: { balance: { decrement: 5000 } },
       });
-      expect(tx.walletTransaction.create).toHaveBeenCalledWith({
+      expect(txEscrow.walletTransaction.create).toHaveBeenCalledWith({
         data: {
           walletId: 'u1',
           userId: 'u1',
@@ -93,11 +121,45 @@ describe('WalletService', () => {
     });
 
     it('should throw ForbiddenException when balance is insufficient', async () => {
-      tx.wallet.upsert.mockResolvedValue({ userId: 'u1', balance: 1000 });
+      txEscrow.wallet.upsert.mockResolvedValue({ userId: 'u1', balance: 1000 });
 
-      await expect(service.lockEscrow(tx, 'u1', 'deal1', 5000)).rejects.toThrow(
+      await expect(service.lockEscrow(txEscrow, 'u1', 'deal1', 5000)).rejects.toThrow(
         ForbiddenException,
       );
+    });
+  });
+
+  describe('withdraw', () => {
+    it('should decrement wallet and create withdraw transaction', async () => {
+      tx.user.findUnique.mockResolvedValue({ paymentCardLast4: '4242' });
+      tx.wallet.upsert.mockResolvedValue({ userId: 'u1', balance: 10000 });
+      tx.wallet.update.mockResolvedValue({});
+      tx.walletTransaction.create.mockResolvedValue({});
+
+      prisma.wallet.upsert.mockResolvedValue({ userId: 'u1', balance: 5000 });
+      prisma.user.findUnique.mockResolvedValue({
+        paymentCardLast4: '4242',
+        paymentCardBrand: 'VISA',
+        paymentCardLinkedAt: new Date(),
+      });
+      prisma.deal.aggregate.mockResolvedValue({
+        _sum: { totalAmountSnapshot: 0 },
+      });
+
+      await service.withdraw('u1', 5000);
+
+      expect(tx.wallet.update).toHaveBeenCalledWith({
+        where: { userId: 'u1' },
+        data: { balance: { decrement: 5000 } },
+      });
+      expect(tx.walletTransaction.create).toHaveBeenCalledWith({
+        data: {
+          walletId: 'u1',
+          userId: 'u1',
+          type: 'WITHDRAW',
+          amount: -5000,
+        },
+      });
     });
   });
 

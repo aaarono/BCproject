@@ -6,7 +6,7 @@ import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
 import { ErrorState, LoadingState } from "../components/ui/PageStates";
 import { PageContainer, PageHeader } from "../components/ui/PageLayout";
-import { Bell, Camera, Monitor, Moon, Save, Shield, Sun, User } from "lucide-react";
+import { Bell, Camera, CreditCard, Monitor, Moon, Save, Shield, Sun, User } from "lucide-react";
 import { cn } from "../lib/cn";
 import { Avatar } from "../components/ui/Avatar";
 import { useAuth } from "../auth/AuthContext";
@@ -23,6 +23,9 @@ type Profile = {
   email: string;
   displayName: string;
   avatarUrl?: string | null;
+  paymentCardLast4?: string | null;
+  paymentCardBrand?: string | null;
+  paymentCardLinkedAt?: string | null;
   role: "BUYER" | "SELLER" | "ADMIN";
   ratingAvg: number;
   ratingCount: number;
@@ -30,10 +33,11 @@ type Profile = {
 
 export function SettingsPage() {
   const { refreshMe } = useAuth();
-  const [activeTab, setActiveTab] = useState<"profile" | "notifications" | "security" | "appearance">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "payment" | "notifications" | "security" | "appearance">("profile");
   const [profile, setProfile] = useState<Profile | null>(null);
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
+  const [paymentCardNumber, setPaymentCardNumber] = useState("");
   const [notifications, setNotifications] = useState({
     newMessage: true,
     dealUpdates: true,
@@ -47,6 +51,7 @@ export function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [passwordSaving, setPasswordSaving] = useState(false);
+  const [paymentSaving, setPaymentSaving] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => getStoredThemeMode());
   const [err, setErr] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -143,6 +148,46 @@ export function SettingsPage() {
     }
   }
 
+  async function savePaymentCard() {
+    if (!paymentCardNumber.trim()) {
+      setErr("Enter card number.");
+      return;
+    }
+
+    setErr(null);
+    setSuccess(null);
+    setPaymentSaving(true);
+
+    try {
+      const response = await http.patch<Profile>("/users/me/payment-card", {
+        cardNumber: paymentCardNumber,
+      });
+      setProfile(response.data);
+      setPaymentCardNumber("");
+      setSuccess("Payment card linked successfully.");
+    } catch (error: unknown) {
+      setErr(extractHttpErrorMessage(error, "Failed to link payment card"));
+    } finally {
+      setPaymentSaving(false);
+    }
+  }
+
+  async function unlinkPaymentCard() {
+    setErr(null);
+    setSuccess(null);
+    setPaymentSaving(true);
+
+    try {
+      const response = await http.patch<Profile>("/users/me/payment-card/unlink");
+      setProfile(response.data);
+      setSuccess("Payment card unlinked.");
+    } catch (error: unknown) {
+      setErr(extractHttpErrorMessage(error, "Failed to unlink payment card"));
+    } finally {
+      setPaymentSaving(false);
+    }
+  }
+
   async function uploadAvatar(file: File) {
     if (!file.type.startsWith("image/")) {
       setErr("Please select an image file.");
@@ -188,7 +233,7 @@ export function SettingsPage() {
     <PageContainer width="max-w-2xl">
       <PageHeader title="Settings" subtitle="Manage your account settings and preferences." />
 
-      <div className="grid grid-cols-1 gap-2 rounded-xl border border-border bg-card p-2 sm:grid-cols-4">
+      <div className="grid grid-cols-1 gap-2 rounded-xl border border-border bg-card p-2 sm:grid-cols-5">
         <button
           type="button"
           onClick={() => setActiveTab("profile")}
@@ -199,6 +244,17 @@ export function SettingsPage() {
         >
           <User className="h-4 w-4" />
           Profile
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("payment")}
+          className={cn(
+            "inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition",
+            activeTab === "payment" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent",
+          )}
+        >
+          <CreditCard className="h-4 w-4" />
+          Payment
         </button>
         <button
           type="button"
@@ -294,6 +350,54 @@ export function SettingsPage() {
               <Save className="h-4 w-4" />
               {saving ? "Saving..." : "Save changes"}
             </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === "payment" && (
+        <Card>
+          <CardHeader>
+            <div className="text-sm text-muted-foreground">Link a card to allow wallet top-ups and withdrawals</div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {profile?.paymentCardLast4 ? (
+              <div className="rounded-lg border border-border bg-muted p-3">
+                <div className="text-sm font-medium text-foreground">
+                  Linked card: {profile.paymentCardBrand ?? "Card"} •••• {profile.paymentCardLast4}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Linked {profile.paymentCardLinkedAt ? new Date(profile.paymentCardLinkedAt).toLocaleString() : "recently"}
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-foreground">
+                No card linked. Wallet top-up and withdraw are disabled.
+              </div>
+            )}
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-foreground">Card number</label>
+              <Input
+                value={paymentCardNumber}
+                onChange={(event) => setPaymentCardNumber(event.target.value)}
+                placeholder="4242 4242 4242 4242"
+              />
+              <div className="mt-1 text-xs text-muted-foreground">Only masked card info is stored.</div>
+            </div>
+
+            {err && <div className="text-sm text-destructive">{err}</div>}
+            {success && <div className="text-sm text-success">{success}</div>}
+
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={savePaymentCard} disabled={paymentSaving}>
+                {paymentSaving ? "Saving..." : "Link card"}
+              </Button>
+              {profile?.paymentCardLast4 && (
+                <Button variant="outline" onClick={unlinkPaymentCard} disabled={paymentSaving}>
+                  Unlink card
+                </Button>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}

@@ -6,6 +6,8 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class WalletService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private static readonly WITHDRAW_FEE_PERCENT = 5;
+
   private getTransactionDescription(type: string) {
     switch (type) {
       case 'TOPUP':
@@ -16,8 +18,32 @@ export class WalletService {
         return 'Escrow released';
       case 'REFUND':
         return 'Refund received';
+      case 'WITHDRAW':
+        return 'Funds withdrawn';
       default:
         return 'Wallet transaction';
+    }
+  }
+
+  private calculateWithdrawFee(amount: number) {
+    return Math.round((amount * WalletService.WITHDRAW_FEE_PERCENT) / 100);
+  }
+
+  private async assertPaymentCardLinked(
+    tx: Prisma.TransactionClient,
+    userId: string,
+  ) {
+    const user = await tx.user.findUnique({
+      where: { id: userId },
+      select: {
+        paymentCardLast4: true,
+      },
+    });
+
+    if (!user?.paymentCardLast4) {
+      throw new ForbiddenException(
+        'Link a payment card in Settings > Payment before this operation',
+      );
     }
   }
 
@@ -30,7 +56,17 @@ export class WalletService {
   }
 
   async getMyWallet(userId: string) {
-    const wallet = await this.getOrCreateWallet(userId);
+    const [wallet, user] = await Promise.all([
+      this.getOrCreateWallet(userId),
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          paymentCardLast4: true,
+          paymentCardBrand: true,
+          paymentCardLinkedAt: true,
+        },
+      }),
+    ]);
 
     const lockedAggregate = await this.prisma.deal.aggregate({
       where: {
@@ -47,6 +83,10 @@ export class WalletService {
     return {
       ...wallet,
       lockedBalance: lockedAggregate._sum.totalAmountSnapshot ?? 0,
+      hasLinkedPaymentCard: Boolean(user?.paymentCardLast4),
+      paymentCardLast4: user?.paymentCardLast4 ?? null,
+      paymentCardBrand: user?.paymentCardBrand ?? null,
+      paymentCardLinkedAt: user?.paymentCardLinkedAt ?? null,
     };
   }
 
@@ -88,23 +128,69 @@ export class WalletService {
   async topUpMock(userId: string, amount: number) {
     if (amount <= 0) throw new ForbiddenException('Invalid amount');
 
-    await this.getOrCreateWallet(userId);
+    await this.prisma.$transaction(async (tx) => {
+      await this.assertPaymentCardLinked(tx, userId);
+      await this.getOrCreateWalletTx(tx, userId);
 
-    await this.prisma.wallet.update({
-      where: { userId },
-      data: { balance: { increment: amount } },
-    });
+      await tx.wallet.update({
+        where: { userId },
+        data: { balance: { increment: amount } },
+      });
 
-    await this.prisma.walletTransaction.create({
-      data: {
-        walletId: userId,
-        userId,
-        type: 'TOPUP',
-        amount,
-      },
+      await tx.walletTransaction.create({
+        data: {
+          walletId: userId,
+          userId,
+          type: 'TOPUP',
+          amount,
+        },
+      });
     });
 
     return this.getMyWallet(userId);
+  }
+
+  async withdraw(userId: string, amount: number) {
+    if (amount <= 0) throw new ForbiddenException('Invalid amount');
+
+    const feeAmount = this.calculateWithdrawFee(amount);
+    const payoutAmount = amount - feeAmount;
+
+    if (payoutAmount <= 0) {
+      throw new ForbiddenException('Withdraw amount is too small');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await this.assertPaymentCardLinked(tx, userId);
+      const wallet = await this.getOrCreateWalletTx(tx, userId);
+
+      if (wallet.balance < amount) {
+        throw new ForbiddenException('Insufficient balance');
+      }
+
+      await tx.wallet.update({
+        where: { userId },
+        data: { balance: { decrement: amount } },
+      });
+
+      await tx.walletTransaction.create({
+        data: {
+          walletId: userId,
+          userId,
+          type: 'WITHDRAW',
+          amount: -amount,
+        },
+      });
+    });
+
+    const wallet = await this.getMyWallet(userId);
+
+    return {
+      wallet,
+      grossAmount: amount,
+      feeAmount,
+      payoutAmount,
+    };
   }
 
   async lockEscrow(

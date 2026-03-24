@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { http } from "../api/http";
-import { Calendar, CheckCircle2, Flag, ShoppingBag, Star } from "lucide-react";
+import { Briefcase, Calendar, CheckCircle2, Flag, Gamepad2, ShoppingBag, Star } from "lucide-react";
 import { RatingStars } from "../components/review/RatingStars";
 import { extractHttpErrorMessage } from "../utils/httpError";
 import { Card, CardContent, CardHeader } from "../components/ui/Card";
@@ -10,16 +10,43 @@ import { ErrorState, LoadingState } from "../components/ui/PageStates";
 import { Button } from "../components/ui/Button";
 import { Avatar } from "../components/ui/Avatar";
 import { formatUsdFromCents } from "../lib/currency";
+import { getSocket } from "../api/socket";
 
 type Listing = {
   id: string;
   title: string;
   description: string;
   price: number;
+  imageUrl?: string | null;
+  salePercent?: number | null;
+  saleStartsAt?: string | null;
+  saleEndsAt?: string | null;
   type: "GOOD" | "SERVICE";
   status: "ACTIVE" | "ARCHIVED";
   createdAt: string;
 };
+
+function getSaleState(listing: {
+  price: number;
+  salePercent?: number | null;
+  saleStartsAt?: string | null;
+  saleEndsAt?: string | null;
+}) {
+  if (!listing.salePercent || !listing.saleStartsAt || !listing.saleEndsAt) {
+    return { isOnSale: false, effectivePrice: listing.price };
+  }
+
+  const now = Date.now();
+  const startsAt = new Date(listing.saleStartsAt).getTime();
+  const endsAt = new Date(listing.saleEndsAt).getTime();
+
+  if (!Number.isFinite(startsAt) || !Number.isFinite(endsAt) || now < startsAt || now > endsAt) {
+    return { isOnSale: false, effectivePrice: listing.price };
+  }
+
+  const effectivePrice = Math.round((listing.price * (100 - listing.salePercent)) / 100);
+  return { isOnSale: effectivePrice < listing.price, effectivePrice };
+}
 
 type Review = {
   id: string;
@@ -62,6 +89,8 @@ export function PublicSellerProfilePage() {
   const { id } = useParams<{ id: string }>();
   const [profile, setProfile] = useState<SellerProfile | null>(null);
   const [activeTab, setActiveTab] = useState<"listings" | "reviews" | "achievements">("listings");
+  const [brokenListingImages, setBrokenListingImages] = useState<Set<string>>(new Set());
+  const [isOnline, setIsOnline] = useState(false);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
@@ -94,6 +123,35 @@ export function PublicSellerProfilePage() {
     };
   }, [id]);
 
+  useEffect(() => {
+    if (!profile?.id) return;
+
+    const socket = getSocket();
+    const targetUserId = profile.id;
+
+    const handlePresenceUpdate = (payload: { userId: string; isOnline: boolean }) => {
+      if (payload.userId === targetUserId) {
+        setIsOnline(payload.isOnline);
+      }
+    };
+
+    socket.emit(
+      "presence:check",
+      { userId: targetUserId },
+      (response: { userId: string; isOnline: boolean }) => {
+        if (response?.userId === targetUserId) {
+          setIsOnline(response.isOnline);
+        }
+      },
+    );
+
+    socket.on("presence:update", handlePresenceUpdate);
+
+    return () => {
+      socket.off("presence:update", handlePresenceUpdate);
+    };
+  }, [profile?.id]);
+
   if (loading) return <LoadingState width="max-w-6xl" />;
   if (err || !profile)
     return <ErrorState width="max-w-6xl" message={err ?? "Seller not found"} />;
@@ -111,7 +169,11 @@ export function PublicSellerProfilePage() {
                 className="h-24 w-24 sm:h-28 sm:w-28"
                 fallbackClassName="text-2xl font-bold"
               />
-              <span className="absolute bottom-1 right-1 h-5 w-5 rounded-full border-4 border-card bg-online" />
+              <span
+                className={`absolute bottom-1 right-1 h-5 w-5 rounded-full border-4 border-card ${
+                  isOnline ? "bg-online" : "bg-muted-foreground"
+                }`}
+              />
             </div>
 
             <div className="flex-1 text-center sm:text-left">
@@ -201,25 +263,65 @@ export function PublicSellerProfilePage() {
                 <div className="text-sm text-muted-foreground">No active listings.</div>
               )}
 
-              {profile.listings.map((listing) => (
+              {profile.listings.map((listing) => {
+                const { isOnSale, effectivePrice } = getSaleState(listing);
+
+                return (
                 <Link
                   key={listing.id}
                   to={`/listings/${listing.id}`}
                   className="block rounded-xl border border-border bg-muted p-3 transition hover:bg-accent"
                 >
-                  <div className="flex justify-between gap-4">
-                    <div>
-                      <div className="font-medium text-foreground">{listing.title}</div>
-                      <div className="text-sm text-muted-foreground">{listing.description}</div>
-                      <div className="mt-1">
-                        <Badge variant="outline">{listing.type}</Badge>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-card text-muted-foreground/60">
+                        {listing.imageUrl && !brokenListingImages.has(listing.id) ? (
+                          <img
+                            src={listing.imageUrl}
+                            alt={listing.title}
+                            className="h-full w-full rounded-lg object-cover"
+                            loading="lazy"
+                            onError={() =>
+                              setBrokenListingImages((prev) => {
+                                const next = new Set(prev);
+                                next.add(listing.id);
+                                return next;
+                              })
+                            }
+                          />
+                        ) : listing.type === "GOOD" ? (
+                          <Gamepad2 className="h-5 w-5" />
+                        ) : (
+                          <Briefcase className="h-5 w-5" />
+                        )}
+                      </div>
+
+                      <div className="min-w-0">
+                        <div className="font-medium text-foreground">{listing.title}</div>
+                        <div className="line-clamp-2 text-sm text-muted-foreground">{listing.description}</div>
+                        <div className="mt-1 flex items-center gap-2">
+                          <Badge variant="outline">{listing.type}</Badge>
+                          {isOnSale && listing.salePercent ? (
+                            <Badge className="bg-sale text-sale-foreground">-{listing.salePercent}%</Badge>
+                          ) : null}
+                        </div>
                       </div>
                     </div>
 
-                    <div className="font-semibold text-foreground">{formatUsdFromCents(listing.price)}</div>
+                    <div className="text-right">
+                      {isOnSale ? (
+                        <>
+                          <div className="text-xs text-muted-foreground line-through">{formatUsdFromCents(listing.price)}</div>
+                          <div className="font-semibold text-primary">{formatUsdFromCents(effectivePrice)}</div>
+                        </>
+                      ) : (
+                        <div className="font-semibold text-foreground">{formatUsdFromCents(listing.price)}</div>
+                      )}
+                    </div>
                   </div>
                 </Link>
-              ))}
+                );
+              })}
             </CardContent>
           </Card>
         )}

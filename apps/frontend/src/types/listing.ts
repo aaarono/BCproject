@@ -10,6 +10,7 @@ export type Listing = {
   id: string;
   title: string;
   description: string;
+  imageUrl?: string | null;
   price: number;
   category: ListingCategory;
   tags: string[];

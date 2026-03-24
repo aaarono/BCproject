@@ -130,6 +130,7 @@ model Listing {
 
   title       String
   description String
+  imageUrl    String?
   price       Int // cents
   category    ListingCategory @default(OTHER)
   tags        String[]        @default([])

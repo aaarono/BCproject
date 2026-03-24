@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { http } from "../../api/http";
+import { extractHttpErrorMessage } from "../../utils/httpError";
 import { Card, CardContent, CardHeader } from "../ui/Card";
 import { Input } from "../ui/Input";
 import { Textarea } from "../ui/Textarea";
@@ -8,6 +10,7 @@ import { Badge } from "../ui/Badge";
 export type ListingFormValues = {
   title: string;
   description: string;
+  imageUrl: string;
   price: string;
   type: "GOOD" | "SERVICE";
   category: "GAMES" | "ACCOUNTS" | "BOOSTING" | "MENTORING" | "GAME_CURRENCY" | "OTHER";
@@ -28,6 +31,7 @@ type Props = {
 const defaultValues: ListingFormValues = {
   title: "",
   description: "",
+  imageUrl: "",
   price: "",
   type: "GOOD",
   category: "GAMES",
@@ -46,6 +50,7 @@ export function ListingForm({
 }: Props) {
   const [title, setTitle] = useState(initialValues.title);
   const [description, setDescription] = useState(initialValues.description);
+  const [imageUrl, setImageUrl] = useState(initialValues.imageUrl);
   const [price, setPrice] = useState(initialValues.price);
   const [type, setType] = useState<"GOOD" | "SERVICE">(initialValues.type);
   const [category, setCategory] = useState(initialValues.category);
@@ -53,12 +58,51 @@ export function ListingForm({
   const [salePercent, setSalePercent] = useState(initialValues.salePercent);
   const [saleStartsAt, setSaleStartsAt] = useState(initialValues.saleStartsAt);
   const [saleEndsAt, setSaleEndsAt] = useState(initialValues.saleEndsAt);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  async function uploadListingImage(file: File) {
+    if (!file.type.startsWith("image/")) {
+      setUploadError("Only image files are supported");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError("Image is too large (max 5MB)");
+      return;
+    }
+
+    setUploadError(null);
+    setUploadingImage(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await http.post<{ imageUrl: string }>(
+        "/listings/upload-image",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        },
+      );
+
+      setImageUrl(response.data.imageUrl);
+    } catch (error: unknown) {
+      setUploadError(extractHttpErrorMessage(error, "Failed to upload image"));
+    } finally {
+      setUploadingImage(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     await onSubmit({
       title,
       description,
+      imageUrl,
       price,
       type,
       category,
@@ -93,6 +137,44 @@ export function ListingForm({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Describe the product or service..."
             />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-foreground">Listing image</label>
+            <div className="space-y-2">
+              <Input
+                type="file"
+                accept="image/*"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  await uploadListingImage(file);
+                }}
+                disabled={uploadingImage}
+              />
+
+              <Input
+                value={imageUrl}
+                onChange={(e) => setImageUrl(e.target.value)}
+                placeholder="https://..."
+              />
+
+              {uploadingImage && (
+                <div className="text-xs text-muted-foreground">Uploading image...</div>
+              )}
+
+              {uploadError && (
+                <div className="text-xs text-destructive">{uploadError}</div>
+              )}
+
+              {imageUrl && (
+                <img
+                  src={imageUrl}
+                  alt="Listing preview"
+                  className="h-40 w-full rounded-lg border border-border object-cover"
+                />
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

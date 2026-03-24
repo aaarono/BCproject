@@ -6,6 +6,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUrl,
   Max,
   MaxLength,
   Min,
@@ -26,6 +27,16 @@ export class UpdateListingDto {
   @IsString()
   @MaxLength(2000)
   description?: string;
+
+  @ApiPropertyOptional({
+    example: 'http://localhost:3000/uploads/listings/1711220100000-123456789.jpg',
+    description: 'Optional listing preview image URL',
+  })
+  @IsOptional()
+  @IsString()
+  @IsUrl({ require_tld: false })
+  @MaxLength(2048)
+  imageUrl?: string;
 
   @ApiPropertyOptional({ example: 5999, description: 'Price in cents' })
   @IsOptional()

@@ -107,6 +107,7 @@ export function EditListingPage() {
       await http.patch(`/listings/${id}`, {
         title: values.title.trim(),
         description: values.description.trim(),
+        imageUrl: values.imageUrl.trim() || undefined,
         price: parsedPriceCents,
         type: values.type,
         category: values.category,
@@ -136,6 +137,7 @@ export function EditListingPage() {
         initialValues={{
           title: listing.title,
           description: listing.description,
+          imageUrl: listing.imageUrl ?? "",
           price: centsToDollarsInput(listing.price),
           type: listing.type,
           category: listing.category,

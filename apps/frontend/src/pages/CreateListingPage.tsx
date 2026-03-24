@@ -83,6 +83,7 @@ export function CreateListingPage() {
       const res = await http.post<CreateListingResponse>("/listings", {
         title: values.title.trim(),
         description: values.description.trim(),
+        imageUrl: values.imageUrl.trim() || undefined,
         price: parsedPriceCents,
         type: values.type,
         category: values.category,

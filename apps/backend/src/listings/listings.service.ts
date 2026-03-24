@@ -324,6 +324,7 @@ export class ListingsService {
           sellerId,
           title: dto.title,
           description: dto.description,
+          imageUrl: dto.imageUrl,
           price: dto.price,
           type: dto.type,
           category: dto.category,
@@ -371,6 +372,7 @@ export class ListingsService {
         data: {
           title: dto.title ?? undefined,
           description: dto.description ?? undefined,
+          imageUrl: dto.imageUrl ?? undefined,
           price: dto.price ?? undefined,
           type: dto.type ?? undefined,
           category: dto.category ?? undefined,

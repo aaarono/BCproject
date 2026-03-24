@@ -19,9 +19,17 @@ export function MarketplaceListingCard({ listing }: { listing: Listing }) {
       className="group block overflow-hidden rounded-xl border border-border bg-card transition-all duration-200 hover:border-primary/30 hover:shadow-md"
     >
       <div className="relative aspect-[16/10] border-b border-border bg-gradient-to-br from-muted to-muted/50">
-        <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/50">
-          {listing.type === "GOOD" ? <Package className="h-12 w-12" /> : <Briefcase className="h-12 w-12" />}
-        </div>
+        {listing.imageUrl ? (
+          <img
+            src={listing.imageUrl}
+            alt={listing.title}
+            className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/50">
+            {listing.type === "GOOD" ? <Package className="h-12 w-12" /> : <Briefcase className="h-12 w-12" />}
+          </div>
+        )}
         {listing.isOnSale && listing.salePercent ? (
           <div className="absolute left-3 top-3">
             <Badge className="bg-sale text-sale-foreground">Sale {listing.salePercent}%</Badge>

@@ -7,6 +7,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUrl,
   MaxLength,
   Min,
   Max,
@@ -32,6 +33,17 @@ export class CreateListingDto {
   @IsNotEmpty()
   @MaxLength(2000)
   description: string;
+
+  @ApiProperty({
+    required: false,
+    example: 'http://localhost:3000/uploads/listings/1711220100000-123456789.jpg',
+    description: 'Optional listing preview image URL',
+  })
+  @IsOptional()
+  @IsString()
+  @IsUrl({ require_tld: false })
+  @MaxLength(2048)
+  imageUrl?: string;
 
   @ApiProperty({ example: 4999, description: 'Price in cents' })
   @Type(() => Number)

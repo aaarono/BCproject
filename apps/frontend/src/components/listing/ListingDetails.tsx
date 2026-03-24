@@ -12,9 +12,17 @@ export function ListingDetails({ listing }: { listing: Listing }) {
   return (
     <Card className="overflow-hidden">
       <div className="relative aspect-video border-b border-border bg-gradient-to-br from-muted to-muted/50">
-        <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/30">
-          {listing.type === "GOOD" ? <Gamepad2 className="h-20 w-20" /> : <Briefcase className="h-20 w-20" />}
-        </div>
+        {listing.imageUrl ? (
+          <img
+            src={listing.imageUrl}
+            alt={listing.title}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/30">
+            {listing.type === "GOOD" ? <Gamepad2 className="h-20 w-20" /> : <Briefcase className="h-20 w-20" />}
+          </div>
+        )}
 
         {listing.isOnSale && listing.salePercent ? (
           <div className="absolute left-4 top-4">

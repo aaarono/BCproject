@@ -90,6 +90,8 @@ export class DealsService {
           id: true,
           sellerId: true,
           status: true,
+          type: true,
+          stockQuantity: true,
           price: true,
           salePercent: true,
           saleStartsAt: true,
@@ -109,6 +111,13 @@ export class DealsService {
         throw new ForbiddenException('Cannot buy your own listing');
       }
 
+      if (listing.type === 'GOOD') {
+        const availableStock = listing.stockQuantity ?? 0;
+        if (availableStock < quantity) {
+          throw new ForbiddenException('Insufficient stock');
+        }
+      }
+
       const existing = await tx.deal.findFirst({
         where: {
           listingId,
@@ -123,6 +132,7 @@ export class DealsService {
               price: true,
               type: true,
               status: true,
+              imageUrl: true,
             },
           },
           buyer: {
@@ -183,6 +193,7 @@ export class DealsService {
               price: true,
               type: true,
               status: true,
+              imageUrl: true,
             },
           },
           buyer: {
@@ -286,8 +297,10 @@ export class DealsService {
         where: { id: dealId },
         select: {
           id: true,
+          listingId: true,
           buyerId: true,
           sellerId: true,
+          quantity: true,
           status: true,
           totalAmountSnapshot: true,
         },
@@ -319,6 +332,35 @@ export class DealsService {
           canceledByActor: null,
         },
       });
+
+      const listing = await tx.listing.findUnique({
+        where: { id: deal.listingId },
+        select: {
+          id: true,
+          type: true,
+          stockQuantity: true,
+          status: true,
+        },
+      });
+
+      if (!listing) {
+        throw new NotFoundException('Listing not found');
+      }
+
+      if (listing.type === 'GOOD') {
+        const nextStock = (listing.stockQuantity ?? 0) - deal.quantity;
+        if (nextStock < 0) {
+          throw new ForbiddenException('Insufficient stock');
+        }
+
+        await tx.listing.update({
+          where: { id: listing.id },
+          data: {
+            stockQuantity: nextStock,
+            ...(nextStock === 0 ? { status: 'ARCHIVED' } : {}),
+          },
+        });
+      }
     });
 
     const fullDeal = await this.getFullDeal(dealId);
@@ -382,7 +424,16 @@ export class DealsService {
       where: { OR: [{ buyerId: userId }, { sellerId: userId }] },
       orderBy: { createdAt: 'desc' },
       include: {
-        listing: { select: { id: true, title: true, price: true, type: true } },
+        listing: {
+          select: {
+            id: true,
+            title: true,
+            price: true,
+            type: true,
+            status: true,
+            imageUrl: true,
+          },
+        },
         buyer: { select: { id: true, displayName: true } },
         seller: { select: { id: true, displayName: true } },
       },
@@ -400,6 +451,7 @@ export class DealsService {
             price: true,
             type: true,
             status: true,
+            imageUrl: true,
           },
         },
         buyer: { select: { id: true, displayName: true } },
@@ -426,6 +478,7 @@ export class DealsService {
             price: true,
             type: true,
             status: true,
+            imageUrl: true,
           },
         },
         buyer: {
@@ -475,6 +528,7 @@ export class DealsService {
             price: true,
             type: true,
             status: true,
+            imageUrl: true,
           },
         },
         buyer: { select: { id: true, displayName: true } },

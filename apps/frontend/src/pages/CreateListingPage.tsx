@@ -19,6 +19,7 @@ export function CreateListingPage() {
 
     const parsedPrice = Number(values.price);
     const parsedPriceCents = dollarsToCents(parsedPrice);
+    const parsedStockQuantity = values.stockQuantity.trim() ? Number(values.stockQuantity) : NaN;
 
     if (!values.title.trim()) {
       setErr("Title is required");
@@ -33,6 +34,13 @@ export function CreateListingPage() {
     if (!Number.isFinite(parsedPrice) || parsedPriceCents <= 0) {
       setErr("Price must be greater than 0");
       return;
+    }
+
+    if (values.type === "GOOD") {
+      if (!Number.isInteger(parsedStockQuantity) || parsedStockQuantity < 1) {
+        setErr("Quantity in stock must be an integer greater than 0 for goods");
+        return;
+      }
     }
 
     const tags = values.tags
@@ -85,6 +93,7 @@ export function CreateListingPage() {
         description: values.description.trim(),
         imageUrl: values.imageUrl.trim() || undefined,
         price: parsedPriceCents,
+        stockQuantity: values.type === "GOOD" ? parsedStockQuantity : undefined,
         type: values.type,
         category: values.category,
         tags,

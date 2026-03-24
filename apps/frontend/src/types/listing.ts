@@ -11,6 +11,7 @@ export type Listing = {
   title: string;
   description: string;
   imageUrl?: string | null;
+  stockQuantity?: number | null;
   price: number;
   category: ListingCategory;
   tags: string[];

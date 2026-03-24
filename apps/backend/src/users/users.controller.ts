@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   Patch,
+  Query,
   Req,
   UploadedFile,
   UseGuards,
@@ -113,14 +114,14 @@ export class UsersController {
 
   @ApiOperation({ summary: 'Get top sellers leaderboard' })
   @Get('top-sellers')
-  getTopSellers() {
-    return this.usersService.getTopSellers();
+  getTopSellers(@Query('limit') limit?: string) {
+    return this.usersService.getTopSellers(limit);
   }
 
   @ApiOperation({ summary: 'Get weekly top sellers leaderboard' })
   @Get('top-sellers/weekly')
-  getWeeklyTopSellers() {
-    return this.usersService.getWeeklyTopSellers();
+  getWeeklyTopSellers(@Query('limit') limit?: string) {
+    return this.usersService.getWeeklyTopSellers(limit);
   }
 
   @ApiOperation({ summary: 'Get public profile of a user' })

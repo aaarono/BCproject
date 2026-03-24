@@ -1,7 +1,7 @@
 import { useEffect, useReducer, useState } from "react";
 import { http } from "../api/http";
 import { Link } from "react-router-dom";
-import { Trophy, Star, X } from "lucide-react";
+import { Search, SlidersHorizontal, Trophy, Star, X } from "lucide-react";
 import { extractHttpErrorMessage } from "../utils/httpError";
 import type { Listing } from "../types/listing";
 import { MarketplaceListingCard } from "../components/listing/MarketplaceListingCard";
@@ -73,10 +73,11 @@ type TopSeller = {
   }>;
 };
 
-const SUGGESTED_TAGS = ["boost", "ranked", "eu", "na", "coaching", "mmr", "instant", "verified"];
+const SUGGESTED_TAGS = ["dota", "cs2", "wow", "gta5", "poe"];
 const PRICE_MIN = 0;
 const PRICE_MAX = 2000;
 const PRICE_STEP = 5;
+const RATING_OPTIONS = ["", "4.5", "4.0", "3.5", "3.0"] as const;
 
 const initialFiltersState: ListingsFiltersState = {
   search: "",
@@ -413,7 +414,7 @@ export function ListingsPage() {
                   <Button variant={category === "" ? "default" : "outline"} size="sm" onClick={() => { setCategory(""); setPage(1); }}>
                     All
                   </Button>
-                  {["GAMES", "ACCOUNTS", "BOOSTING", "MENTORING", "GAME_CURRENCY", "OTHER"].map((categoryOption) => (
+                  {["GAMES", "ACCOUNTS", "BOOSTING", "GAME_CURRENCY", "OTHER"].map((categoryOption) => (
                     <Button
                       key={categoryOption}
                       variant={category === categoryOption ? "default" : "outline"}
@@ -573,16 +574,30 @@ export function ListingsPage() {
                 </div>
               </div>
 
-              <Input
-                type="number"
-                min="0"
-                max="5"
-                step="0.1"
-                placeholder="Min rating (0-5)"
-                value={minRating}
-                onChange={(e) => { setMinRating(e.target.value); setPage(1); }}
-                className="bg-muted"
-              />
+              <div className="space-y-3">
+                <div className="text-sm font-medium text-foreground">Minimum Rating</div>
+                <div className="flex flex-wrap gap-2">
+                  {RATING_OPTIONS.map((ratingOption) => {
+                    const isActive = minRating === ratingOption;
+
+                    return (
+                      <Button
+                        key={ratingOption || "any"}
+                        variant={isActive ? "default" : "outline"}
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={() => {
+                          setMinRating(ratingOption);
+                          setPage(1);
+                        }}
+                      >
+                        <Star className={`h-3.5 w-3.5 ${isActive ? "fill-warning text-warning" : "text-muted-foreground"}`} />
+                        {ratingOption ? `${ratingOption}+` : "Any"}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
 
               {hasActiveFilters && (
                 <Button variant="ghost" fullWidth className="text-destructive hover:text-destructive" onClick={resetFilters}>
@@ -598,13 +613,16 @@ export function ListingsPage() {
           <Card>
             <CardContent className="space-y-3">
               <div className="flex flex-col gap-3 sm:flex-row">
-                <Input
-                  type="text"
-                  placeholder="Search listings..."
-                  value={search}
-                  onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                  className="bg-muted"
-                />
+                <div className="relative flex-1">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder="Search listings..."
+                    value={search}
+                    onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                    className="bg-muted pl-9"
+                  />
+                </div>
                 <select
                   value={sort}
                   onChange={(e) => {
@@ -646,7 +664,6 @@ export function ListingsPage() {
                   <option value="GAMES">Games</option>
                   <option value="ACCOUNTS">Accounts</option>
                   <option value="BOOSTING">Boosting</option>
-                  <option value="MENTORING">Mentoring</option>
                   <option value="GAME_CURRENCY">Game currency</option>
                   <option value="OTHER">Other</option>
                 </select>
@@ -678,7 +695,80 @@ export function ListingsPage() {
                     ))}
                   </div>
                 )}
+
+                <div className="space-y-2 sm:col-span-2">
+                  <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Minimum rating</div>
+                  <div className="flex flex-wrap gap-2">
+                    {RATING_OPTIONS.map((ratingOption) => {
+                      const isActive = minRating === ratingOption;
+
+                      return (
+                        <Button
+                          key={`mobile-${ratingOption || "any"}`}
+                          variant={isActive ? "default" : "outline"}
+                          size="sm"
+                          className="gap-1.5"
+                          onClick={() => {
+                            setMinRating(ratingOption);
+                            setPage(1);
+                          }}
+                        >
+                          <Star className={`h-3.5 w-3.5 ${isActive ? "fill-warning text-warning" : "text-muted-foreground"}`} />
+                          {ratingOption ? `${ratingOption}+` : "Any"}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
+
+              {hasActiveFilters && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <SlidersHorizontal className="h-3.5 w-3.5" />
+                    Active filters:
+                  </div>
+                  {type && (
+                    <Badge variant="muted" className="gap-1">
+                      {type === "GOOD" ? "Goods" : "Services"}
+                      <button type="button" onClick={() => setType("")}> 
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  )}
+                  {category && (
+                    <Badge variant="muted" className="gap-1">
+                      {category.replaceAll("_", " ")}
+                      <button type="button" onClick={() => setCategory("")}> 
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  )}
+                  {(minPrice || maxPrice) && (
+                    <Badge variant="muted" className="gap-1">
+                      {`${formatUsdValue(minPrice ? Number(minPrice) : PRICE_MIN)} - ${formatUsdValue(maxPrice ? Number(maxPrice) : PRICE_MAX)}`}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMinPrice("");
+                          setMaxPrice("");
+                          setDraftPriceRange([PRICE_MIN, PRICE_MAX]);
+                        }}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  )}
+                  {minRating && (
+                    <Badge variant="muted" className="gap-1">
+                      {`${minRating}+ rating`}
+                      <button type="button" onClick={() => setMinRating("")}> 
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  )}
+                </div>
+              )}
 
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Showing {meta.total} results</span>

@@ -11,6 +11,7 @@ export type ListingFormValues = {
   title: string;
   description: string;
   imageUrl: string;
+  stockQuantity: string;
   price: string;
   type: "GOOD" | "SERVICE";
   category: "GAMES" | "ACCOUNTS" | "BOOSTING" | "MENTORING" | "GAME_CURRENCY" | "OTHER";
@@ -32,6 +33,7 @@ const defaultValues: ListingFormValues = {
   title: "",
   description: "",
   imageUrl: "",
+  stockQuantity: "",
   price: "",
   type: "GOOD",
   category: "GAMES",
@@ -51,6 +53,7 @@ export function ListingForm({
   const [title, setTitle] = useState(initialValues.title);
   const [description, setDescription] = useState(initialValues.description);
   const [imageUrl, setImageUrl] = useState(initialValues.imageUrl);
+  const [stockQuantity, setStockQuantity] = useState(initialValues.stockQuantity);
   const [price, setPrice] = useState(initialValues.price);
   const [type, setType] = useState<"GOOD" | "SERVICE">(initialValues.type);
   const [category, setCategory] = useState(initialValues.category);
@@ -103,6 +106,7 @@ export function ListingForm({
       title,
       description,
       imageUrl,
+      stockQuantity,
       price,
       type,
       category,
@@ -239,6 +243,21 @@ export function ListingForm({
             />
             <div className="mt-1 text-xs text-muted-foreground">Example: 150.00 = $150.00</div>
           </div>
+
+          {type === "GOOD" && (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-foreground">Quantity in stock</label>
+              <Input
+                type="number"
+                min="1"
+                step="1"
+                value={stockQuantity}
+                onChange={(e) => setStockQuantity(e.target.value)}
+                placeholder="e.g. 50"
+              />
+              <div className="mt-1 text-xs text-muted-foreground">This field is required for goods listings.</div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

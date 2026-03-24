@@ -51,6 +51,18 @@ export class CreateListingDto {
   @Min(1)
   price: number;
 
+  @ApiProperty({
+    required: false,
+    example: 50,
+    description:
+      'Stock quantity for goods listings. Required when type is GOOD.',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  stockQuantity?: number;
+
   @ApiProperty({ enum: ListingType, example: 'GOOD' })
   @IsEnum(ListingType)
   type: ListingType;

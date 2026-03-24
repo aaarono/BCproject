@@ -15,6 +15,9 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private readonly topSellersMaxLimit = 20;
+  private readonly topSellersDefaultLimit = 10;
+
   private readonly achievementThresholds = {
     trustedSellerMinDeals: 5,
     trustedSellerMinRatingAvg: 4.5,
@@ -262,13 +265,24 @@ export class UsersService {
     return typeof avatarUrl === 'string' ? avatarUrl : null;
   }
 
-  async getTopSellers(limit = 10) {
-    return this.getRankedSellers(limit);
+  async getTopSellers(limit?: string | number) {
+    return this.getRankedSellers(this.normalizeTopSellersLimit(limit));
   }
 
-  async getWeeklyTopSellers(limit = 10) {
+  async getWeeklyTopSellers(limit?: string | number) {
     const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    return this.getRankedSellers(limit, since);
+    return this.getRankedSellers(this.normalizeTopSellersLimit(limit), since);
+  }
+
+  private normalizeTopSellersLimit(limit?: string | number) {
+    const parsed =
+      typeof limit === 'number' ? limit : Number.parseInt(limit ?? '', 10);
+
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return this.topSellersDefaultLimit;
+    }
+
+    return Math.min(parsed, this.topSellersMaxLimit);
   }
 
   private async getRankedSellers(limit: number, since?: Date) {

@@ -45,6 +45,16 @@ export class UpdateListingDto {
   @Min(1)
   price?: number;
 
+  @ApiPropertyOptional({
+    example: 30,
+    description: 'Stock quantity for goods listings',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  stockQuantity?: number;
+
   @ApiPropertyOptional({ enum: ListingType })
   @IsOptional()
   @IsEnum(ListingType)

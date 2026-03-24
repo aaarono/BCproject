@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { ListingType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateListingDto } from './dto/create-listing.dto';
 import { UpdateListingDto } from './dto/update-listing.dto';
@@ -312,6 +312,10 @@ export class ListingsService {
   }
 
   async create(sellerId: string, dto: CreateListingDto) {
+    if (dto.type === 'GOOD' && dto.stockQuantity === undefined) {
+      throw new BadRequestException('stockQuantity is required for goods');
+    }
+
     const saleData = this.normalizeSaleInput({
       salePercent: dto.salePercent,
       saleStartsAt: dto.saleStartsAt,
@@ -326,6 +330,7 @@ export class ListingsService {
           description: dto.description,
           imageUrl: dto.imageUrl,
           price: dto.price,
+          stockQuantity: dto.type === 'GOOD' ? dto.stockQuantity : null,
           type: dto.type,
           category: dto.category,
           tags: this.normalizeTags(dto.tags),
@@ -367,6 +372,16 @@ export class ListingsService {
           dto.saleEndsAt !== undefined ? dto.saleEndsAt : listing.saleEndsAt,
       });
 
+      const nextType = (dto.type ?? listing.type) as ListingType;
+      const resolvedStockQuantity =
+        nextType === 'GOOD'
+          ? dto.stockQuantity ?? listing.stockQuantity
+          : null;
+
+      if (nextType === 'GOOD' && resolvedStockQuantity === null) {
+        throw new BadRequestException('stockQuantity is required for goods');
+      }
+
       const updated = await tx.listing.update({
         where: { id: listingId },
         data: {
@@ -374,6 +389,7 @@ export class ListingsService {
           description: dto.description ?? undefined,
           imageUrl: dto.imageUrl ?? undefined,
           price: dto.price ?? undefined,
+          stockQuantity: resolvedStockQuantity,
           type: dto.type ?? undefined,
           category: dto.category ?? undefined,
           tags:
@@ -381,6 +397,9 @@ export class ListingsService {
           salePercent: saleData.salePercent,
           saleStartsAt: saleData.saleStartsAt,
           saleEndsAt: saleData.saleEndsAt,
+          ...(nextType === 'GOOD' && resolvedStockQuantity === 0
+            ? { status: 'ARCHIVED' }
+            : {}),
         },
         include: {
           seller: {

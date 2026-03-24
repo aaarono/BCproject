@@ -101,7 +101,11 @@ export function MarketplaceListingCard({ listing }: { listing: Listing }) {
 
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <Package className="h-3 w-3" />
-            <span>{listing.type === "GOOD" ? "Stock item" : "Service"}</span>
+            <span>
+              {listing.type === "GOOD"
+                ? `${listing.stockQuantity ?? 0} in stock`
+                : "Service"}
+            </span>
           </div>
         </div>
       </div>

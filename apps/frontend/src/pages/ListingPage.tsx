@@ -89,6 +89,19 @@ export function ListingPage() {
       return;
     }
 
+    if (listing.type === "GOOD") {
+      const availableStock = listing.stockQuantity ?? 0;
+      if (availableStock <= 0) {
+        alert("This item is out of stock");
+        return;
+      }
+
+      if (quantity > availableStock) {
+        alert(`Only ${availableStock} item(s) left in stock`);
+        return;
+      }
+    }
+
     setBuyLoading(true);
 
     try {
@@ -109,6 +122,7 @@ export function ListingPage() {
   }
 
   const unitPrice = listing.effectivePrice ?? listing.price;
+  const availableStock = listing.type === "GOOD" ? (listing.stockQuantity ?? 0) : null;
   const totalPrice = unitPrice * quantity;
 
   return (
@@ -196,7 +210,7 @@ export function ListingPage() {
                   <Input
                     type="number"
                     min="1"
-                    max="1000"
+                    max={listing.type === "GOOD" ? String(Math.max(1, availableStock ?? 1)) : "1000"}
                     value={quantity}
                     onChange={(e) => {
                       const raw = Number(e.target.value);
@@ -205,18 +219,35 @@ export function ListingPage() {
                         return;
                       }
 
-                      const clamped = Math.min(1000, Math.max(1, Math.floor(raw)));
+                      const maxQuantity = listing.type === "GOOD"
+                        ? Math.max(1, availableStock ?? 1)
+                        : 1000;
+                      const clamped = Math.min(maxQuantity, Math.max(1, Math.floor(raw)));
                       setQuantity(clamped);
                     }}
                   />
+                  {listing.type === "GOOD" && (
+                    <div className="text-xs text-muted-foreground">{availableStock} in stock</div>
+                  )}
                   <div className="text-sm font-medium text-foreground">Total: {formatUsdFromCents(totalPrice)}</div>
                 </div>
               )}
 
               {!isOwner && user && (
-                <Button fullWidth size="lg" onClick={buyNow} disabled={buyLoading}>
+                <Button
+                  fullWidth
+                  size="lg"
+                  onClick={buyNow}
+                  disabled={buyLoading || (listing.type === "GOOD" && (availableStock ?? 0) <= 0)}
+                >
                   <ShoppingBag className="h-4 w-4" />
-                  {buyLoading ? "Processing…" : listing.type === "SERVICE" ? "Order now" : "Buy now"}
+                  {buyLoading
+                    ? "Processing…"
+                    : listing.type === "GOOD" && (availableStock ?? 0) <= 0
+                      ? "Out of stock"
+                      : listing.type === "SERVICE"
+                        ? "Order now"
+                        : "Buy now"}
                 </Button>
               )}
 

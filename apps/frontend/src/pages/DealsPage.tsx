@@ -5,7 +5,7 @@ import { http } from "../api/http";
 import { useAuth } from "../auth/AuthContext";
 import { extractHttpErrorMessage } from "../utils/httpError";
 import { Badge } from "../components/ui/Badge";
-import { Card, CardContent, CardHeader } from "../components/ui/Card";
+import { Card, CardContent } from "../components/ui/Card";
 import { DealStatusBadge } from "../components/profile/DealStatusBadge";
 import { ErrorState, LoadingState } from "../components/ui/PageStates";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -20,14 +20,19 @@ type Deal = {
   quantity: number;
   unitPriceSnapshot: number;
   totalAmountSnapshot: number;
-  listing: { id: string; title: string; price: number; type: string; status: string };
+  listing: { id: string; title: string; price: number; type: string; status: string; imageUrl?: string | null };
   buyer: { id: string; displayName: string };
   seller: { id: string; displayName: string };
 };
 
+type DealView = "all" | "buy" | "sell";
+type DealSort = "newest" | "oldest" | "price_desc" | "price_asc";
+
 export function DealsPage() {
   const { user } = useAuth();
   const [deals, setDeals] = useState<Deal[]>([]);
+  const [dealView, setDealView] = useState<DealView>("all");
+  const [sortBy, setSortBy] = useState<DealSort>("newest");
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
@@ -35,11 +40,6 @@ export function DealsPage() {
     if (!expiresAt) return null;
     return `Auto-cancel at ${new Date(expiresAt).toLocaleString()}`;
   }
-
-  const title = useMemo(() => {
-    if (!user) return "My deals";
-    return user.role === "SELLER" ? "My sales (deals)" : "My purchases (deals)";
-  }, [user]);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,6 +68,38 @@ export function DealsPage() {
     };
   }, []);
 
+  const visibleDeals = useMemo(() => {
+    const filtered = deals.filter((deal) => {
+      if (!user?.id) return true;
+      if (dealView === "all") {
+        return deal.buyer.id === user.id || deal.seller.id === user.id;
+      }
+      if (dealView === "buy") {
+        return deal.buyer.id === user.id;
+      }
+      return deal.seller.id === user.id;
+    });
+
+    const sorted = [...filtered];
+    sorted.sort((left, right) => {
+      if (sortBy === "newest") {
+        return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
+      }
+
+      if (sortBy === "oldest") {
+        return new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime();
+      }
+
+      if (sortBy === "price_desc") {
+        return right.totalAmountSnapshot - left.totalAmountSnapshot;
+      }
+
+      return left.totalAmountSnapshot - right.totalAmountSnapshot;
+    });
+
+    return sorted;
+  }, [deals, dealView, sortBy, user?.id]);
+
   if (loading) return <LoadingState width="max-w-5xl" />;
   if (err) return <ErrorState width="max-w-5xl" message={err} />;
 
@@ -75,24 +107,65 @@ export function DealsPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-4 px-4 py-6 sm:px-6">
-      <Card>
-        <CardHeader className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">{title}</h1>
-          <div className="text-sm text-muted-foreground">Track escrow status and take required actions in each deal room.</div>
-          {user && <div className="text-xs text-muted-foreground">Logged in as: {user.email}</div>}
-        </CardHeader>
-      </Card>
+      <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="grid w-full grid-cols-3 gap-2 sm:max-w-[420px]">
+          <button
+            type="button"
+            onClick={() => setDealView("all")}
+            className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+              dealView === "all" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent"
+            }`}
+          >
+            All
+          </button>
+          <button
+            type="button"
+            onClick={() => setDealView("buy")}
+            className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+              dealView === "buy" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent"
+            }`}
+          >
+            Purchases
+          </button>
+          <button
+            type="button"
+            onClick={() => setDealView("sell")}
+            className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+              dealView === "sell" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent"
+            }`}
+          >
+            Sales
+          </button>
+        </div>
 
-      {deals.length === 0 && (
+        <select
+          value={sortBy}
+          onChange={(event) => setSortBy(event.target.value as DealSort)}
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground sm:w-[220px]"
+        >
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+          <option value="price_desc">Most expensive</option>
+          <option value="price_asc">Cheapest first</option>
+        </select>
+      </div>
+
+      {visibleDeals.length === 0 && (
         <EmptyState
           title="No deals yet"
-          description="Your escrow-protected purchases and sales will appear here once a listing starts a deal."
+          description={
+            dealView === "all"
+              ? "Your purchases and sales will appear here once deals are created."
+              : dealView === "buy"
+                ? "Your purchases will appear here once you start a deal."
+                : "Your sales will appear here once buyers start deals with your listings."
+          }
           icon={<Handshake className="h-5 w-5" />}
         />
       )}
 
       <div className="space-y-3">
-        {deals.map((d) => {
+        {visibleDeals.map((d) => {
           const iam = user?.id === d.seller.id ? "Seller" : user?.id === d.buyer.id ? "Buyer" : null;
           const counterparty = iam === "Seller" ? d.buyer.displayName : d.seller.displayName;
 
@@ -101,8 +174,14 @@ export function DealsPage() {
               <Card className="group transition hover:bg-accent">
                 <CardContent className="p-4">
                   <div className="flex items-start gap-4">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                      {d.listing.type === "GOOD" ? <Gamepad2 className="h-5 w-5" /> : <Briefcase className="h-5 w-5" />}
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted text-muted-foreground">
+                      {d.listing.imageUrl ? (
+                        <img src={d.listing.imageUrl} alt={d.listing.title} className="h-full w-full object-cover" />
+                      ) : d.listing.type === "GOOD" ? (
+                        <Gamepad2 className="h-5 w-5" />
+                      ) : (
+                        <Briefcase className="h-5 w-5" />
+                      )}
                     </div>
 
                     <div className="min-w-0 flex-1 space-y-3">
@@ -120,7 +199,14 @@ export function DealsPage() {
 
                       <div className="flex flex-wrap items-center gap-2 text-xs">
                         {iam && (
-                          <Badge variant="outline" className="text-[10px]">
+                          <Badge
+                            variant="outline"
+                            className={`text-[10px] font-semibold ${
+                              iam === "Buyer"
+                                ? "border-success/40 bg-success/15 text-success"
+                                : "border-warning/40 bg-warning/15 text-warning"
+                            }`}
+                          >
                             You are {iam}
                           </Badge>
                         )}

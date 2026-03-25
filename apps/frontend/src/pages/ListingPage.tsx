@@ -37,6 +37,7 @@ export function ListingPage() {
   const [err, setErr] = useState<string | null>(null);
   const [buyLoading, setBuyLoading] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
+  const [sellerActionLoading, setSellerActionLoading] = useState(false);
   const [quantity, setQuantity] = useState(1);
 
   const isOwner = user?.id === listing?.seller.id;
@@ -145,6 +146,41 @@ export function ListingPage() {
     }
   }
 
+  async function handleSellerStatusAction() {
+    if (!listing) return;
+
+    const isArchived = listing.status === "ARCHIVED";
+    const shouldProceed = window.confirm(
+      isArchived ? "Restore this listing?" : "Archive this listing?",
+    );
+    if (!shouldProceed) return;
+
+    setSellerActionLoading(true);
+
+    try {
+      await http.patch(
+        isArchived
+          ? `/listings/${listing.id}/restore`
+          : `/listings/${listing.id}/archive`,
+      );
+
+      setListing((prev) =>
+        prev
+          ? { ...prev, status: isArchived ? "ACTIVE" : "ARCHIVED" }
+          : prev,
+      );
+    } catch (error: unknown) {
+      alert(
+        extractHttpErrorMessage(
+          error,
+          isArchived ? "Failed to restore listing" : "Failed to archive listing",
+        ),
+      );
+    } finally {
+      setSellerActionLoading(false);
+    }
+  }
+
   if (loading) return <LoadingState width="max-w-6xl" />;
   if (err || !listing) {
     return <ErrorState width="max-w-6xl" message={err ?? "Not found"} />;
@@ -203,9 +239,25 @@ export function ListingPage() {
             ) : isOwner ? (
               <Card>
                 <CardHeader className="font-semibold text-foreground">Seller mode</CardHeader>
-                <CardContent className="space-y-2 text-sm text-muted-foreground">
-                  <div>You are the seller of this listing.</div>
-                  <div>Manage conversations in <b>Inbox</b> and deals in <b>My deals</b>.</div>
+                <CardContent className="space-y-2">
+                  <Button asChild variant="outline" fullWidth>
+                    <Link to={`/listings/${listing.id}/edit`}>Edit</Link>
+                  </Button>
+                  <Button
+                    variant={listing.status === "ARCHIVED" ? "secondary" : "destructive"}
+                    fullWidth
+                    disabled={sellerActionLoading}
+                    onClick={handleSellerStatusAction}
+                  >
+                    {sellerActionLoading
+                      ? "Processing…"
+                      : listing.status === "ARCHIVED"
+                        ? "Restore"
+                        : "Archive"}
+                  </Button>
+                  <Button asChild variant="ghost" fullWidth>
+                    <Link to="/my-listings">Show All</Link>
+                  </Button>
                 </CardContent>
               </Card>
             ) : chatLoading ? (
@@ -248,17 +300,17 @@ export function ListingPage() {
               </Card>
             )}
 
-            <Card>
-              <CardContent className="space-y-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="space-y-1">
-                    <div className="text-xs uppercase tracking-wide text-muted-foreground">Total</div>
-                    <div className="text-3xl font-bold text-primary">
-                      {formatUsdFromCents(totalPrice)}
+            {!isOwner && (
+              <Card>
+                <CardContent className="space-y-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground">Total</div>
+                      <div className="text-3xl font-bold text-primary">
+                        {formatUsdFromCents(totalPrice)}
+                      </div>
                     </div>
-                  </div>
 
-                  {!isOwner && (
                     <div className="w-36 space-y-2">
                       <label className="block text-xs uppercase tracking-wide text-muted-foreground">Quantity</label>
                       <Input
@@ -284,32 +336,32 @@ export function ListingPage() {
                         <div className="text-xs text-muted-foreground">{availableStock} in stock</div>
                       )}
                     </div>
+                  </div>
+
+                  {user && (
+                    <Button
+                      fullWidth
+                      size="lg"
+                      onClick={buyNow}
+                      disabled={buyLoading || (listing.type === "GOOD" && (availableStock ?? 0) <= 0)}
+                    >
+                      <ShoppingBag className="h-4 w-4" />
+                      {buyLoading
+                        ? "Processing…"
+                        : listing.type === "GOOD" && (availableStock ?? 0) <= 0
+                          ? "Out of stock"
+                          : listing.type === "SERVICE"
+                            ? "Order now"
+                            : "Buy now"}
+                    </Button>
                   )}
-                </div>
 
-                {!isOwner && user && (
-                  <Button
-                    fullWidth
-                    size="lg"
-                    onClick={buyNow}
-                    disabled={buyLoading || (listing.type === "GOOD" && (availableStock ?? 0) <= 0)}
-                  >
-                    <ShoppingBag className="h-4 w-4" />
-                    {buyLoading
-                      ? "Processing…"
-                      : listing.type === "GOOD" && (availableStock ?? 0) <= 0
-                        ? "Out of stock"
-                        : listing.type === "SERVICE"
-                          ? "Order now"
-                          : "Buy now"}
-                  </Button>
-                )}
-
-                {!user && (
-                  <Button fullWidth size="lg" onClick={() => nav("/login")}>Login to buy</Button>
-                )}
-              </CardContent>
-            </Card>
+                  {!user && (
+                    <Button fullWidth size="lg" onClick={() => nav("/login")}>Login to buy</Button>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </div>

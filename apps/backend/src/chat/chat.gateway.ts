@@ -175,19 +175,34 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('message:send')
   async sendMessage(
     @ConnectedSocket() client: AuthedSocket,
-    @MessageBody() body: { conversationId: string; text: string },
+    @MessageBody()
+    body: {
+      conversationId: string;
+      text?: string;
+      mediaUrl?: string;
+      mediaType?: 'IMAGE' | 'VIDEO';
+      mediaItems?: Array<{ mediaUrl: string; mediaType: 'IMAGE' | 'VIDEO' }>;
+    },
   ) {
     const userId = client.user?.sub;
     if (!userId) throw new WsException('Unauthorized');
 
-    const text = body.text?.trim();
-    if (!text) throw new WsException('Text is required');
+    const text = body.text?.trim() ?? '';
+    const mediaUrl = body.mediaUrl?.trim() ?? '';
+    const mediaItems = body.mediaItems ?? [];
 
-    const message = await this.messagesService.send(
-      body.conversationId,
-      userId,
+    if (!text && !mediaUrl && mediaItems.length === 0) {
+      throw new WsException('Message must contain text or media');
+    }
+
+    const message = await this.messagesService.send({
+      conversationId: body.conversationId,
+      senderId: userId,
       text,
-    );
+      mediaUrl: mediaUrl || undefined,
+      mediaType: body.mediaType,
+      mediaItems,
+    });
 
     this.server.to(this.room(body.conversationId)).emit('message:new', message);
 

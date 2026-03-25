@@ -22,6 +22,7 @@ export type Listing = {
   salePercent?: number | null;
   saleStartsAt?: string | null;
   saleEndsAt?: string | null;
+  status: "ACTIVE" | "ARCHIVED";
   type: "GOOD" | "SERVICE";
   createdAt: string;
   seller: {

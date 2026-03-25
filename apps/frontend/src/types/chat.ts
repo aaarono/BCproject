@@ -17,6 +17,12 @@ export type Conversation = {
 export type Message = {
   id: string;
   text: string;
+  mediaUrl?: string | null;
+  mediaType?: "IMAGE" | "VIDEO" | null;
+  mediaItems?: Array<{
+    mediaUrl: string;
+    mediaType: "IMAGE" | "VIDEO";
+  }> | null;
   senderId: string;
   createdAt: string;
   sender: { id: string; displayName: string };

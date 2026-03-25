@@ -15,11 +15,15 @@ async function bootstrap() {
   const uploadsRoot = join(process.cwd(), 'uploads');
   const avatarUploadsPath = join(uploadsRoot, 'avatars');
   const listingUploadsPath = join(uploadsRoot, 'listings');
+  const messagesUploadsPath = join(uploadsRoot, 'messages');
   if (!existsSync(avatarUploadsPath)) {
     mkdirSync(avatarUploadsPath, { recursive: true });
   }
   if (!existsSync(listingUploadsPath)) {
     mkdirSync(listingUploadsPath, { recursive: true });
+  }
+  if (!existsSync(messagesUploadsPath)) {
+    mkdirSync(messagesUploadsPath, { recursive: true });
   }
 
   app.use('/uploads', express.static(uploadsRoot));

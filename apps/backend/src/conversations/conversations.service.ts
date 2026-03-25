@@ -174,12 +174,69 @@ export class ConversationsService {
   async getMessages(conversationId: string, userId: string) {
     await this.markConversationAsRead(conversationId, userId);
 
-    return this.prisma.message.findMany({
+    const latestMessages = await this.prisma.message.findMany({
       where: { conversationId },
-      orderBy: { createdAt: 'asc' },
+      orderBy: { createdAt: 'desc' },
       include: { sender: { select: { id: true, displayName: true } } },
       take: 50,
     });
+
+    return latestMessages.reverse();
+  }
+
+  async getOlderMessages(params: {
+    conversationId: string;
+    userId: string;
+    beforeCreatedAt: string;
+    beforeId: string;
+    limit?: number;
+  }) {
+    const conv = await this.prisma.conversation.findUnique({
+      where: { id: params.conversationId },
+      select: { id: true, buyerId: true, sellerId: true },
+    });
+
+    if (!conv) {
+      throw new NotFoundException('Conversation not found');
+    }
+
+    this.assertParticipant(conv, params.userId);
+
+    const cursorDate = new Date(params.beforeCreatedAt);
+    const limit = Math.min(Math.max(params.limit ?? 50, 1), 100);
+
+    const rows = await this.prisma.message.findMany({
+      where: {
+        conversationId: params.conversationId,
+        OR: [
+          { createdAt: { lt: cursorDate } },
+          {
+            createdAt: cursorDate,
+            id: { lt: params.beforeId },
+          },
+        ],
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      include: { sender: { select: { id: true, displayName: true } } },
+      take: limit + 1,
+    });
+
+    const hasMore = rows.length > limit;
+    const pageRows = hasMore ? rows.slice(0, limit) : rows;
+    const items = [...pageRows].reverse();
+    const oldest = items[0];
+
+    return {
+      items,
+      hasMore,
+      nextCursor:
+        hasMore && oldest
+          ? {
+              beforeCreatedAt: oldest.createdAt.toISOString(),
+              beforeId: oldest.id,
+            }
+          : null,
+    };
   }
 
   async getByListingAndBuyer(

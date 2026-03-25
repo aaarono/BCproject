@@ -218,6 +218,9 @@ model Message {
   conversationId String
   senderId       String
   text           String
+  mediaUrl       String?
+  mediaType      String?
+  mediaItems     Json?
   createdAt      DateTime @default(now())
 
   conversation Conversation @relation(fields: [conversationId], references: [id])

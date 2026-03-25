@@ -1,9 +1,19 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/jwt.strategy';
 import { CreateConversationDto } from './dto/create-conversation.dto';
+import { GetOlderMessagesQueryDto } from './dto/get-older-messages-query.dto';
 import { ConversationsService } from './conversations.service';
 
 @ApiTags('Conversations')
@@ -38,6 +48,26 @@ export class ConversationsController {
   @Get(':id/messages')
   getMessages(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
     return this.service.getMessages(id, user.sub);
+  }
+
+  @ApiOperation({ summary: 'Get older messages in a conversation (cursor-based)' })
+  @Get(':id/messages/older')
+  getOlderMessages(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Query() query: GetOlderMessagesQueryDto,
+  ) {
+    if (!query.beforeCreatedAt || !query.beforeId) {
+      throw new BadRequestException('beforeCreatedAt and beforeId are required');
+    }
+
+    return this.service.getOlderMessages({
+      conversationId: id,
+      userId: user.sub,
+      beforeCreatedAt: query.beforeCreatedAt,
+      beforeId: query.beforeId,
+      limit: query.limit,
+    });
   }
 
   @ApiOperation({ summary: 'Find conversation by listing and buyer' })

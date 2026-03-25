@@ -117,10 +117,20 @@ export class ListingsController {
     return this.listings.restore(id, user.sub);
   }
 
-  @ApiOperation({ summary: 'Get a single listing by ID' })
+  @ApiOperation({ summary: 'Get listing price history' })
   @Get(':id/price-history')
-  getPriceHistory(@Param('id') id: string) {
-    return this.listings.getPriceHistory(id);
+  getPriceHistory(
+    @Param('id') id: string,
+    @Query('period') period?: string,
+  ) {
+    const normalizedPeriod = period === 'all' ? 'all' : '30d';
+    return this.listings.getPriceHistory(id, normalizedPeriod);
+  }
+
+  @ApiOperation({ summary: 'Get listing discount policy/range' })
+  @Get(':id/discount-policy')
+  getDiscountPolicy(@Param('id') id: string) {
+    return this.listings.getDiscountPolicy(id);
   }
 
   @ApiOperation({ summary: 'Get a single listing by ID' })

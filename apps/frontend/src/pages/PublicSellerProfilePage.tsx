@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { http } from "../api/http";
 import { Briefcase, Calendar, CheckCircle2, Flag, Gamepad2, ShoppingBag, Star } from "lucide-react";
-import { RatingStars } from "../components/review/RatingStars";
+import { SellerReviewsList, type SellerReviewItem } from "../components/review/SellerReviewsList";
 import { extractHttpErrorMessage } from "../utils/httpError";
 import { Card, CardContent, CardHeader } from "../components/ui/Card";
 import { Badge } from "../components/ui/Badge";
@@ -11,6 +11,7 @@ import { Button } from "../components/ui/Button";
 import { Avatar } from "../components/ui/Avatar";
 import { formatUsdFromCents } from "../lib/currency";
 import { getSocket } from "../api/socket";
+import { useAuth } from "../auth/AuthContext";
 
 type Listing = {
   id: string;
@@ -48,24 +49,6 @@ function getSaleState(listing: {
   return { isOnSale: effectivePrice < listing.price, effectivePrice };
 }
 
-type Review = {
-  id: string;
-  rating: number;
-  comment?: string;
-  createdAt: string;
-  buyer: {
-    id: string;
-    displayName: string;
-  };
-  deal: {
-    id: string;
-    listing: {
-      id: string;
-      title: string;
-    };
-  };
-};
-
 type SellerProfile = {
   id: string;
   createdAt: string;
@@ -74,7 +57,7 @@ type SellerProfile = {
   ratingAvg: number;
   ratingCount: number;
   listings: Listing[];
-  reviewsReceived: Review[];
+  reviewsReceived: SellerReviewItem[];
   achievements: Achievement[];
 };
 
@@ -87,6 +70,8 @@ type Achievement = {
 
 export function PublicSellerProfilePage() {
   const { id } = useParams<{ id: string }>();
+  const nav = useNavigate();
+  const { user } = useAuth();
   const [profile, setProfile] = useState<SellerProfile | null>(null);
   const [activeTab, setActiveTab] = useState<"listings" | "reviews" | "achievements">("listings");
   const [brokenListingImages, setBrokenListingImages] = useState<Set<string>>(new Set());
@@ -96,6 +81,11 @@ export function PublicSellerProfilePage() {
 
   useEffect(() => {
     if (!id) return;
+
+    if (user?.id === id) {
+      nav("/profile", { replace: true });
+      return;
+    }
 
     let cancelled = false;
 
@@ -121,7 +111,7 @@ export function PublicSellerProfilePage() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, nav, user?.id]);
 
   useEffect(() => {
     if (!profile?.id) return;
@@ -332,30 +322,7 @@ export function PublicSellerProfilePage() {
               <div className="text-xl font-semibold text-foreground">Reviews</div>
             </CardHeader>
             <CardContent className="space-y-3">
-              {profile.reviewsReceived.length === 0 && (
-                <div className="text-sm text-muted-foreground">No reviews yet.</div>
-              )}
-
-              {profile.reviewsReceived.map((review) => (
-                <div key={review.id} className="space-y-2 rounded-xl border border-border bg-muted p-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="font-medium text-foreground">{review.buyer.displayName}</div>
-                    <div className="flex items-center gap-2">
-                      <RatingStars value={review.rating} />
-                      <span className="text-sm text-muted-foreground">{review.rating}/5</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1 text-xs text-muted-foreground">
-                    <div>{new Date(review.createdAt).toLocaleString()}</div>
-                    <div>
-                      Listing: <span className="font-medium text-foreground">{review.deal.listing.title}</span>
-                    </div>
-                  </div>
-
-                  {review.comment && <div className="text-sm whitespace-pre-wrap text-foreground">{review.comment}</div>}
-                </div>
-              ))}
+              <SellerReviewsList reviews={profile.reviewsReceived} />
             </CardContent>
           </Card>
         )}

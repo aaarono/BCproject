@@ -482,14 +482,14 @@ export function SettingsPage() {
             <Button onClick={updatePassword} disabled={passwordSaving}>
               {passwordSaving ? "Updating..." : "Update password"}
             </Button>
-
-            <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3">
-              <div className="text-sm font-semibold text-destructive">Danger zone</div>
-              <div className="mt-1 text-xs text-muted-foreground">Permanently delete account and associated data.</div>
-              <Button variant="destructive" size="sm" className="mt-3">Delete account</Button>
-            </div>
+              <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3">
+                <div className="text-sm font-semibold text-destructive">Danger zone</div>
+                <div className="mt-1 text-xs text-muted-foreground">Permanently delete account and associated data.</div>
+                <Button variant="destructive" size="sm" className="mt-3">Delete account</Button>
+              </div>
           </CardContent>
         </Card>
+        
       )}
 
       {activeTab === "appearance" && (

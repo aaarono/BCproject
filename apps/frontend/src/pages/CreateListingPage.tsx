@@ -44,47 +44,9 @@ export function CreateListingPage() {
     }
 
     const tags = values.tags
-      .split(",")
       .map((tag) => tag.trim().toLowerCase())
       .filter(Boolean)
-      .slice(0, 8);
-
-    const salePercent = values.salePercent.trim()
-      ? Number(values.salePercent)
-      : undefined;
-    const saleStartsAt = values.saleStartsAt.trim()
-      ? new Date(values.saleStartsAt).toISOString()
-      : undefined;
-    const saleEndsAt = values.saleEndsAt.trim()
-      ? new Date(values.saleEndsAt).toISOString()
-      : undefined;
-
-    const hasAnySaleField =
-      salePercent !== undefined ||
-      saleStartsAt !== undefined ||
-      saleEndsAt !== undefined;
-
-    if (hasAnySaleField) {
-      if (
-        !Number.isFinite(salePercent) ||
-        salePercent === undefined ||
-        salePercent < 1 ||
-        salePercent > 90
-      ) {
-        setErr("Sale discount must be between 1 and 90");
-        return;
-      }
-
-      if (!saleStartsAt || !saleEndsAt) {
-        setErr("Sale start and end datetime are required");
-        return;
-      }
-
-      if (new Date(saleStartsAt) >= new Date(saleEndsAt)) {
-        setErr("Sale start must be before sale end");
-        return;
-      }
-    }
+      .slice(0, 4);
 
     setLoading(true);
     try {
@@ -97,9 +59,6 @@ export function CreateListingPage() {
         type: values.type,
         category: values.category,
         tags,
-        salePercent,
-        saleStartsAt,
-        saleEndsAt,
       });
 
       nav(`/listings/${res.data.id}`);
@@ -117,6 +76,7 @@ export function CreateListingPage() {
         submitLabel="Create listing"
         loading={loading}
         error={err}
+        showFlashSale={false}
         onSubmit={submit}
       />
     </div>

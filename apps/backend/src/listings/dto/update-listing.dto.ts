@@ -79,13 +79,13 @@ export class UpdateListingDto {
 
   @ApiPropertyOptional({
     example: 20,
-    description: 'Sale discount percent (1..90)',
+    description: 'Sale discount percent (5..70)',
   })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
-  @Min(1)
-  @Max(90)
+  @Min(5)
+  @Max(70)
   salePercent?: number;
 
   @ApiPropertyOptional({

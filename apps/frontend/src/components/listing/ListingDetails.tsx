@@ -3,6 +3,7 @@ import { Briefcase, Gamepad2, Star, Tag } from "lucide-react";
 import type { Listing } from "../../types/listing";
 import { Card, CardContent } from "../ui/Card";
 import { Badge } from "../ui/Badge";
+import { Avatar } from "../ui/Avatar";
 import { formatUsdFromCents } from "../../lib/currency";
 
 export function ListingDetails({ listing }: { listing: Listing }) {
@@ -51,47 +52,44 @@ export function ListingDetails({ listing }: { listing: Listing }) {
           ))}
         </div>
 
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted font-semibold text-foreground">
-            {initials}
-          </div>
-          <div>
-            <Link className="font-semibold text-foreground underline" to={`/users/${listing.seller.id}`}>
-              {listing.seller.displayName}
-            </Link>
-            <div className="flex items-center gap-1">
-              <Star className="h-3 w-3 fill-warning text-warning" />
-              <span>{listing.seller.ratingAvg.toFixed(1)}</span>
-              <span>({listing.seller.ratingCount} reviews)</span>
+        <div className="flex items-center justify-between gap-4 border-t border-border pt-4 text-sm text-muted-foreground">
+          <div className="flex min-w-0 items-center gap-3 py-1.5">
+            <Avatar
+              src={listing.seller.avatarUrl}
+              alt={listing.seller.displayName}
+              fallback={initials}
+              className="h-12 w-12"
+              fallbackClassName="text-base font-semibold"
+            />
+            <div className="min-w-0">
+              <Link className="text-lg font-semibold text-foreground underline" to={`/users/${listing.seller.id}`}>
+                {listing.seller.displayName}
+              </Link>
+              <div className="flex items-center gap-1 text-sm font-medium">
+                <Star className="h-3 w-3 fill-warning text-warning" />
+                <span>{listing.seller.ratingAvg.toFixed(1)}</span>
+                <span>({listing.seller.ratingCount} reviews)</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="flex items-center justify-between border-t border-border pt-4">
-          <div className="space-y-1">
+          <div className="shrink-0 text-right">
             {listing.isOnSale ? (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-end gap-2">
                 <span className="text-sm text-muted-foreground line-through">{formatUsdFromCents(listing.price)}</span>
                 <span className="text-2xl font-bold text-primary">{formatUsdFromCents(effectivePrice)}</span>
               </div>
             ) : (
               <span className="text-2xl font-bold text-foreground">{formatUsdFromCents(effectivePrice)}</span>
             )}
-
-            {listing.referencePrice30d !== undefined && (
-              <div className="text-xs text-muted-foreground">
-                Lowest price in 30 days: {formatUsdFromCents(listing.referencePrice30d)}
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">{listing.type}</div>
+            {listing.isOnSale && listing.saleEndsAt && (
+              <div className="mt-1 text-xs text-success">
+                Sale ends: {new Date(listing.saleEndsAt).toLocaleString()}
               </div>
             )}
           </div>
-          <div className="text-xs uppercase tracking-wide text-muted-foreground">{listing.type}</div>
         </div>
-
-        {listing.isOnSale && listing.saleEndsAt && (
-          <div className="text-sm text-success">
-            Sale ends: {new Date(listing.saleEndsAt).toLocaleString()}
-          </div>
-        )}
       </CardContent>
     </Card>
   );

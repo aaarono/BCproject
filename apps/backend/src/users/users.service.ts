@@ -630,6 +630,7 @@ export class UsersService {
               select: {
                 id: true,
                 displayName: true,
+                avatarUrl: true,
               },
             },
             deal: {

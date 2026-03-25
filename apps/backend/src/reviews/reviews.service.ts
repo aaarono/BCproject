@@ -61,7 +61,7 @@ export class ReviewsService {
       orderBy: { createdAt: 'desc' },
       include: {
         buyer: {
-          select: { id: true, displayName: true },
+          select: { id: true, displayName: true, avatarUrl: true },
         },
         deal: {
           select: {

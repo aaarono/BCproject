@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { http } from "../api/http";
-import { Briefcase, Calendar, CheckCircle2, Gamepad2, Settings, ShoppingBag, Star, User } from "lucide-react";
-import { RatingStars } from "../components/review/RatingStars";
+import { Briefcase, Calendar, CheckCircle2, Gamepad2, Settings, ShoppingBag, Star } from "lucide-react";
+import { SellerReviewsList, type SellerReviewItem } from "../components/review/SellerReviewsList";
 import { extractHttpErrorMessage } from "../utils/httpError";
 import { Card, CardContent, CardHeader } from "../components/ui/Card";
 import { Badge } from "../components/ui/Badge";
@@ -66,33 +66,16 @@ function getSaleState(listing: {
   return { isOnSale: effectivePrice < listing.price, effectivePrice };
 }
 
-type Review = {
-  id: string;
-  rating: number;
-  comment?: string;
-  createdAt: string;
-  buyer: {
-    id: string;
-    displayName: string;
-  };
-  deal: {
-    id: string;
-    listing: {
-      id: string;
-      title: string;
-    };
-  };
-};
-
 export function ProfilePage() {
   const [activeTab, setActiveTab] = useState<"listings" | "reviews" | "achievements">("listings");
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviews, setReviews] = useState<SellerReviewItem[]>([]);
   const [myListings, setMyListings] = useState<MyListing[]>([]);
   const [brokenListingImages, setBrokenListingImages] = useState<Set<string>>(new Set());
   const [isOnline, setIsOnline] = useState(false);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const activeMyListings = myListings.filter((listing) => listing.status === "ACTIVE");
 
   async function loadProfile() {
     const res = await http.get<Profile>("/users/me/profile");
@@ -101,7 +84,7 @@ export function ProfilePage() {
   }
 
   async function loadReviews(userId: string) {
-    const res = await http.get<Review[]>(`/reviews/seller/${userId}`);
+    const res = await http.get<SellerReviewItem[]>(`/reviews/seller/${userId}`);
     setReviews(res.data);
   }
 
@@ -192,12 +175,6 @@ export function ProfilePage() {
                       Settings
                     </Link>
                   </Button>
-                  <Button asChild variant="outline" size="sm">
-                    <Link to={`/users/${profile.id}`}>
-                      <User className="h-4 w-4" />
-                      Public view
-                    </Link>
-                  </Button>
                 </div>
               </div>
 
@@ -218,7 +195,7 @@ export function ProfilePage() {
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <ShoppingBag className="h-5 w-5" />
                   <span>
-                    <strong className="text-foreground">{myListings.length}</strong> active listings
+                    <strong className="text-foreground">{activeMyListings.length}</strong> active listings
                   </span>
                 </div>
 
@@ -240,7 +217,7 @@ export function ProfilePage() {
             activeTab === "listings" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent"
           }`}
         >
-          Listings ({myListings.length})
+          Listings ({activeMyListings.length})
         </button>
         <button
           type="button"
@@ -270,9 +247,9 @@ export function ProfilePage() {
             </CardHeader>
 
             <CardContent className="space-y-3">
-              {myListings.length === 0 && <div className="text-sm text-muted-foreground">No listings yet.</div>}
+              {activeMyListings.length === 0 && <div className="text-sm text-muted-foreground">No active listings yet.</div>}
 
-              {myListings.map((listing) => {
+              {activeMyListings.map((listing) => {
                 const { isOnSale, effectivePrice } = getSaleState(listing);
 
                 return (
@@ -342,30 +319,7 @@ export function ProfilePage() {
               <div className="text-xl font-semibold text-foreground">Reviews</div>
             </CardHeader>
             <CardContent className="space-y-4">
-              {reviews.length === 0 && <div className="text-sm text-muted-foreground">No reviews yet.</div>}
-
-              {reviews.map((review) => (
-                <div key={review.id} className="space-y-2 rounded-xl border border-border bg-muted p-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <Link className="font-medium text-foreground underline" to={`/users/${review.buyer.id}`}>
-                      {review.buyer.displayName}
-                    </Link>
-                    <div className="flex items-center gap-2">
-                      <RatingStars value={review.rating} />
-                      <span className="text-sm text-muted-foreground">{review.rating}/5</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1 text-xs text-muted-foreground">
-                    <div>{new Date(review.createdAt).toLocaleString()}</div>
-                    <div>
-                      Listing: <span className="font-medium text-foreground">{review.deal.listing.title}</span>
-                    </div>
-                  </div>
-
-                  {review.comment && <div className="text-sm whitespace-pre-wrap text-foreground">{review.comment}</div>}
-                </div>
-              ))}
+              <SellerReviewsList reviews={reviews} />
             </CardContent>
           </Card>
         )}

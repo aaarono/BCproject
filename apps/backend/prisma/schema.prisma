@@ -158,11 +158,14 @@ model ListingPriceHistory {
   id        String   @id @default(cuid())
   listingId String
   price     Int
+  isSale    Boolean  @default(false)
+  salePercent Int?
   createdAt DateTime @default(now())
 
   listing Listing @relation(fields: [listingId], references: [id])
 
   @@index([listingId, createdAt])
+  @@index([listingId, isSale, createdAt])
 }
 
 model Wallet {

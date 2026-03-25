@@ -5,15 +5,13 @@ import {
   Briefcase,
   Gamepad2,
   Pencil,
-  Plus,
   RotateCcw,
   ShoppingBag,
   Star,
 } from "lucide-react";
 import { http } from "../api/http";
 import { extractHttpErrorMessage } from "../utils/httpError";
-import { Card, CardContent, CardHeader } from "../components/ui/Card";
-import { Button } from "../components/ui/Button";
+import { Card, CardContent } from "../components/ui/Card";
 import { Badge } from "../components/ui/Badge";
 import { ErrorState, LoadingState } from "../components/ui/PageStates";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -124,24 +122,6 @@ export function MyListingsPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-4 px-4 py-6 sm:px-6">
-      <Card>
-        <CardHeader className="flex items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">My listings</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Manage your listings and track their performance.
-            </p>
-          </div>
-
-          <Button asChild>
-            <Link to="/create-listing">
-              <Plus className="h-4 w-4" />
-              New listing
-            </Link>
-          </Button>
-        </CardHeader>
-      </Card>
-
       <div className="grid w-full grid-cols-2 gap-2 rounded-xl border border-border bg-card p-2 sm:w-[320px]">
         <button
           type="button"

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Info } from "lucide-react";
 import { http } from "../../api/http";
 import { extractHttpErrorMessage } from "../../utils/httpError";
 import { Card, CardContent, CardHeader } from "../ui/Card";
@@ -6,6 +7,8 @@ import { Input } from "../ui/Input";
 import { Textarea } from "../ui/Textarea";
 import { Button } from "../ui/Button";
 import { Badge } from "../ui/Badge";
+import { formatUsdFromCents } from "../../lib/currency";
+import type { ListingDiscountPolicy } from "../../types/listing";
 
 export type ListingFormValues = {
   title: string;
@@ -15,7 +18,7 @@ export type ListingFormValues = {
   price: string;
   type: "GOOD" | "SERVICE";
   category: "GAMES" | "ACCOUNTS" | "BOOSTING" | "MENTORING" | "GAME_CURRENCY" | "OTHER";
-  tags: string;
+  tags: string[];
   salePercent: string;
   saleStartsAt: string;
   saleEndsAt: string;
@@ -26,6 +29,8 @@ type Props = {
   submitLabel: string;
   loading?: boolean;
   error?: string | null;
+  showFlashSale?: boolean;
+  flashSalePolicy?: ListingDiscountPolicy | null;
   onSubmit: (values: ListingFormValues) => Promise<void> | void;
 };
 
@@ -37,7 +42,7 @@ const defaultValues: ListingFormValues = {
   price: "",
   type: "GOOD",
   category: "GAMES",
-  tags: "",
+  tags: [],
   salePercent: "",
   saleStartsAt: "",
   saleEndsAt: "",
@@ -48,6 +53,8 @@ export function ListingForm({
   submitLabel,
   loading = false,
   error = null,
+  showFlashSale = true,
+  flashSalePolicy = null,
   onSubmit,
 }: Props) {
   const [title, setTitle] = useState(initialValues.title);
@@ -57,12 +64,40 @@ export function ListingForm({
   const [price, setPrice] = useState(initialValues.price);
   const [type, setType] = useState<"GOOD" | "SERVICE">(initialValues.type);
   const [category, setCategory] = useState(initialValues.category);
-  const [tags, setTags] = useState(initialValues.tags);
+  const [tags, setTags] = useState<string[]>(initialValues.tags);
+  const [tagInput, setTagInput] = useState("");
   const [salePercent, setSalePercent] = useState(initialValues.salePercent);
   const [saleStartsAt, setSaleStartsAt] = useState(initialValues.saleStartsAt);
   const [saleEndsAt, setSaleEndsAt] = useState(initialValues.saleEndsAt);
+  const [flashSaleEnabled, setFlashSaleEnabled] = useState(
+    Boolean(initialValues.salePercent || initialValues.saleStartsAt || initialValues.saleEndsAt),
+  );
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const descriptionRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    const textarea = descriptionRef.current;
+    if (!textarea) return;
+
+    textarea.style.height = "auto";
+    textarea.style.height = `${textarea.scrollHeight}px`;
+  }, [description]);
+
+  function addTag(rawValue: string) {
+    const value = rawValue.trim().toLowerCase();
+    if (!value) return;
+
+    setTags((prev) => {
+      if (prev.includes(value) || prev.length >= 4) return prev;
+      return [...prev, value];
+    });
+    setTagInput("");
+  }
+
+  function removeTag(tag: string) {
+    setTags((prev) => prev.filter((item) => item !== tag));
+  }
 
   async function uploadListingImage(file: File) {
     if (!file.type.startsWith("image/")) {
@@ -111,18 +146,15 @@ export function ListingForm({
       type,
       category,
       tags,
-      salePercent,
-      saleStartsAt,
-      saleEndsAt,
+      salePercent: flashSaleEnabled ? salePercent : "",
+      saleStartsAt: flashSaleEnabled ? saleStartsAt : "",
+      saleEndsAt: flashSaleEnabled ? saleEndsAt : "",
     });
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <Card>
-        <CardHeader>
-          <div className="text-sm text-muted-foreground">Basic information</div>
-        </CardHeader>
         <CardContent className="space-y-4">
           <div>
             <label className="mb-1 block text-sm font-medium text-foreground">Title</label>
@@ -136,7 +168,8 @@ export function ListingForm({
           <div>
             <label className="mb-1 block text-sm font-medium text-foreground">Description</label>
             <Textarea
-              className="min-h-[120px]"
+              ref={descriptionRef}
+              className="min-h-[120px] resize-none overflow-hidden"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Describe the product or service..."
@@ -155,12 +188,6 @@ export function ListingForm({
                   await uploadListingImage(file);
                 }}
                 disabled={uploadingImage}
-              />
-
-              <Input
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                placeholder="https://..."
               />
 
               {uploadingImage && (
@@ -222,88 +249,167 @@ export function ListingForm({
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">Tags (comma-separated)</label>
+            <label className="mb-1 block text-sm font-medium text-foreground">Tags</label>
             <Input
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
-              placeholder="e.g. eu, alliance, rent"
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addTag(tagInput);
+                }
+              }}
+              placeholder="Type tag and press Enter"
             />
-            <div className="mt-1 text-xs text-muted-foreground">Up to 8 tags.</div>
+            {tags.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {tags.map((tag) => (
+                  <Badge key={tag} variant="outline" className="inline-flex items-center gap-1">
+                    {tag}
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-foreground"
+                      onClick={() => removeTag(tag)}
+                      aria-label={`Remove tag ${tag}`}
+                    >
+                      ×
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            )}
           </div>
 
-          <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">Price (USD)</label>
-            <Input
-              type="number"
-              step="0.01"
-              min="1"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              placeholder="e.g. 150.00"
-            />
-            <div className="mt-1 text-xs text-muted-foreground">Example: 150.00 = $150.00</div>
-          </div>
+          {type === "GOOD" ? (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-foreground">Price (USD)</label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="1"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  placeholder="e.g. 150.00"
+                />
+              </div>
 
-          {type === "GOOD" && (
+              <div>
+                <label className="mb-1 block text-sm font-medium text-foreground">Quantity in stock</label>
+                <Input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={stockQuantity}
+                  onChange={(e) => setStockQuantity(e.target.value)}
+                  placeholder="e.g. 50"
+                />
+              </div>
+            </div>
+          ) : (
             <div>
-              <label className="mb-1 block text-sm font-medium text-foreground">Quantity in stock</label>
+              <label className="mb-1 block text-sm font-medium text-foreground">Price (USD)</label>
               <Input
                 type="number"
+                step="0.01"
                 min="1"
-                step="1"
-                value={stockQuantity}
-                onChange={(e) => setStockQuantity(e.target.value)}
-                placeholder="e.g. 50"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                placeholder="e.g. 150.00"
               />
-              <div className="mt-1 text-xs text-muted-foreground">This field is required for goods listings.</div>
             </div>
           )}
         </CardContent>
       </Card>
 
-      <Card>
+      {showFlashSale && (
+        <Card>
         <CardHeader className="flex items-center justify-between gap-3">
-          <div className="text-sm font-medium text-foreground">Flash Sale</div>
-          <Badge variant="muted">Optional</Badge>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">Discount percent</label>
-            <Input
-              type="number"
-              min="1"
-              max="90"
-              value={salePercent}
-              onChange={(e) => setSalePercent(e.target.value)}
-              placeholder="e.g. 20"
+          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+            Flash Sale
+            <button
+              type="button"
+              className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border text-muted-foreground hover:text-foreground"
+              title={
+                flashSalePolicy
+                  ? `Flash sale rules:\n• Base price must be within ${formatUsdFromCents(
+                      flashSalePolicy.allowedMinBasePrice,
+                    )} - ${formatUsdFromCents(flashSalePolicy.allowedMaxBasePrice)}\n• Discount range: ${flashSalePolicy.discountPercentMin}% - ${flashSalePolicy.discountPercentMax}%\n• Tolerance: ±${flashSalePolicy.tolerancePercent}% from 30d min base price`
+                  : "Flash sale rules are loading..."
+              }
+              aria-label="Flash sale rules"
+            >
+              <Info className="h-3 w-3" />
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={() => setFlashSaleEnabled((prev) => !prev)}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full border transition ${
+              flashSaleEnabled ? "border-primary bg-primary" : "border-border bg-muted-foreground"
+            }`}
+            aria-pressed={flashSaleEnabled}
+            aria-label="Toggle flash sale"
+          >
+            <span
+              className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${
+                flashSaleEnabled ? "translate-x-5" : "translate-x-1"
+              }`}
             />
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          </button>
+        </CardHeader>
+        {flashSaleEnabled ? (
+          <CardContent className="space-y-3">
+            {flashSalePolicy && (
+              <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+                Allowed base price range: <span className="font-semibold text-foreground">{formatUsdFromCents(flashSalePolicy.allowedMinBasePrice)} - {formatUsdFromCents(flashSalePolicy.allowedMaxBasePrice)}</span>
+                <br />
+                Discount range: <span className="font-semibold text-foreground">{flashSalePolicy.discountPercentMin}% - {flashSalePolicy.discountPercentMax}%</span>
+              </div>
+            )}
             <div>
-              <label className="mb-1 block text-sm font-medium text-foreground">Sale starts at</label>
+              <label className="mb-1 block text-sm font-medium text-foreground">Discount percent</label>
               <Input
-                type="datetime-local"
-                value={saleStartsAt}
-                onChange={(e) => setSaleStartsAt(e.target.value)}
+                type="number"
+                min={String(flashSalePolicy?.discountPercentMin ?? 5)}
+                max={String(flashSalePolicy?.discountPercentMax ?? 70)}
+                value={salePercent}
+                onChange={(e) => setSalePercent(e.target.value)}
+                placeholder="e.g. 20"
               />
             </div>
 
-            <div>
-              <label className="mb-1 block text-sm font-medium text-foreground">Sale ends at</label>
-              <Input
-                type="datetime-local"
-                value={saleEndsAt}
-                onChange={(e) => setSaleEndsAt(e.target.value)}
-              />
-            </div>
-          </div>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-foreground">Sale starts at</label>
+                <Input
+                  type="datetime-local"
+                  value={saleStartsAt}
+                  onChange={(e) => setSaleStartsAt(e.target.value)}
+                />
+              </div>
 
-          <div className="text-xs text-muted-foreground">
-            Fill all three fields to activate sale. Leave all empty to keep regular pricing.
-          </div>
-        </CardContent>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-foreground">Sale ends at</label>
+                <Input
+                  type="datetime-local"
+                  value={saleEndsAt}
+                  onChange={(e) => setSaleEndsAt(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="text-xs text-muted-foreground">
+              Fill all three fields to activate sale.
+            </div>
+          </CardContent>
+        ) : (
+          <CardContent>
+            <div className="text-xs text-muted-foreground">Enable to configure discount and schedule.</div>
+          </CardContent>
+        )}
       </Card>
+      )}
 
       {error && <div className="text-sm text-destructive">{error}</div>}
 

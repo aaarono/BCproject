@@ -43,4 +43,34 @@ export type Listing = {
 export type PriceHistoryPoint = {
   price: number;
   createdAt: string;
+  isSale: boolean;
+  salePercent?: number | null;
+};
+
+export type ListingDiscountPolicy = {
+  minBasePrice30d: number;
+  allowedMinBasePrice: number;
+  allowedMaxBasePrice: number;
+  discountPercentMin: number;
+  discountPercentMax: number;
+  tolerancePercent: number;
+};
+
+export type PriceHistoryStats = {
+  minPriceOnSales: {
+    price: number;
+    createdAt: string;
+    salePercent?: number | null;
+  } | null;
+  minPriceNoSales: {
+    price: number;
+    createdAt: string;
+  } | null;
+  discountPolicy: ListingDiscountPolicy;
+};
+
+export type PriceHistoryResponse = {
+  period: "30d" | "all";
+  points: PriceHistoryPoint[];
+  stats: PriceHistoryStats;
 };

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { http } from "../api/http";
 import { ListingForm, type ListingFormValues } from "../components/listing/ListingForm";
-import type { Listing } from "../types/listing";
+import type { Listing, ListingDiscountPolicy } from "../types/listing";
 import { extractHttpErrorMessage } from "../utils/httpError";
 import { ErrorState, LoadingState } from "../components/ui/PageStates";
 import { centsToDollarsInput, dollarsToCents } from "../lib/currency";
@@ -15,6 +15,12 @@ function toDateTimeLocal(value?: string | null) {
   return localDate.toISOString().slice(0, 16);
 }
 
+function isSaleStillRelevant(salePercent?: number | null, saleEndsAt?: string | null) {
+  if (!salePercent || !saleEndsAt) return false;
+  const endsAt = new Date(saleEndsAt).getTime();
+  return Number.isFinite(endsAt) && endsAt > Date.now();
+}
+
 export function EditListingPage() {
   const { id } = useParams<{ id: string }>();
   const nav = useNavigate();
@@ -23,6 +29,7 @@ export function EditListingPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [flashSalePolicy, setFlashSalePolicy] = useState<ListingDiscountPolicy | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -35,6 +42,11 @@ export function EditListingPage() {
       .then((r) => setListing(r.data))
       .catch((e) => setErr(e?.response?.data?.message ?? "Failed to load listing"))
       .finally(() => setLoading(false));
+
+    http
+      .get<ListingDiscountPolicy>(`/listings/${id}/discount-policy`)
+      .then((r) => setFlashSalePolicy(r.data))
+      .catch(() => setFlashSalePolicy(null));
   }, [id]);
 
   async function submit(values: ListingFormValues) {
@@ -68,10 +80,9 @@ export function EditListingPage() {
     }
 
     const tags = values.tags
-      .split(",")
       .map((tag) => tag.trim().toLowerCase())
       .filter(Boolean)
-      .slice(0, 8);
+      .slice(0, 4);
 
     const salePercent = values.salePercent.trim()
       ? Number(values.salePercent)
@@ -92,10 +103,12 @@ export function EditListingPage() {
       if (
         !Number.isFinite(salePercent) ||
         salePercent === undefined ||
-        salePercent < 1 ||
-        salePercent > 90
+        salePercent < (flashSalePolicy?.discountPercentMin ?? 5) ||
+        salePercent > (flashSalePolicy?.discountPercentMax ?? 70)
       ) {
-        setErr("Sale discount must be between 1 and 90");
+        setErr(
+          `Sale discount must be between ${flashSalePolicy?.discountPercentMin ?? 5} and ${flashSalePolicy?.discountPercentMax ?? 70}`,
+        );
         return;
       }
 
@@ -106,6 +119,13 @@ export function EditListingPage() {
 
       if (new Date(saleStartsAt) >= new Date(saleEndsAt)) {
         setErr("Sale start must be before sale end");
+        return;
+      }
+
+      if (flashSalePolicy && (parsedPriceCents < flashSalePolicy.allowedMinBasePrice || parsedPriceCents > flashSalePolicy.allowedMaxBasePrice)) {
+        setErr(
+          `This listing does not meet flash-sale requirements. Allowed base price range: ${centsToDollarsInput(flashSalePolicy.allowedMinBasePrice)} - ${centsToDollarsInput(flashSalePolicy.allowedMaxBasePrice)} USD`,
+        );
         return;
       }
     }
@@ -138,6 +158,11 @@ export function EditListingPage() {
   if (err && !listing) return <ErrorState width="max-w-3xl" message={err} />;
   if (!listing) return <ErrorState width="max-w-3xl" message="Listing not found" />;
 
+  const flashSaleActiveByDefault = isSaleStillRelevant(
+    listing.salePercent,
+    listing.saleEndsAt,
+  );
+
   return (
     <div className="mx-auto max-w-3xl space-y-4 px-4 py-6 sm:px-6">
       <h1 className="text-2xl font-bold tracking-tight text-foreground">Edit listing</h1>
@@ -151,17 +176,18 @@ export function EditListingPage() {
           price: centsToDollarsInput(listing.price),
           type: listing.type,
           category: listing.category,
-          tags: listing.tags.join(", "),
+          tags: listing.tags,
           salePercent:
-            listing.salePercent !== undefined && listing.salePercent !== null
+            flashSaleActiveByDefault && listing.salePercent !== undefined && listing.salePercent !== null
               ? String(listing.salePercent)
               : "",
-          saleStartsAt: toDateTimeLocal(listing.saleStartsAt),
-          saleEndsAt: toDateTimeLocal(listing.saleEndsAt),
+          saleStartsAt: flashSaleActiveByDefault ? toDateTimeLocal(listing.saleStartsAt) : "",
+          saleEndsAt: flashSaleActiveByDefault ? toDateTimeLocal(listing.saleEndsAt) : "",
         }}
         submitLabel="Save changes"
         loading={saving}
         error={err}
+        flashSalePolicy={flashSalePolicy}
         onSubmit={submit}
       />
     </div>

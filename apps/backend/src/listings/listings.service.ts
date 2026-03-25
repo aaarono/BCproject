@@ -15,6 +15,9 @@ export class ListingsService {
   constructor(private readonly prisma: PrismaService) {}
 
   private static readonly HISTORY_WINDOW_DAYS = 30;
+  private static readonly DISCOUNT_MIN_PERCENT = 5;
+  private static readonly DISCOUNT_MAX_PERCENT = 70;
+  private static readonly BASE_PRICE_TOLERANCE_PERCENT = 0.03;
 
   private normalizeTags(tags?: string[] | null) {
     if (!tags) return [];
@@ -27,10 +30,115 @@ export class ListingsService {
     return [...new Set(normalized)];
   }
 
-  private getHistoryWindowStart() {
+  private getHistoryWindowStart(days = ListingsService.HISTORY_WINDOW_DAYS) {
     const date = new Date();
-    date.setDate(date.getDate() - ListingsService.HISTORY_WINDOW_DAYS);
+    date.setDate(date.getDate() - days);
     return date;
+  }
+
+  private buildDiscountPolicy(minBasePrice30d: number) {
+    const tolerance = ListingsService.BASE_PRICE_TOLERANCE_PERCENT;
+    const allowedMinBasePrice = Math.max(
+      1,
+      Math.floor(minBasePrice30d * (1 - tolerance)),
+    );
+    const allowedMaxBasePrice = Math.max(
+      allowedMinBasePrice,
+      Math.ceil(minBasePrice30d * (1 + tolerance)),
+    );
+
+    return {
+      minBasePrice30d,
+      allowedMinBasePrice,
+      allowedMaxBasePrice,
+      discountPercentMin: ListingsService.DISCOUNT_MIN_PERCENT,
+      discountPercentMax: ListingsService.DISCOUNT_MAX_PERCENT,
+      tolerancePercent: Math.round(tolerance * 100),
+    };
+  }
+
+  private async getMinBasePrice30d(
+    listingId: string,
+    currentBasePrice: number,
+    client: PrismaService | Prisma.TransactionClient = this.prisma,
+  ) {
+    const rows = await client.listingPriceHistory.findMany({
+      where: {
+        listingId,
+        isSale: false,
+        createdAt: { gte: this.getHistoryWindowStart() },
+      },
+      select: { price: true },
+    });
+
+    const prices = rows.map((row) => row.price);
+    prices.push(currentBasePrice);
+
+    return Math.min(...prices);
+  }
+
+  private async assertSaleEligibility(params: {
+    listingId: string;
+    basePrice: number;
+    salePercent: number | null;
+    client?: PrismaService | Prisma.TransactionClient;
+  }) {
+    const client = params.client ?? this.prisma;
+
+    if (!params.salePercent) return;
+
+    const minBasePrice30d = await this.getMinBasePrice30d(
+      params.listingId,
+      params.basePrice,
+      client,
+    );
+
+    const policy = this.buildDiscountPolicy(minBasePrice30d);
+
+    if (
+      params.basePrice < policy.allowedMinBasePrice ||
+      params.basePrice > policy.allowedMaxBasePrice
+    ) {
+      throw new BadRequestException(
+        `Listing does not meet flash-sale requirements. Allowed base price range: ${policy.allowedMinBasePrice}-${policy.allowedMaxBasePrice} cents (30d min base: ${policy.minBasePrice30d} cents, tolerance ±${policy.tolerancePercent}%).`,
+      );
+    }
+  }
+
+  private async getAllTimeMinPriceStats(
+    listingId: string,
+    currentSaleSnapshot?: {
+      price: number;
+      createdAt: Date;
+      salePercent: number;
+    } | null,
+  ) {
+    const [minPriceOnSales, minPriceNoSales] = await Promise.all([
+      this.prisma.listingPriceHistory.findFirst({
+        where: { listingId, isSale: true },
+        orderBy: [{ price: 'asc' }, { createdAt: 'asc' }],
+        select: { price: true, createdAt: true, salePercent: true },
+      }),
+      this.prisma.listingPriceHistory.findFirst({
+        where: { listingId, isSale: false },
+        orderBy: [{ price: 'asc' }, { createdAt: 'asc' }],
+        select: { price: true, createdAt: true },
+      }),
+    ]);
+
+    const resolvedMinPriceOnSales = (() => {
+      if (!currentSaleSnapshot) return minPriceOnSales;
+      if (!minPriceOnSales) return currentSaleSnapshot;
+      if (currentSaleSnapshot.price < minPriceOnSales.price) {
+        return currentSaleSnapshot;
+      }
+      return minPriceOnSales;
+    })();
+
+    return {
+      minPriceOnSales: resolvedMinPriceOnSales,
+      minPriceNoSales,
+    };
   }
 
   private normalizeSaleInput(params: {
@@ -56,6 +164,15 @@ export class ListingsService {
     if (!salePercent || !saleStartsAt || !saleEndsAt) {
       throw new BadRequestException(
         'salePercent, saleStartsAt and saleEndsAt must be provided together',
+      );
+    }
+
+    if (
+      salePercent < ListingsService.DISCOUNT_MIN_PERCENT ||
+      salePercent > ListingsService.DISCOUNT_MAX_PERCENT
+    ) {
+      throw new BadRequestException(
+        `salePercent must be between ${ListingsService.DISCOUNT_MIN_PERCENT} and ${ListingsService.DISCOUNT_MAX_PERCENT}`,
       );
     }
 
@@ -129,6 +246,7 @@ export class ListingsService {
     const history = await this.prisma.listingPriceHistory.findMany({
       where: {
         listingId: { in: listings.map((listing) => listing.id) },
+        isSale: false,
         createdAt: { gte: historyWindowStart },
       },
       select: {
@@ -291,24 +409,83 @@ export class ListingsService {
     return listing;
   }
 
-  async getPriceHistory(id: string) {
+  async getPriceHistory(id: string, period: '30d' | 'all' = '30d') {
     const listing = await this.prisma.listing.findUnique({
       where: { id },
-      select: { id: true },
+      select: {
+        id: true,
+        price: true,
+        salePercent: true,
+        saleStartsAt: true,
+        saleEndsAt: true,
+      },
     });
 
     if (!listing) throw new NotFoundException('Listing not found');
 
+    const minBasePrice30d = await this.getMinBasePrice30d(id, listing.price);
+    const discountPolicy = this.buildDiscountPolicy(minBasePrice30d);
+    const now = new Date();
+    const isSaleActive =
+      !!listing.salePercent &&
+      !!listing.saleStartsAt &&
+      !!listing.saleEndsAt &&
+      listing.saleStartsAt <= now &&
+      listing.saleEndsAt >= now;
+
+    const currentSaleSnapshot =
+      isSaleActive && listing.salePercent
+        ? {
+            price: this.discountedPrice(listing.price, listing.salePercent),
+            createdAt: listing.saleStartsAt ?? now,
+            salePercent: listing.salePercent,
+          }
+        : null;
+
+    const allTimeStats = await this.getAllTimeMinPriceStats(
+      id,
+      currentSaleSnapshot,
+    );
+
+    const where: Prisma.ListingPriceHistoryWhereInput = {
+      listingId: id,
+    };
+
+    if (period === '30d') {
+      where.createdAt = { gte: this.getHistoryWindowStart() };
+    }
+
     const points = await this.prisma.listingPriceHistory.findMany({
-      where: {
-        listingId: id,
-        createdAt: { gte: this.getHistoryWindowStart() },
-      },
+      where,
       orderBy: { createdAt: 'asc' },
-      select: { price: true, createdAt: true },
+      select: {
+        price: true,
+        createdAt: true,
+        isSale: true,
+        salePercent: true,
+      },
     });
 
-    return { points };
+    return {
+      period,
+      points,
+      stats: {
+        ...allTimeStats,
+        discountPolicy,
+      },
+    };
+  }
+
+  async getDiscountPolicy(id: string) {
+    const listing = await this.prisma.listing.findUnique({
+      where: { id },
+      select: { id: true, price: true },
+    });
+
+    if (!listing) throw new NotFoundException('Listing not found');
+
+    const minBasePrice30d = await this.getMinBasePrice30d(id, listing.price);
+    return this.buildDiscountPolicy(minBasePrice30d);
   }
 
   async create(sellerId: string, dto: CreateListingDto) {
@@ -316,11 +493,16 @@ export class ListingsService {
       throw new BadRequestException('stockQuantity is required for goods');
     }
 
-    const saleData = this.normalizeSaleInput({
-      salePercent: dto.salePercent,
-      saleStartsAt: dto.saleStartsAt,
-      saleEndsAt: dto.saleEndsAt,
-    });
+    const hasAnySaleInput =
+      dto.salePercent !== undefined ||
+      dto.saleStartsAt !== undefined ||
+      dto.saleEndsAt !== undefined;
+
+    if (hasAnySaleInput) {
+      throw new BadRequestException(
+        'Flash sale can only be configured when editing an existing listing',
+      );
+    }
 
     return this.prisma.$transaction(async (tx) => {
       const listing = await tx.listing.create({
@@ -335,9 +517,9 @@ export class ListingsService {
           category: dto.category,
           tags: this.normalizeTags(dto.tags),
           status: 'ACTIVE',
-          salePercent: saleData.salePercent,
-          saleStartsAt: saleData.saleStartsAt,
-          saleEndsAt: saleData.saleEndsAt,
+          salePercent: null,
+          saleStartsAt: null,
+          saleEndsAt: null,
         },
       });
 
@@ -345,6 +527,8 @@ export class ListingsService {
         data: {
           listingId: listing.id,
           price: listing.price,
+          isSale: false,
+          salePercent: null,
         },
       });
 
@@ -373,10 +557,26 @@ export class ListingsService {
       });
 
       const nextType = (dto.type ?? listing.type) as ListingType;
+      const nextBasePrice = dto.price ?? listing.price;
       const resolvedStockQuantity =
         nextType === 'GOOD'
           ? dto.stockQuantity ?? listing.stockQuantity
           : null;
+
+      const touchesSaleOrPrice =
+        dto.salePercent !== undefined ||
+        dto.saleStartsAt !== undefined ||
+        dto.saleEndsAt !== undefined ||
+        dto.price !== undefined;
+
+      if (touchesSaleOrPrice && saleData.salePercent) {
+        await this.assertSaleEligibility({
+          listingId,
+          basePrice: nextBasePrice,
+          salePercent: saleData.salePercent,
+          client: tx,
+        });
+      }
 
       if (nextType === 'GOOD' && resolvedStockQuantity === null) {
         throw new BadRequestException('stockQuantity is required for goods');
@@ -432,6 +632,24 @@ export class ListingsService {
           data: {
             listingId: listing.id,
             price: dto.price,
+            isSale: false,
+            salePercent: null,
+          },
+        });
+      }
+
+      const saleChanged =
+        dto.salePercent !== undefined ||
+        dto.saleStartsAt !== undefined ||
+        dto.saleEndsAt !== undefined;
+
+      if (saleChanged && saleData.salePercent) {
+        await tx.listingPriceHistory.create({
+          data: {
+            listingId: listing.id,
+            price: this.discountedPrice(nextBasePrice, saleData.salePercent),
+            isSale: true,
+            salePercent: saleData.salePercent,
           },
         });
       }

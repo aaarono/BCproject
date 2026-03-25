@@ -50,6 +50,9 @@ type Conversation = {
     id: string;
     title: string;
     price: number;
+    salePercent?: number | null;
+    saleStartsAt?: string | null;
+    saleEndsAt?: string | null;
     type: "GOOD" | "SERVICE";
   };
   buyer: {
@@ -68,10 +71,34 @@ type ActiveDeal = {
   id: string;
 };
 
+function getSaleState(listing: {
+  price: number;
+  salePercent?: number | null;
+  saleStartsAt?: string | null;
+  saleEndsAt?: string | null;
+}) {
+  if (!listing.salePercent || !listing.saleStartsAt || !listing.saleEndsAt) {
+    return { isOnSale: false, effectivePrice: listing.price };
+  }
+
+  const now = Date.now();
+  const startsAt = new Date(listing.saleStartsAt).getTime();
+  const endsAt = new Date(listing.saleEndsAt).getTime();
+
+  if (!Number.isFinite(startsAt) || !Number.isFinite(endsAt) || now < startsAt || now > endsAt) {
+    return { isOnSale: false, effectivePrice: listing.price };
+  }
+
+  const effectivePrice = Math.round((listing.price * (100 - listing.salePercent)) / 100);
+  return { isOnSale: effectivePrice < listing.price, effectivePrice };
+}
+
 export function ConversationView({
   conversation,
+  heightClassName,
 }: {
   conversation: Conversation;
+  heightClassName?: string;
 }) {
   const { user } = useAuth();
 
@@ -98,6 +125,7 @@ export function ConversationView({
     user?.id === conversation.buyer.id
       ? conversation.seller.id
       : conversation.buyer.id;
+  const { isOnSale, effectivePrice } = getSaleState(conversation.listing);
 
   function scrollToBottom() {
     const el = messagesContainerRef.current;
@@ -223,8 +251,10 @@ export function ConversationView({
     }
   }
 
+  const containerHeightClassName = heightClassName ?? "h-[720px]";
+
   return (
-    <Card className="flex h-[720px] flex-col overflow-hidden">
+    <Card className={`flex ${containerHeightClassName} flex-col overflow-hidden`}>
       <div className="border-b border-border bg-background p-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
@@ -250,13 +280,6 @@ export function ConversationView({
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" asChild>
-              <Link to={`/listings/${conversation.listing.id}`}>
-                <ExternalLink className="h-4 w-4" />
-                Listing
-              </Link>
-            </Button>
-
             {activeDeal && (
               <Button variant="ghost" size="sm" asChild>
                 <Link to={`/deals/${activeDeal.id}`}>
@@ -278,7 +301,16 @@ export function ConversationView({
             Related listing
           </Badge>
           <span className="line-clamp-1 font-medium text-foreground">{conversation.listing.title}</span>
-          <span className="ml-auto shrink-0 text-muted-foreground">{formatUsdFromCents(conversation.listing.price)}</span>
+          <span className="ml-auto shrink-0 text-right">
+            {isOnSale ? (
+              <span className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground line-through">{formatUsdFromCents(conversation.listing.price)}</span>
+                <span className="font-medium text-primary">{formatUsdFromCents(effectivePrice)}</span>
+              </span>
+            ) : (
+              <span className="text-muted-foreground">{formatUsdFromCents(conversation.listing.price)}</span>
+            )}
+          </span>
         </Link>
       </div>
 

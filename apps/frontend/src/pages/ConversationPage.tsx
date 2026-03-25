@@ -15,6 +15,9 @@ type Conversation = {
     id: string;
     title: string;
     price: number;
+    salePercent?: number | null;
+    saleStartsAt?: string | null;
+    saleEndsAt?: string | null;
     type: "GOOD" | "SERVICE";
   };
   buyer: { id: string; displayName: string; avatarUrl?: string | null };

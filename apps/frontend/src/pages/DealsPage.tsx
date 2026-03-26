@@ -20,7 +20,17 @@ type Deal = {
   quantity: number;
   unitPriceSnapshot: number;
   totalAmountSnapshot: number;
-  listing: { id: string; title: string; price: number; type: string; status: string; imageUrl?: string | null };
+  listing: {
+    id: string;
+    title: string;
+    price: number;
+    type: string;
+    status: string;
+    imageUrl?: string | null;
+    salePercent?: number | null;
+    saleStartsAt?: string | null;
+    saleEndsAt?: string | null;
+  };
   buyer: { id: string; displayName: string };
   seller: { id: string; displayName: string };
 };
@@ -105,6 +115,22 @@ export function DealsPage() {
 
   const formatAmount = (value: number) => formatUsdFromCents(value);
 
+  function getCurrentSalePrice(deal: Deal) {
+    if (!deal.listing.salePercent || !deal.listing.saleStartsAt || !deal.listing.saleEndsAt) {
+      return null;
+    }
+
+    const now = Date.now();
+    const startsAt = new Date(deal.listing.saleStartsAt).getTime();
+    const endsAt = new Date(deal.listing.saleEndsAt).getTime();
+
+    if (!Number.isFinite(startsAt) || !Number.isFinite(endsAt) || now < startsAt || now > endsAt) {
+      return null;
+    }
+
+    return Math.round((deal.listing.price * (100 - deal.listing.salePercent)) / 100);
+  }
+
   return (
     <div className="mx-auto max-w-5xl space-y-4 px-4 py-6 sm:px-6">
       <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-3 sm:flex-row sm:items-center sm:justify-between">
@@ -168,6 +194,13 @@ export function DealsPage() {
         {visibleDeals.map((d) => {
           const iam = user?.id === d.seller.id ? "Seller" : user?.id === d.buyer.id ? "Buyer" : null;
           const counterparty = iam === "Seller" ? d.buyer.displayName : d.seller.displayName;
+          const salePrice = getCurrentSalePrice(d);
+          const effectiveUnitPrice = salePrice ?? d.unitPriceSnapshot;
+          const hasDiscount = d.listing.price > effectiveUnitPrice;
+          const originalUnitPriceLabel = formatAmount(d.listing.price);
+          const currentUnitPriceLabel = formatAmount(effectiveUnitPrice);
+          const originalTotalAmountLabel = formatAmount(d.listing.price * d.quantity);
+          const currentTotalAmountLabel = formatAmount(effectiveUnitPrice * d.quantity);
 
           return (
             <Link key={d.id} to={`/deals/${d.id}`} className="block">
@@ -189,7 +222,10 @@ export function DealsPage() {
                         <div className="min-w-0">
                           <div className="line-clamp-1 font-semibold text-foreground">{d.listing.title}</div>
                           <div className="mt-1 text-sm text-muted-foreground">
-                            {d.listing.type} · {formatAmount(d.unitPriceSnapshot)} × {d.quantity}
+                            {d.listing.type} · {hasDiscount ? currentUnitPriceLabel : originalUnitPriceLabel} × {d.quantity}
+                            {hasDiscount && (
+                              <span className="ml-2 line-through opacity-70">{originalUnitPriceLabel}</span>
+                            )}
                           </div>
                         </div>
                         <div className="shrink-0">
@@ -228,7 +264,10 @@ export function DealsPage() {
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-muted-foreground">Updated {new Date(d.createdAt).toLocaleString()}</span>
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold text-foreground">{formatAmount(d.totalAmountSnapshot)}</span>
+                          {hasDiscount && (
+                            <span className="text-muted-foreground line-through">{originalTotalAmountLabel}</span>
+                          )}
+                          <span className="font-semibold text-foreground">{currentTotalAmountLabel}</span>
                           <ArrowRight className="h-4 w-4 text-muted-foreground transition group-hover:text-foreground" />
                         </div>
                       </div>

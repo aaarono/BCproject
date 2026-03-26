@@ -46,6 +46,9 @@ type Deal = {
     title: string;
     price: number;
     imageUrl?: string | null;
+    salePercent?: number | null;
+    saleStartsAt?: string | null;
+    saleEndsAt?: string | null;
     type: "GOOD" | "SERVICE";
     status: string;
   };
@@ -187,7 +190,21 @@ export function DealRoomPage() {
                   ? "Deal auto-canceled by timeout"
                   : "Deal canceled";
 
-  const unitLabel = formatUsdFromCents(deal.unitPriceSnapshot);
+  const saleStartsAt = deal.listing.saleStartsAt ? new Date(deal.listing.saleStartsAt).getTime() : Number.NaN;
+  const saleEndsAt = deal.listing.saleEndsAt ? new Date(deal.listing.saleEndsAt).getTime() : Number.NaN;
+  const hasActiveSale =
+    !!deal.listing.salePercent &&
+    Number.isFinite(saleStartsAt) &&
+    Number.isFinite(saleEndsAt) &&
+    Date.now() >= saleStartsAt &&
+    Date.now() <= saleEndsAt;
+  const activeSalePrice = hasActiveSale
+    ? Math.round((deal.listing.price * (100 - (deal.listing.salePercent ?? 0))) / 100)
+    : null;
+  const displayedUnitPrice = activeSalePrice ?? deal.unitPriceSnapshot;
+  const unitLabel = formatUsdFromCents(displayedUnitPrice);
+  const originalUnitLabel = formatUsdFromCents(deal.listing.price);
+  const hasUnitDiscount = deal.listing.price > displayedUnitPrice;
   const expirationLabel = formatExpiration(deal.expiresAt);
   const flowSteps: Array<Deal["status"]> = ["INITIATED", "FUNDED", "DELIVERED", "COMPLETED"];
   const stepIndexMap: Record<Deal["status"], number> = {
@@ -231,6 +248,9 @@ export function DealRoomPage() {
                 <div className="line-clamp-1 text-base font-semibold text-foreground">{deal.listing.title ?? "Listing"}</div>
                 <div className="mt-1 text-sm text-muted-foreground">
                   {deal.listing.type} · {unitLabel} × {deal.quantity}
+                  {hasUnitDiscount && (
+                    <span className="ml-2 line-through opacity-70">{originalUnitLabel}</span>
+                  )}
                 </div>
               </div>
 
@@ -331,8 +351,12 @@ export function DealRoomPage() {
                 listing: {
                   id: deal.listing.id,
                   title: deal.listing.title,
-                  price: deal.unitPriceSnapshot,
+                  price: displayedUnitPrice,
+                  originalPrice: deal.listing.price,
                   imageUrl: deal.listing.imageUrl,
+                  salePercent: deal.listing.salePercent,
+                  saleStartsAt: deal.listing.saleStartsAt,
+                  saleEndsAt: deal.listing.saleEndsAt,
                   type: deal.listing.type,
                 },
                 buyer: deal.buyer,

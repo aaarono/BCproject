@@ -8,7 +8,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { ChevronLeft, ChevronRight, ExternalLink, Flag, Paperclip, Send, X } from "lucide-react";
+import { createPortal } from "react-dom";
+import { ChevronLeft, ChevronRight, Flag, Paperclip, Send, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { http } from "../../api/http";
 import { useAuth } from "../../auth/AuthContext";
@@ -62,6 +63,7 @@ type Conversation = {
     id: string;
     title: string;
     price: number;
+    originalPrice?: number;
     imageUrl?: string | null;
     salePercent?: number | null;
     saleStartsAt?: string | null;
@@ -78,10 +80,6 @@ type Conversation = {
     displayName: string;
     avatarUrl?: string | null;
   };
-};
-
-type ActiveDeal = {
-  id: string;
 };
 
 type MediaItem = {
@@ -189,7 +187,6 @@ export function ConversationView({
   const [olderCursor, setOlderCursor] = useState<OlderMessagesCursor | null>(null);
   const [hasOlderMessages, setHasOlderMessages] = useState(false);
   const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
-  const [activeDeal, setActiveDeal] = useState<ActiveDeal | null>(null);
   const [isOtherUserOnline, setIsOtherUserOnline] = useState(false);
 
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
@@ -212,6 +209,19 @@ export function ConversationView({
       ? conversation.seller.id
       : conversation.buyer.id;
   const { isOnSale, effectivePrice } = getSaleState(conversation.listing);
+  const hasSnapshotDiscount =
+    typeof conversation.listing.originalPrice === "number" &&
+    conversation.listing.originalPrice > conversation.listing.price;
+  const displayedCurrentPrice = hasSnapshotDiscount
+    ? conversation.listing.price
+    : isOnSale
+      ? effectivePrice
+      : conversation.listing.price;
+  const displayedOriginalPrice = hasSnapshotDiscount
+    ? conversation.listing.originalPrice
+    : isOnSale
+      ? conversation.listing.price
+      : null;
 
   function scrollToBottom() {
     const el = messagesContainerRef.current;
@@ -297,22 +307,11 @@ export function ConversationView({
     }
   }
 
-  async function loadActiveDeal() {
-    try {
-      const res = await http.get<ActiveDeal>(
-        `/deals/active/by-listing/${conversation.listingId}/by-buyer/${conversation.buyerId}`,
-      );
-      setActiveDeal(res.data);
-    } catch {
-      setActiveDeal(null);
-    }
-  }
-
   async function bootstrap() {
     setErr(null);
     setLoading(true);
     try {
-      await Promise.all([loadMessages(), loadActiveDeal()]);
+      await loadMessages();
     } catch (error: unknown) {
       setErr(extractErrorMessage(error, "Failed to load conversation"));
     } finally {
@@ -662,6 +661,66 @@ export function ConversationView({
   }
 
   const containerHeightClassName = heightClassName ?? "h-[720px]";
+  const galleryOverlay =
+    galleryIndex !== null && galleryItems[galleryIndex] ? (
+      <div
+        className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 p-6"
+        onClick={() => setGalleryIndex(null)}
+      >
+        <button
+          type="button"
+          className="absolute right-5 top-5 rounded-full bg-black/55 p-2 text-white transition hover:bg-black/75"
+          onClick={(event) => {
+            event.stopPropagation();
+            setGalleryIndex(null);
+          }}
+        >
+          <X className="h-5 w-5" />
+        </button>
+
+        {galleryItems.length > 1 && (
+          <>
+            <button
+              type="button"
+              className="absolute left-4 rounded-full bg-black/50 p-2 text-white transition hover:bg-black/75"
+              onClick={(event) => {
+                event.stopPropagation();
+                showPreviousMedia();
+              }}
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              className="absolute right-4 rounded-full bg-black/50 p-2 text-white transition hover:bg-black/75"
+              onClick={(event) => {
+                event.stopPropagation();
+                showNextMedia();
+              }}
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </>
+        )}
+
+        <div className="max-h-full max-w-full" onClick={(event) => event.stopPropagation()}>
+          {galleryItems[galleryIndex].mediaType === "IMAGE" ? (
+            <img
+              src={galleryItems[galleryIndex].mediaUrl}
+              alt="Chat media"
+              className="max-h-[85vh] max-w-[85vw] rounded-lg object-contain"
+            />
+          ) : (
+            <video
+              src={galleryItems[galleryIndex].mediaUrl}
+              controls
+              autoPlay
+              className="max-h-[85vh] max-w-[85vw] rounded-lg"
+            />
+          )}
+        </div>
+      </div>
+    ) : null;
 
   return (
     <Card
@@ -678,65 +737,7 @@ export function ConversationView({
         </div>
       )}
 
-      {galleryIndex !== null && galleryItems[galleryIndex] && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-6"
-          onClick={() => setGalleryIndex(null)}
-        >
-          <button
-            type="button"
-            className="absolute right-5 top-5 rounded-full bg-background/80 p-2 text-foreground"
-            onClick={(event) => {
-              event.stopPropagation();
-              setGalleryIndex(null);
-            }}
-          >
-            <X className="h-5 w-5" />
-          </button>
-
-          {galleryItems.length > 1 && (
-            <>
-              <button
-                type="button"
-                className="absolute left-4 rounded-full bg-background/70 p-2 text-foreground"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  showPreviousMedia();
-                }}
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </button>
-              <button
-                type="button"
-                className="absolute right-4 rounded-full bg-background/70 p-2 text-foreground"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  showNextMedia();
-                }}
-              >
-                <ChevronRight className="h-5 w-5" />
-              </button>
-            </>
-          )}
-
-          <div className="max-h-full max-w-full" onClick={(event) => event.stopPropagation()}>
-            {galleryItems[galleryIndex].mediaType === "IMAGE" ? (
-              <img
-                src={galleryItems[galleryIndex].mediaUrl}
-                alt="Chat media"
-                className="max-h-[85vh] max-w-[85vw] rounded-lg object-contain"
-              />
-            ) : (
-              <video
-                src={galleryItems[galleryIndex].mediaUrl}
-                controls
-                autoPlay
-                className="max-h-[85vh] max-w-[85vw] rounded-lg"
-              />
-            )}
-          </div>
-        </div>
-      )}
+      {galleryOverlay && createPortal(galleryOverlay, document.body)}
 
       <div className="border-b border-border bg-background p-4">
         <div className="flex items-center justify-between gap-3">
@@ -764,21 +765,10 @@ export function ConversationView({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm">
-              <Flag className="h-4 w-4" />
-              Report
-            </Button>
-
-            {activeDeal && (
-              <Button variant="ghost" size="sm" asChild>
-                <Link to={`/deals/${activeDeal.id}`}>
-                  <ExternalLink className="h-4 w-4" />
-                  Deal
-                </Link>
-              </Button>
-            )}
-          </div>
+          <Button variant="outline" size="sm">
+            <Flag className="h-4 w-4" />
+            Report
+          </Button>
         </div>
       </div>
 
@@ -801,13 +791,13 @@ export function ConversationView({
           </Badge>
           <span className="line-clamp-1 font-medium text-foreground">{conversation.listing.title}</span>
           <span className="ml-auto shrink-0 text-right">
-            {isOnSale ? (
+            {displayedOriginalPrice ? (
               <span className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground line-through">{formatUsdFromCents(conversation.listing.price)}</span>
-                <span className="font-medium text-primary">{formatUsdFromCents(effectivePrice)}</span>
+                <span className="text-xs text-muted-foreground line-through">{formatUsdFromCents(displayedOriginalPrice)}</span>
+                <span className="font-medium text-primary">{formatUsdFromCents(displayedCurrentPrice)}</span>
               </span>
             ) : (
-              <span className="text-muted-foreground">{formatUsdFromCents(conversation.listing.price)}</span>
+              <span className="text-muted-foreground">{formatUsdFromCents(displayedCurrentPrice)}</span>
             )}
           </span>
         </Link>

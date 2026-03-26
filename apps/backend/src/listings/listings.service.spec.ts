@@ -155,6 +155,7 @@ describe('ListingsService', () => {
         category: 'GAMES' as any,
         tags: ['eu', 'rent'],
         type: 'GOOD' as any,
+        stockQuantity: 3,
       };
       prisma.listing.create.mockResolvedValue({
         id: 'l2',
@@ -174,6 +175,7 @@ describe('ListingsService', () => {
           title: 'New',
           description: 'Desc',
           price: 1000,
+          stockQuantity: 3,
           type: 'GOOD',
           category: 'GAMES',
           tags: ['eu', 'rent'],

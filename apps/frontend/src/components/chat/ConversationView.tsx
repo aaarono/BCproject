@@ -7,6 +7,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useCallback,
 } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, Flag, Paperclip, Send, X } from "lucide-react";
@@ -252,7 +253,7 @@ export function ConversationView({
     window.dispatchEvent(new Event("inbox:read"));
   }
 
-  async function loadOlderMessages() {
+  const loadOlderMessages = useCallback(async () => {
     if (!olderCursor || loadingOlderMessages) {
       return;
     }
@@ -305,7 +306,7 @@ export function ConversationView({
     } finally {
       setLoadingOlderMessages(false);
     }
-  }
+  }, [conversation.id, loadingOlderMessages, olderCursor]);
 
   async function bootstrap() {
     setErr(null);
@@ -479,19 +480,19 @@ export function ConversationView({
     });
   }
 
-  function showPreviousMedia() {
+  const showPreviousMedia = useCallback(() => {
     setGalleryIndex((prev) => {
       if (prev === null || galleryItems.length === 0) return prev;
       return (prev - 1 + galleryItems.length) % galleryItems.length;
     });
-  }
+  }, [galleryItems.length]);
 
-  function showNextMedia() {
+  const showNextMedia = useCallback(() => {
     setGalleryIndex((prev) => {
       if (prev === null || galleryItems.length === 0) return prev;
       return (prev + 1) % galleryItems.length;
     });
-  }
+  }, [galleryItems.length]);
 
   useEffect(() => {
     if (galleryIndex === null) return;
@@ -515,7 +516,7 @@ export function ConversationView({
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [galleryIndex, galleryItems.length]);
+  }, [galleryIndex, showNextMedia, showPreviousMedia]);
 
   useEffect(() => {
     const container = messagesContainerRef.current;
@@ -535,7 +536,7 @@ export function ConversationView({
 
     container.addEventListener("scroll", onScroll);
     return () => container.removeEventListener("scroll", onScroll);
-  }, [hasOlderMessages, loadingOlderMessages, olderCursor]);
+  }, [hasOlderMessages, loadOlderMessages, loadingOlderMessages, olderCursor]);
 
   async function send() {
     const trimmed = text.trim();

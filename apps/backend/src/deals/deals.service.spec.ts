@@ -42,7 +42,7 @@ describe('DealsService', () => {
         create: jest.fn(),
         update: jest.fn(),
       },
-      listing: { findUnique: jest.fn() },
+      listing: { findUnique: jest.fn(), update: jest.fn() },
       listingPriceHistory: { findMany: jest.fn() },
       wallet: { findUnique: jest.fn() },
     };
@@ -184,6 +184,8 @@ describe('DealsService', () => {
     it('should complete deal and release escrow', async () => {
       const deal = {
         id: 'deal1',
+        listingId: 'l1',
+        quantity: 1,
         buyerId: 'buyer1',
         sellerId: 'seller1',
         status: 'DELIVERED',
@@ -193,6 +195,12 @@ describe('DealsService', () => {
         .mockResolvedValueOnce(deal) // inside $transaction
         .mockResolvedValueOnce(fullDeal); // getFullDeal
       prisma.deal.update.mockResolvedValue({});
+      prisma.listing.findUnique.mockResolvedValue({
+        id: 'l1',
+        type: 'GOOD',
+        stockQuantity: 5,
+        status: 'ACTIVE',
+      });
 
       const result = await service.complete('deal1', 'buyer1');
 

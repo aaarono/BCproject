@@ -177,14 +177,17 @@ export function ListingsPage() {
   } = filtersState;
 
   function setSearch(value: string) {
+    setListingsLoading(true);
     dispatchFilters({ type: "setSearch", value });
   }
 
   function setType(value: ListingTypeFilter) {
+    setListingsLoading(true);
     dispatchFilters({ type: "setType", value });
   }
 
   function setCategory(value: ListingCategoryFilter) {
+    setListingsLoading(true);
     dispatchFilters({ type: "setCategory", value });
   }
 
@@ -193,10 +196,12 @@ export function ListingsPage() {
   }
 
   function setMinPrice(value: string) {
+    setListingsLoading(true);
     dispatchFilters({ type: "setMinPrice", value });
   }
 
   function setMaxPrice(value: string) {
+    setListingsLoading(true);
     dispatchFilters({ type: "setMaxPrice", value });
   }
 
@@ -209,18 +214,22 @@ export function ListingsPage() {
   }
 
   function setMinRating(value: string) {
+    setListingsLoading(true);
     dispatchFilters({ type: "setMinRating", value });
   }
 
   function setSort(value: ListingSortFilter) {
+    setListingsLoading(true);
     dispatchFilters({ type: "setSort", value });
   }
 
   function setOnlyOnlineSellers(value: boolean) {
+    setListingsLoading(true);
     dispatchFilters({ type: "setOnlyOnlineSellers", value });
   }
 
   function setPage(value: number | ((currentPage: number) => number)) {
+    setListingsLoading(true);
     const nextValue =
       typeof value === "function" ? value(filtersState.page) : value;
     dispatchFilters({ type: "setPage", value: nextValue });
@@ -244,6 +253,7 @@ export function ListingsPage() {
   function addTag(rawTag: string) {
     const normalized = rawTag.trim().toLowerCase().replace(/\s+/g, "-");
     if (!normalized || selectedTags.includes(normalized)) return;
+    setListingsLoading(true);
     dispatchFilters({
       type: "setSelectedTags",
       value: [...selectedTags, normalized].slice(0, 8),
@@ -251,6 +261,7 @@ export function ListingsPage() {
   }
 
   function removeTag(tag: string) {
+    setListingsLoading(true);
     dispatchFilters({
       type: "setSelectedTags",
       value: selectedTags.filter((item) => item !== tag),
@@ -258,6 +269,7 @@ export function ListingsPage() {
   }
 
   function resetFilters() {
+    setListingsLoading(true);
     dispatchFilters({ type: "resetFilters" });
   }
 
@@ -268,7 +280,7 @@ export function ListingsPage() {
   }
 
   useEffect(() => {
-    setDraftPriceRange([appliedMin, appliedMax]);
+    dispatchFilters({ type: "setDraftPriceRange", value: [appliedMin, appliedMax] });
   }, [appliedMin, appliedMax]);
 
   useEffect(() => {
@@ -300,8 +312,6 @@ export function ListingsPage() {
     if (debouncedFilters.maxPrice) params.maxPrice = dollarsToCents(Number(debouncedFilters.maxPrice));
     if (debouncedFilters.minRating) params.minRating = Number(debouncedFilters.minRating);
     if (debouncedFilters.tagsKey) params.tags = debouncedFilters.tagsKey;
-
-    setListingsLoading(true);
 
     http
       .get<{ data: Listing[]; meta: Meta }>("/listings", { params })
@@ -886,7 +896,13 @@ export function ListingsPage() {
             <Card>
               <CardContent className="space-y-3 text-center">
                 <div className="text-sm text-destructive">{listingsErr}</div>
-                <Button variant="outline" onClick={() => setReloadNonce((prev) => prev + 1)}>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setListingsLoading(true);
+                    setReloadNonce((prev) => prev + 1);
+                  }}
+                >
                   Retry
                 </Button>
               </CardContent>

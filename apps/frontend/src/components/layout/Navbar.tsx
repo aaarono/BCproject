@@ -1,5 +1,5 @@
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../../auth/AuthContext";
 import {
   Menu,
@@ -61,96 +61,59 @@ export function Navbar() {
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [inboxCount, setInboxCount] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
-  const refreshTimeoutRef = useRef<number | null>(null);
-  const refreshInFlightRef = useRef(false);
-  const refreshQueuedRef = useRef(false);
 
-  const refreshHeaderStats = useCallback(async () => {
-    if (!user) {
-      setWalletBalance(null);
-      setInboxCount(0);
-      return;
-    }
+  const refreshWalletBalance = useCallback(async () => {
+    if (!user) return;
 
-    const [walletResult, conversationsResult] = await Promise.allSettled([
-      http.get<{ userId: string; balance: number }>("/wallet/me"),
-      http.get<Array<{ id: string; unreadCount?: number }>>("/conversations/me"),
-    ]);
-
-    if (walletResult.status === "fulfilled") {
-      setWalletBalance(walletResult.value.data.balance);
-    }
-
-    if (conversationsResult.status === "fulfilled") {
-      const unreadTotal = conversationsResult.value.data.reduce(
-        (sum, conversation) => sum + (conversation.unreadCount ?? 0),
-        0,
-      );
-      setInboxCount(unreadTotal);
-    }
+    const walletResult = await http.get<{ userId: string; balance: number }>("/wallet/me");
+    setWalletBalance(walletResult.data.balance);
   }, [user]);
 
-  const runScheduledRefresh = useCallback(async () => {
-    if (refreshInFlightRef.current) {
-      refreshQueuedRef.current = true;
-      return;
-    }
+  const refreshInboxCount = useCallback(async () => {
+    if (!user) return;
 
-    refreshInFlightRef.current = true;
-    try {
-      await refreshHeaderStats();
-    } finally {
-      refreshInFlightRef.current = false;
-      if (refreshQueuedRef.current) {
-        refreshQueuedRef.current = false;
-        window.setTimeout(() => {
-          runScheduledRefresh().catch(() => {});
-        }, 100);
-      }
-    }
-  }, [refreshHeaderStats]);
+    const conversationsResult = await http.get<Array<{ id: string; unreadCount?: number }>>("/conversations/me");
+    const unreadTotal = conversationsResult.data.reduce(
+      (sum, conversation) => sum + (conversation.unreadCount ?? 0),
+      0,
+    );
+    setInboxCount(unreadTotal);
+  }, [user]);
 
-  const scheduleHeaderStatsRefresh = useCallback(
-    (delayMs = 120) => {
-      if (refreshTimeoutRef.current !== null) {
-        window.clearTimeout(refreshTimeoutRef.current);
-      }
-
-      refreshTimeoutRef.current = window.setTimeout(() => {
-        refreshTimeoutRef.current = null;
-        runScheduledRefresh().catch(() => {});
-      }, delayMs);
-    },
-    [runScheduledRefresh],
-  );
+  const refreshHeaderStats = useCallback(async () => {
+    await Promise.allSettled([refreshWalletBalance(), refreshInboxCount()]);
+  }, [refreshInboxCount, refreshWalletBalance]);
 
   useEffect(() => {
-    scheduleHeaderStatsRefresh(0);
-  }, [scheduleHeaderStatsRefresh, user?.id]);
+    const timerId = window.setTimeout(() => {
+      void refreshHeaderStats();
+    }, 0);
 
-  useEffect(() => {
-    if (!user) {
-      setWalletBalance(null);
-      setInboxCount(0);
-      return;
-    }
-
-    const socket = getSocket();
-    const refreshStats = () => {
-      scheduleHeaderStatsRefresh();
-    };
-
-    socket.on("inbox:update", refreshStats);
-    socket.on("deal:update", refreshStats);
     return () => {
-      socket.off("inbox:update", refreshStats);
-      socket.off("deal:update", refreshStats);
+      window.clearTimeout(timerId);
     };
-  }, [scheduleHeaderStatsRefresh, user]);
+  }, [refreshHeaderStats, user?.id]);
+
+  useEffect(() => {
+    const socket = getSocket();
+    const refreshWallet = () => {
+      void refreshWalletBalance().catch(() => {});
+    };
+    const refreshInbox = () => {
+      void refreshInboxCount().catch(() => {});
+    };
+
+    socket.on("inbox:update", refreshInbox);
+    socket.on("deal:update", refreshWallet);
+    return () => {
+      socket.off("inbox:update", refreshInbox);
+      socket.off("deal:update", refreshWallet);
+    };
+  }, [refreshInboxCount, refreshWalletBalance, user]);
 
   useEffect(() => {
     const handleInboxRead = () => {
-      scheduleHeaderStatsRefresh();
+      void refreshInboxCount().catch(() => {});
     };
 
     window.addEventListener("inbox:read", handleInboxRead);
@@ -158,15 +121,7 @@ export function Navbar() {
     return () => {
       window.removeEventListener("inbox:read", handleInboxRead);
     };
-  }, [scheduleHeaderStatsRefresh]);
-
-  useEffect(() => {
-    return () => {
-      if (refreshTimeoutRef.current !== null) {
-        window.clearTimeout(refreshTimeoutRef.current);
-      }
-    };
-  }, []);
+  }, [refreshInboxCount]);
 
   const closeMobile = () => setMobileOpen(false);
 

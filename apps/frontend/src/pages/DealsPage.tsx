@@ -40,6 +40,7 @@ type DealSort = "newest" | "oldest" | "price_desc" | "price_asc";
 
 export function DealsPage() {
   const { user } = useAuth();
+  const userId = user?.id ?? null;
   const [deals, setDeals] = useState<Deal[]>([]);
   const [dealView, setDealView] = useState<DealView>("all");
   const [sortBy, setSortBy] = useState<DealSort>("newest");
@@ -80,14 +81,14 @@ export function DealsPage() {
 
   const visibleDeals = useMemo(() => {
     const filtered = deals.filter((deal) => {
-      if (!user?.id) return true;
+      if (!userId) return true;
       if (dealView === "all") {
-        return deal.buyer.id === user.id || deal.seller.id === user.id;
+        return deal.buyer.id === userId || deal.seller.id === userId;
       }
       if (dealView === "buy") {
-        return deal.buyer.id === user.id;
+        return deal.buyer.id === userId;
       }
-      return deal.seller.id === user.id;
+      return deal.seller.id === userId;
     });
 
     const sorted = [...filtered];
@@ -108,7 +109,7 @@ export function DealsPage() {
     });
 
     return sorted;
-  }, [deals, dealView, sortBy, user?.id]);
+  }, [deals, dealView, sortBy, userId]);
 
   if (loading) return <LoadingState width="max-w-5xl" />;
   if (err) return <ErrorState width="max-w-5xl" message={err} />;
@@ -116,15 +117,7 @@ export function DealsPage() {
   const formatAmount = (value: number) => formatUsdFromCents(value);
 
   function getCurrentSalePrice(deal: Deal) {
-    if (!deal.listing.salePercent || !deal.listing.saleStartsAt || !deal.listing.saleEndsAt) {
-      return null;
-    }
-
-    const now = Date.now();
-    const startsAt = new Date(deal.listing.saleStartsAt).getTime();
-    const endsAt = new Date(deal.listing.saleEndsAt).getTime();
-
-    if (!Number.isFinite(startsAt) || !Number.isFinite(endsAt) || now < startsAt || now > endsAt) {
+    if (!deal.listing.salePercent) {
       return null;
     }
 

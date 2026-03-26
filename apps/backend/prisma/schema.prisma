@@ -189,6 +189,7 @@ model WalletTransaction {
 
   @@index([walletId])
   @@index([dealId])
+  @@index([userId, createdAt])
 }
 
 model Conversation {
@@ -209,6 +210,8 @@ model Conversation {
   @@unique([listingId, buyerId])
   @@index([sellerId])
   @@index([buyerId])
+  @@index([buyerId, createdAt])
+  @@index([sellerId, createdAt])
   @@index([buyerId, buyerLastReadAt])
   @@index([sellerId, sellerLastReadAt])
 }
@@ -250,6 +253,9 @@ model Deal {
 
   @@index([buyerId])
   @@index([sellerId])
+  @@index([buyerId, createdAt])
+  @@index([sellerId, createdAt])
+  @@index([listingId, buyerId, status, createdAt])
   @@index([status, expiresAt])
 }
 

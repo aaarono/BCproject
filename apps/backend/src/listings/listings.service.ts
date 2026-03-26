@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { ListingType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { ChatGateway } from '../chat/chat.gateway';
 import { CreateListingDto } from './dto/create-listing.dto';
 import { UpdateListingDto } from './dto/update-listing.dto';
 import { ListingQueryDto, ListingSortDto } from './dto/listing-query.dto';
@@ -301,6 +302,11 @@ export class ListingsService {
 
     if (query.tags?.length) {
       where.tags = { hasSome: query.tags };
+    }
+
+    if (query.onlyOnlineSellers) {
+      const onlineSellerIds = ChatGateway.getOnlineUserIds();
+      where.sellerId = { in: onlineSellerIds };
     }
 
     if (query.minPrice !== undefined || query.maxPrice !== undefined) {

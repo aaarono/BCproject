@@ -139,12 +139,14 @@ export class DealsService {
             select: {
               id: true,
               displayName: true,
+              avatarUrl: true,
             },
           },
           seller: {
             select: {
               id: true,
               displayName: true,
+              avatarUrl: true,
             },
           },
         },
@@ -200,12 +202,14 @@ export class DealsService {
             select: {
               id: true,
               displayName: true,
+              avatarUrl: true,
             },
           },
           seller: {
             select: {
               id: true,
               displayName: true,
+              avatarUrl: true,
             },
           },
         },
@@ -434,8 +438,8 @@ export class DealsService {
             imageUrl: true,
           },
         },
-        buyer: { select: { id: true, displayName: true } },
-        seller: { select: { id: true, displayName: true } },
+        buyer: { select: { id: true, displayName: true, avatarUrl: true } },
+        seller: { select: { id: true, displayName: true, avatarUrl: true } },
       },
     });
   }
@@ -454,8 +458,8 @@ export class DealsService {
             imageUrl: true,
           },
         },
-        buyer: { select: { id: true, displayName: true } },
-        seller: { select: { id: true, displayName: true } },
+        buyer: { select: { id: true, displayName: true, avatarUrl: true } },
+        seller: { select: { id: true, displayName: true, avatarUrl: true } },
       },
     });
 
@@ -485,12 +489,14 @@ export class DealsService {
           select: {
             id: true,
             displayName: true,
+            avatarUrl: true,
           },
         },
         seller: {
           select: {
             id: true,
             displayName: true,
+            avatarUrl: true,
           },
         },
       },
@@ -531,8 +537,8 @@ export class DealsService {
             imageUrl: true,
           },
         },
-        buyer: { select: { id: true, displayName: true } },
-        seller: { select: { id: true, displayName: true } },
+        buyer: { select: { id: true, displayName: true, avatarUrl: true } },
+        seller: { select: { id: true, displayName: true, avatarUrl: true } },
       },
     });
 

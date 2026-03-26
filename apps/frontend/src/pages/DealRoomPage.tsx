@@ -6,7 +6,6 @@ import { getSocket } from "../api/socket";
 import { useAuth } from "../auth/AuthContext";
 import { ConversationView } from "../components/chat/ConversationView";
 import { ReviewSection } from "../components/review/ReviewSection";
-import { Badge } from "../components/ui/Badge";
 import { Card, CardContent, CardHeader } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { DealStatusBadge } from "../components/profile/DealStatusBadge";
@@ -46,11 +45,12 @@ type Deal = {
     id: string;
     title: string;
     price: number;
+    imageUrl?: string | null;
     type: "GOOD" | "SERVICE";
     status: string;
   };
-  buyer: { id: string; displayName: string };
-  seller: { id: string; displayName: string };
+  buyer: { id: string; displayName: string; avatarUrl?: string | null };
+  seller: { id: string; displayName: string; avatarUrl?: string | null };
   fundedAt?: string;
   deliveredAt?: string;
   completedAt?: string;
@@ -169,8 +169,6 @@ export function DealRoomPage() {
   const isBuyer = user?.id === deal.buyerId;
   const isSeller = user?.id === deal.sellerId;
   const conversationId = isSeller ? sellerConversationId : buyerConversationId;
-  const role = isBuyer ? "Buyer" : isSeller ? "Seller" : "Observer";
-  const counterpartyName = isBuyer ? deal.seller.displayName : deal.buyer.displayName;
 
   const statusDescription =
     deal.status === "INITIATED"
@@ -189,7 +187,6 @@ export function DealRoomPage() {
                   ? "Deal auto-canceled by timeout"
                   : "Deal canceled";
 
-  const amountLabel = formatUsdFromCents(deal.totalAmountSnapshot);
   const unitLabel = formatUsdFromCents(deal.unitPriceSnapshot);
   const expirationLabel = formatExpiration(deal.expiresAt);
   const flowSteps: Array<Deal["status"]> = ["INITIATED", "FUNDED", "DELIVERED", "COMPLETED"];
@@ -201,6 +198,11 @@ export function DealRoomPage() {
     CANCELED: 0,
   };
   const currentStepIndex = stepIndexMap[deal.status];
+  const canFundEscrow = isBuyer && deal.status === "INITIATED";
+  const canMarkDelivered = isSeller && deal.status === "FUNDED";
+  const canConfirmComplete = isBuyer && deal.status === "DELIVERED";
+  const canCancelDeal = (isSeller || isBuyer) && (deal.status === "INITIATED" || deal.status === "FUNDED");
+  const hasAvailableActions = canFundEscrow || canMarkDelivered || canConfirmComplete || canCancelDeal;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
@@ -218,13 +220,13 @@ export function DealRoomPage() {
             <CardHeader className="space-y-2">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-lg font-semibold text-foreground">Deal Status</div>
-                  <div className="mt-1 text-sm text-muted-foreground">Escrow-safe flow for this listing transaction.</div>
+                  <div className="text-lg font-semibold text-foreground">Deal</div>
+                  <div className="mt-1 text-sm text-muted-foreground">Escrow-protected transaction status and actions.</div>
                 </div>
                 <DealStatusBadge status={deal.status} />
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-5">
               <div>
                 <div className="line-clamp-1 text-base font-semibold text-foreground">{deal.listing.title ?? "Listing"}</div>
                 <div className="mt-1 text-sm text-muted-foreground">
@@ -262,6 +264,45 @@ export function DealRoomPage() {
                 </div>
               </div>
 
+              <div className="space-y-2 border-t border-border pt-4">
+                <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Actions</div>
+                <div className="flex flex-wrap gap-2">
+                  {canFundEscrow && (
+                    <Button disabled={busy} onClick={() => act(() => http.post(`/deals/${deal.id}/fund`))}>
+                      <CreditCard className="h-4 w-4" />
+                      {busy ? "Processing..." : "Fund escrow"}
+                    </Button>
+                  )}
+
+                  {canMarkDelivered && (
+                    <Button disabled={busy} onClick={() => act(() => http.post(`/deals/${deal.id}/delivered`))}>
+                      <Package className="h-4 w-4" />
+                      {busy ? "Processing..." : "Mark as delivered"}
+                    </Button>
+                  )}
+
+                  {canConfirmComplete && (
+                    <Button disabled={busy} onClick={() => act(() => http.post(`/deals/${deal.id}/complete`))}>
+                      <CheckCircle2 className="h-4 w-4" />
+                      {busy ? "Processing..." : "Confirm & complete"}
+                    </Button>
+                  )}
+
+                  {canCancelDeal && (
+                    <Button variant="outline" disabled={busy} onClick={() => act(() => http.post(`/deals/${deal.id}/cancel`))}>
+                      <XCircle className="h-4 w-4" />
+                      {busy ? "Processing..." : "Cancel deal"}
+                    </Button>
+                  )}
+                </div>
+
+                {!hasAvailableActions && (
+                  <div className="text-xs text-muted-foreground">No actions available for the current status.</div>
+                )}
+
+                {actionErr && <div className="text-sm text-destructive">{actionErr}</div>}
+              </div>
+
               {deal.status !== "COMPLETED" && deal.status !== "CANCELED" && (
                 <div className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
                   <ShieldCheck className="h-4 w-4" />
@@ -271,54 +312,16 @@ export function DealRoomPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="space-y-1">
-              <div className="font-semibold text-foreground">Actions</div>
-              <div className="text-xs text-muted-foreground">Available actions depend on your role and current deal status.</div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex flex-wrap gap-2">
-                {isBuyer && deal.status === "INITIATED" && (
-                  <Button disabled={busy} onClick={() => act(() => http.post(`/deals/${deal.id}/fund`))}>
-                    <CreditCard className="h-4 w-4" />
-                    {busy ? "Processing..." : "Fund escrow"}
-                  </Button>
-                )}
-
-                {isSeller && deal.status === "FUNDED" && (
-                  <Button disabled={busy} onClick={() => act(() => http.post(`/deals/${deal.id}/delivered`))}>
-                    <Package className="h-4 w-4" />
-                    {busy ? "Processing..." : "Mark as delivered"}
-                  </Button>
-                )}
-
-                {isBuyer && deal.status === "DELIVERED" && (
-                  <Button disabled={busy} onClick={() => act(() => http.post(`/deals/${deal.id}/complete`))}>
-                    <CheckCircle2 className="h-4 w-4" />
-                    {busy ? "Processing..." : "Confirm & complete"}
-                  </Button>
-                )}
-
-                {(isSeller || isBuyer) && (deal.status === "INITIATED" || deal.status === "FUNDED") && (
-                  <Button variant="outline" disabled={busy} onClick={() => act(() => http.post(`/deals/${deal.id}/cancel`))}>
-                    <XCircle className="h-4 w-4" />
-                    {busy ? "Processing..." : "Cancel deal"}
-                  </Button>
-                )}
-              </div>
-
-              <div className="mt-2 text-xs text-muted-foreground">{statusDescription}</div>
-
-              {actionErr && <div className="text-sm text-destructive">{actionErr}</div>}
-            </CardContent>
-          </Card>
 
           {isBuyer && deal.status === "COMPLETED" && (
             <ReviewSection dealId={deal.id} />
           )}
+        </div>
 
+        <div className="space-y-4 lg:col-span-1">
           {conversationId ? (
             <ConversationView
+              heightClassName="h-[calc(100vh-12rem)] min-h-[320px] max-h-[785px]"
               conversation={{
                 id: conversationId,
                 listingId: deal.listingId,
@@ -329,6 +332,7 @@ export function DealRoomPage() {
                   id: deal.listing.id,
                   title: deal.listing.title,
                   price: deal.unitPriceSnapshot,
+                  imageUrl: deal.listing.imageUrl,
                   type: deal.listing.type,
                 },
                 buyer: deal.buyer,
@@ -340,107 +344,6 @@ export function DealRoomPage() {
               <CardContent className="text-sm text-muted-foreground">Conversation not found yet.</CardContent>
             </Card>
           )}
-        </div>
-
-        <div className="space-y-4 lg:col-span-1">
-          <Card>
-            <CardHeader className="pb-2">
-              <div className="text-sm font-semibold text-foreground">Deal info</div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="line-clamp-2 text-sm font-medium text-foreground">{deal.listing.title}</div>
-              <Badge variant="outline" className="text-[10px]">
-                {deal.listing.type}
-              </Badge>
-              <div className="border-t border-border pt-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Unit price</span>
-                  <span className="font-semibold text-foreground">{unitLabel}</span>
-                </div>
-                <div className="mt-2 flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Quantity</span>
-                  <span className="font-semibold text-foreground">{deal.quantity}</span>
-                </div>
-                <div className="mt-2 flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Total amount</span>
-                  <span className="font-semibold text-foreground">{amountLabel}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <div className="text-sm font-semibold text-foreground">Participants</div>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Your role</span>
-                <Badge variant="outline" className="text-[10px]">
-                  {role}
-                </Badge>
-              </div>
-              <div className="border-t border-border pt-3">
-                <div className="text-muted-foreground">Counterparty</div>
-                <div className="mt-1 font-medium text-foreground">{counterpartyName}</div>
-                <div className="mt-2 text-xs text-muted-foreground">
-                  Buyer: {deal.buyer.displayName} · Seller: {deal.seller.displayName}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <div className="text-sm font-semibold text-foreground">Timeline</div>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Created</span>
-                <span>{new Date(deal.createdAt).toLocaleString()}</span>
-              </div>
-              {deal.expiresAt && (deal.status === "INITIATED" || deal.status === "FUNDED") && (
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Expires</span>
-                  <span>{new Date(deal.expiresAt).toLocaleString()}</span>
-                </div>
-              )}
-              {deal.fundedAt && (
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Funded</span>
-                  <span>{new Date(deal.fundedAt).toLocaleString()}</span>
-                </div>
-              )}
-              {deal.deliveredAt && (
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Delivered</span>
-                  <span>{new Date(deal.deliveredAt).toLocaleString()}</span>
-                </div>
-              )}
-              {deal.completedAt && (
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Completed</span>
-                  <span>{new Date(deal.completedAt).toLocaleString()}</span>
-                </div>
-              )}
-              {deal.canceledAt && (
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Canceled</span>
-                  <span>{new Date(deal.canceledAt).toLocaleString()}</span>
-                </div>
-              )}
-              {deal.status === "CANCELED" && deal.canceledByActor && (
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Canceled by</span>
-                  <span>
-                    {deal.canceledByActor === "SYSTEM"
-                      ? "System timeout"
-                      : deal.canceledByActor.toLowerCase()}
-                  </span>
-                </div>
-              )}
-            </CardContent>
-          </Card>
         </div>
       </div>
     </div>

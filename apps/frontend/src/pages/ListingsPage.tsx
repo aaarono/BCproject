@@ -2,6 +2,7 @@ import { useEffect, useReducer, useState } from "react";
 import { http } from "../api/http";
 import { Link } from "react-router-dom";
 import { Search, SlidersHorizontal, Trophy, Star, X } from "lucide-react";
+import { getSocket } from "../api/socket";
 import { extractHttpErrorMessage } from "../utils/httpError";
 import type { Listing } from "../types/listing";
 import { MarketplaceListingCard } from "../components/listing/MarketplaceListingCard";
@@ -20,6 +21,7 @@ type DebouncedFilters = {
   type: "" | "GOOD" | "SERVICE";
   category: "" | "GAMES" | "ACCOUNTS" | "BOOSTING" | "MENTORING" | "GAME_CURRENCY" | "OTHER";
   sort: "NEWEST" | "PRICE_ASC" | "PRICE_DESC" | "RATING" | "SALE";
+  onlyOnlineSellers: boolean;
   minPrice: string;
   maxPrice: string;
   minRating: string;
@@ -41,6 +43,7 @@ type ListingsFiltersState = {
   draftPriceRange: [number, number];
   minRating: string;
   sort: ListingSortFilter;
+  onlyOnlineSellers: boolean;
   page: number;
 };
 
@@ -55,6 +58,7 @@ type ListingsFiltersAction =
   | { type: "setDraftPriceRange"; value: [number, number] }
   | { type: "setMinRating"; value: string }
   | { type: "setSort"; value: ListingSortFilter }
+  | { type: "setOnlyOnlineSellers"; value: boolean }
   | { type: "setPage"; value: number }
   | { type: "resetFilters" };
 
@@ -90,6 +94,7 @@ const initialFiltersState: ListingsFiltersState = {
   draftPriceRange: [PRICE_MIN, PRICE_MAX],
   minRating: "",
   sort: "NEWEST",
+  onlyOnlineSellers: false,
   page: 1,
 };
 
@@ -118,6 +123,8 @@ function listingsFiltersReducer(
       return { ...state, minRating: action.value, page: 1 };
     case "setSort":
       return { ...state, sort: action.value, page: 1 };
+    case "setOnlyOnlineSellers":
+      return { ...state, onlyOnlineSellers: action.value, page: 1 };
     case "setPage":
       return { ...state, page: action.value };
     case "resetFilters":
@@ -141,6 +148,7 @@ export function ListingsPage() {
     initialFiltersState,
   );
   const [reloadNonce, setReloadNonce] = useState(0);
+  const [onlineSellerMap, setOnlineSellerMap] = useState<Record<string, boolean>>({});
   const [debouncedFilters, setDebouncedFilters] = useState<DebouncedFilters>({
     search: "",
     type: "",
@@ -149,6 +157,7 @@ export function ListingsPage() {
     minPrice: "",
     maxPrice: "",
     minRating: "",
+    onlyOnlineSellers: false,
     tagsKey: "",
   });
 
@@ -163,6 +172,7 @@ export function ListingsPage() {
     draftPriceRange,
     minRating,
     sort,
+    onlyOnlineSellers,
     page,
   } = filtersState;
 
@@ -206,6 +216,10 @@ export function ListingsPage() {
     dispatchFilters({ type: "setSort", value });
   }
 
+  function setOnlyOnlineSellers(value: boolean) {
+    dispatchFilters({ type: "setOnlyOnlineSellers", value });
+  }
+
   function setPage(value: number | ((currentPage: number) => number)) {
     const nextValue =
       typeof value === "function" ? value(filtersState.page) : value;
@@ -220,8 +234,8 @@ export function ListingsPage() {
   const rangeLeft = (rangeMin / PRICE_MAX) * 100;
   const rangeWidth = Math.max(((rangeMax - rangeMin) / PRICE_MAX) * 100, 0);
 
-  const hasActiveFilters = Boolean(search || type || category || selectedTags.length > 0 || minPrice || maxPrice || minRating);
-  const activeFilterCount = [search, type, category, selectedTags.length > 0 ? "tags" : "", minPrice, maxPrice, minRating].filter(Boolean).length;
+  const hasActiveFilters = Boolean(search || type || category || selectedTags.length > 0 || minPrice || maxPrice || minRating || onlyOnlineSellers);
+  const activeFilterCount = [search, type, category, selectedTags.length > 0 ? "tags" : "", minPrice, maxPrice, minRating, onlyOnlineSellers ? "online" : ""].filter(Boolean).length;
 
   function formatUsdValue(value: number) {
     return formatUsdFromCents(dollarsToCents(value));
@@ -264,6 +278,7 @@ export function ListingsPage() {
         type,
         category,
         sort,
+        onlyOnlineSellers,
         minPrice,
         maxPrice,
         minRating,
@@ -272,14 +287,15 @@ export function ListingsPage() {
     }, 300);
 
     return () => clearTimeout(timeout);
-  }, [search, type, category, sort, minPrice, maxPrice, minRating, selectedTags]);
+  }, [search, type, category, sort, onlyOnlineSellers, minPrice, maxPrice, minRating, selectedTags]);
 
   useEffect(() => {
-    const params: Record<string, string | number> = { page, limit: 12 };
+    const params: Record<string, string | number | boolean> = { page, limit: 12 };
     if (debouncedFilters.search) params.search = debouncedFilters.search;
     if (debouncedFilters.type) params.type = debouncedFilters.type;
     if (debouncedFilters.category) params.category = debouncedFilters.category;
     if (debouncedFilters.sort) params.sort = debouncedFilters.sort;
+    if (debouncedFilters.onlyOnlineSellers) params.onlyOnlineSellers = true;
     if (debouncedFilters.minPrice) params.minPrice = dollarsToCents(Number(debouncedFilters.minPrice));
     if (debouncedFilters.maxPrice) params.maxPrice = dollarsToCents(Number(debouncedFilters.maxPrice));
     if (debouncedFilters.minRating) params.minRating = Number(debouncedFilters.minRating);
@@ -309,6 +325,45 @@ export function ListingsPage() {
       .then((r) => setWeeklyTopSellers(r.data))
       .catch(() => setWeeklyTopSellers([]));
   }, []);
+
+  useEffect(() => {
+    const socket = getSocket();
+
+    const handlePresenceUpdate = (payload: { userId: string; isOnline: boolean }) => {
+      setOnlineSellerMap((prev) => ({
+        ...prev,
+        [payload.userId]: payload.isOnline,
+      }));
+    };
+
+    socket.on("presence:update", handlePresenceUpdate);
+
+    return () => {
+      socket.off("presence:update", handlePresenceUpdate);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (items.length === 0) return;
+
+    const socket = getSocket();
+    const uniqueSellerIds = Array.from(new Set(items.map((listing) => listing.seller.id)));
+
+    for (const sellerId of uniqueSellerIds) {
+      socket.emit(
+        "presence:check",
+        { userId: sellerId },
+        (response: { userId: string; isOnline: boolean }) => {
+          if (!response?.userId) return;
+
+          setOnlineSellerMap((prev) => ({
+            ...prev,
+            [response.userId]: response.isOnline,
+          }));
+        },
+      );
+    }
+  }, [items]);
 
   return (
     <PageContainer width="max-w-7xl" className="space-y-6">
@@ -610,6 +665,20 @@ export function ListingsPage() {
                 </div>
               </div>
 
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-foreground">Seller status</div>
+                <Button
+                  variant={onlyOnlineSellers ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    setOnlyOnlineSellers(!onlyOnlineSellers);
+                    setPage(1);
+                  }}
+                >
+                  Only online sellers
+                </Button>
+              </div>
+
               {hasActiveFilters && (
                 <Button variant="ghost" fullWidth className="text-destructive hover:text-destructive" onClick={resetFilters}>
                   <X className="h-4 w-4" />
@@ -731,6 +800,19 @@ export function ListingsPage() {
                     })}
                   </div>
                 </div>
+
+                <div className="sm:col-span-2">
+                  <Button
+                    variant={onlyOnlineSellers ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      setOnlyOnlineSellers(!onlyOnlineSellers);
+                      setPage(1);
+                    }}
+                  >
+                    Only online sellers
+                  </Button>
+                </div>
               </div>
 
               {hasActiveFilters && (
@@ -778,6 +860,14 @@ export function ListingsPage() {
                       </button>
                     </Badge>
                   )}
+                  {onlyOnlineSellers && (
+                    <Badge variant="muted" className="gap-1">
+                      Only online sellers
+                      <button type="button" onClick={() => setOnlyOnlineSellers(false)}>
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  )}
                 </div>
               )}
 
@@ -817,7 +907,11 @@ export function ListingsPage() {
           ) : items.length > 0 ? (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {items.map((listing) => (
-                <MarketplaceListingCard key={listing.id} listing={listing} />
+                <MarketplaceListingCard
+                  key={listing.id}
+                  listing={listing}
+                  isSellerOnline={onlineSellerMap[listing.seller.id] ?? false}
+                />
               ))}
             </div>
           ) : (

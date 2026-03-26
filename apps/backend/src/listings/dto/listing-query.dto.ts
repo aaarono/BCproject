@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsArray,
   IsEnum,
   IsInt,
@@ -111,4 +112,17 @@ export class ListingQueryDto {
   @IsOptional()
   @IsEnum(ListingSortDto)
   sort?: ListingSortDto;
+
+  @ApiPropertyOptional({
+    example: true,
+    description: 'Only include listings from currently online sellers',
+  })
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'string') return value.toLowerCase() === 'true';
+    return false;
+  })
+  @IsBoolean()
+  onlyOnlineSellers?: boolean;
 }

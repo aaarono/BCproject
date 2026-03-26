@@ -42,6 +42,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private static onlineUsers = new Map<string, number>();
   private static readonly ACCESS_COOKIE = 'access_token';
 
+  static getOnlineUserIds() {
+    return Array.from(ChatGateway.onlineUsers.keys());
+  }
+
   constructor(
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,

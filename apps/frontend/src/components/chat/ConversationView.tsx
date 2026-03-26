@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { ChevronLeft, ChevronRight, ExternalLink, Paperclip, Send, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ExternalLink, Flag, Paperclip, Send, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { http } from "../../api/http";
 import { useAuth } from "../../auth/AuthContext";
@@ -62,6 +62,7 @@ type Conversation = {
     id: string;
     title: string;
     price: number;
+    imageUrl?: string | null;
     salePercent?: number | null;
     saleStartsAt?: string | null;
     saleEndsAt?: string | null;
@@ -139,6 +140,11 @@ function normalizeMediaUrl(mediaUrl: string) {
 
     return mediaUrl;
   }
+}
+
+function normalizeUploadUrl(url?: string | null) {
+  if (!url) return null;
+  return normalizeMediaUrl(url);
 }
 
 function getSaleState(listing: {
@@ -751,12 +757,19 @@ export function ConversationView({
             </div>
 
             <div className="min-w-0">
-              <div className="truncate font-semibold text-foreground">{otherUser}</div>
+              <Link to={`/users/${otherUserId}`} className="block truncate font-semibold text-foreground hover:underline">
+                {otherUser}
+              </Link>
               <div className="text-xs text-muted-foreground">{isOtherUserOnline ? "Online" : "Offline"}</div>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm">
+              <Flag className="h-4 w-4" />
+              Report
+            </Button>
+
             {activeDeal && (
               <Button variant="ghost" size="sm" asChild>
                 <Link to={`/deals/${activeDeal.id}`}>
@@ -774,6 +787,15 @@ export function ConversationView({
           to={`/listings/${conversation.listing.id}`}
           className="flex items-center gap-2 text-sm"
         >
+          {conversation.listing.imageUrl ? (
+            <img
+              src={normalizeUploadUrl(conversation.listing.imageUrl) ?? undefined}
+              alt={conversation.listing.title}
+              className="h-9 w-9 shrink-0 rounded-md border border-border object-cover"
+              loading="lazy"
+            />
+          ) : null}
+
           <Badge variant="outline" className="text-[10px]">
             Related listing
           </Badge>
@@ -866,7 +888,7 @@ export function ConversationView({
                       mine ? "text-primary-foreground/70" : "text-muted-foreground"
                     }`}
                   >
-                    {m.sender.displayName} · {new Date(m.createdAt).toLocaleTimeString()}
+                    {new Date(m.createdAt).toLocaleTimeString()}
                   </div>
                 </div>
               </div>
@@ -946,7 +968,7 @@ export function ConversationView({
             <Input
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder="Type a message... (or paste image/video)"
+              placeholder="Type a message..."
               className="bg-background"
               onPaste={handleInputPaste}
               onKeyDown={(e) => {

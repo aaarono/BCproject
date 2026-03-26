@@ -83,7 +83,7 @@ export class ReviewsService {
       where: { dealId },
       include: {
         buyer: {
-          select: { id: true, displayName: true },
+          select: { id: true, displayName: true, avatarUrl: true },
         },
       },
     });

@@ -9,7 +9,13 @@ function formatCategory(category: Listing["category"]) {
   return category.toLowerCase().replaceAll("_", " ");
 }
 
-export function MarketplaceListingCard({ listing }: { listing: Listing }) {
+export function MarketplaceListingCard({
+  listing,
+  isSellerOnline,
+}: {
+  listing: Listing;
+  isSellerOnline?: boolean;
+}) {
   const effectivePrice = listing.effectivePrice ?? listing.price;
   const initials = listing.seller.displayName.slice(0, 2).toUpperCase();
 
@@ -56,13 +62,20 @@ export function MarketplaceListingCard({ listing }: { listing: Listing }) {
         </h3>
 
         <div className="flex items-center gap-2">
-          <Avatar
-            src={listing.seller.avatarUrl}
-            alt={listing.seller.displayName}
-            fallback={initials}
-            className="h-5 w-5"
-            fallbackClassName="text-[10px] font-semibold"
-          />
+          <div className="relative h-6 w-6">
+            <Avatar
+              src={listing.seller.avatarUrl}
+              alt={listing.seller.displayName}
+              fallback={initials}
+              className="h-6 w-6"
+              fallbackClassName="text-xs font-semibold"
+            />
+            <span
+              className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-card ${
+                isSellerOnline ? "bg-online" : "bg-muted-foreground"
+              }`}
+            />
+          </div>
           <span className="truncate text-xs text-muted-foreground">{listing.seller.displayName}</span>
           <div className="ml-auto flex items-center gap-1">
             <Star className="h-3 w-3 fill-warning text-warning" />

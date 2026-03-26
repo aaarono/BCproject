@@ -1,160 +1,189 @@
-# Bachelor Project  
-## Marketplace Platform for Digital Products and Services
+# Bachelor Project
 
-Full-stack web application implementing a marketplace for digital goods and services  
-with escrow-based deals, internal chat, wallet system and seller reputation.
+Production-oriented marketplace MVP for digital goods and services.
 
-This project is developed as a bachelor thesis and focuses on backend architecture,
-business logic and data consistency.
+Main focus of the project:
+- strong domain invariants for escrow and wallet operations
+- ownership-based authorization (not strict buyer/seller action gating)
+- realtime user experience for chat, inbox, and deal state changes
 
----
+## Current Features
 
-## Core Features
+### Auth and User Profile
+- JWT auth with protected routes
+- Profile and settings management
+- Avatar upload
+- Password change
+- Payment card linking/unlinking (for wallet operations)
 
-### Authentication & Users
-- JWT-based authentication
-- User roles: **BUYER**, **SELLER**
-- Secure access control per role
+### Listings and Catalog
+- Listing create/edit/archive/restore
+- Listing categories, tags, stock quantity for goods
+- Smart catalog filters and sorting
+    - type, category, tags
+    - price range
+    - seller rating
+    - sale priority
+    - only online sellers
+- Listing price history endpoint and chart
 
-### Listings
-- Sellers can create digital goods or service listings
-- Listings are visible only when ACTIVE
-- Seller reputation (rating) is displayed directly in listings
+### Flash Sales
+- Time-bound sales with validation and anti-abuse rules
+- Effective price + sale badges in UI
 
-### Conversations & Chat
-- Per-listing conversations between buyer and seller
-- REST-based messaging (WebSocket planned)
-- Access restricted to deal participants only
+### Conversations and Realtime Chat
+- Conversation context is bound to listing + buyer + seller
+- Hybrid model
+    - REST for history and pagination
+    - WebSocket for realtime messages/events
+- Message media attachments (images/videos, multiple files)
+- Inbox realtime updates and unread counters
 
-### Deals & Escrow
-- Full deal lifecycle:
-  - INITIATED → FUNDED → DELIVERED → COMPLETED
-- Buyer funds are locked in escrow
-- Funds are released to seller only after completion
-- Strict role and state validation
+### Deals and Escrow
+- Deal lifecycle
+    - INITIATED, FUNDED, DELIVERED, COMPLETED, CANCELED
+- Current create flow lands into FUNDED when buyer has enough balance
+- Escrow semantics preserved
+    - lock funds on funding
+    - release on completion
+    - refund on cancel
+- Atomic deal + wallet money operations via database transactions
 
-### Wallet System
-- Internal user wallets
-- Mock balance top-up
-- Escrow-based fund locking
-- Transaction ledger for auditability
+### Wallet and Ledger
+- User wallet balance
+- Top-up and withdraw operations
+- Escrow lock/release/refund ledger entries
+- Transaction history for auditability
 
-### Reviews & Seller Rating
-- Buyers can leave reviews **only after completed deals**
-- One review per deal
-- Seller rating is aggregated and stored
-- Seller reputation is visible in listings
+### Reviews and Reputation
+- One review per completed deal
+- Seller rating aggregation
+- Reputation displayed in listings and profiles
 
----
+### Top Sellers and Achievements
+- Overall and weekly top sellers endpoints and pages
+- Achievements MVP
+    - definitions
+    - manual assignment via admin
+    - automatic sync by user stats
+    - public/profile display
+
+### Admin
+- Admin panel with moderation and management for
+    - users
+    - listings
+    - deals
+    - reviews
+    - achievements
+
+## Architecture Principles
+
+- No strict marketplace role gating for actions:
+    authorization is based on authentication + ownership checks.
+- Financial operations are atomic and transaction-safe.
+- Wallet + transaction ledger are mandatory and preserved.
+- Realtime updates are WebSocket-first for inbox/chat/deals.
+- Validation is strict globally (whitelist + forbid non-whitelisted + transform).
 
 ## Tech Stack
 
-### Backend
-- **NestJS**
-- **Prisma ORM**
-- **PostgreSQL**
-- JWT authentication
-- REST API
+- Backend: NestJS, Prisma, PostgreSQL, JWT, Socket.IO
+- Frontend: React, Vite, TypeScript, Tailwind CSS
+- Infra: Docker, Docker Compose, GitHub Actions CI
 
-### Frontend
-- **React**
-- **Vite**
-- **TypeScript**
-- **TailwindCSS (v3)**
+## Repository Structure
 
-### Infrastructure
-- **Docker**
-- **Docker Compose**
-
----
-
-## Project Structure
-```
+```text
 .
-├── apps
-│ ├── backend # NestJS + Prisma API
-│ └── frontend # React + Vite + Tailwind
+├── apps/
+│   ├── backend/
+│   └── frontend/
 ├── docker-compose.yml
 ├── TODO.md
 └── README.md
 ```
----
 
-## Requirements
+## Quick Start
 
-### Common
-- Node.js >= 18
-- npm >= 9
-- Docker + Docker Compose
+### Option A: Backend + DB in Docker, Frontend locally
 
-### Tested on
-- Windows 11
-- macOS (Apple Silicon)
+1) Start database and backend
 
----
+```bash
+docker compose up --build -d
+```
 
-## Quick Start (Recommended – Docker)
+2) Start frontend
 
-### 1. Clone repository
+```bash
+cd apps/frontend
+npm install
+npm run dev
+```
 
-    git clone <repo-url>
-    cd BCproject
+URLs:
+- Backend API: http://localhost:3000
+- Swagger: http://localhost:3000/api/docs
+- Frontend: http://localhost:5173
 
-### 2. Start backend + database
+### Option B: Fully local development
 
-    docker compose up --build
+Backend:
 
-Services:
+```bash
+cd apps/backend
+npm install
+npx prisma migrate deploy
+npm run start:dev
+```
 
-Backend API: http://localhost:3000
+Frontend:
 
-PostgreSQL runs inside Docker
+```bash
+cd apps/frontend
+npm install
+npm run dev
+```
 
-### 3. Start frontend (local dev)
+## Environment
 
-    cd apps/frontend
-    npm install
-    npm run dev
+Backend expects environment variables in apps/backend/.env.
 
-Frontend: http://localhost:5173
+Commonly used values:
+- DATABASE_URL
+- JWT_SECRET
+- CORS_ORIGIN
+- PORT
 
-### Local Development (Without Docker)
-Use this only if Docker is not available.
+Frontend can use:
+- VITE_API_URL
+- VITE_WS_URL
 
-    cd apps/backend
-    npm install
-    npx prisma migrate dev
-    npm run start:dev
+## Quality and CI
 
- Requires:
- - Running PostgreSQL locally
- - Valid DATABASE_URL
- - Environment Variables
- - Backend
- - Create file:
-    
-    apps/backend/.env
+CI workflow runs for backend and frontend:
+- dependency install
+- security audit
+- lint
+- build
+- backend unit tests
 
-Example:
+Local quality checks:
 
-    apps/backend/.env.example
+```bash
+# backend
+cd apps/backend
+npm run lint
+npm test -- --runInBand
+npm run build
 
-#### Ports
-- Service Port
- - Backend API	3000
- - Frontend	5173
- - PostgreSQL	5432
-### Notes
-- Docker setup is development-oriented
-- Prisma version: 6.15
-- TailwindCSS version: v3
-- Planned improvements are listed in TODO.md
+# frontend
+cd apps/frontend
+npm run lint
+npm run build
+```
 
-### Common Issues
-- Docker build is very slow
-- Make sure apps/backend/.dockerignore exists and ignores node_modules.
-- Prisma connection errors
-- Ensure DATABASE_URL matches the environment (Docker vs local PostgreSQL).
+## Notes
 
-License
-MIT
+- Current implementation is an MVP with strong domain foundations.
+- Planned enhancements are tracked in TODO.md.

@@ -3,10 +3,24 @@ import { ForbiddenException } from '@nestjs/common';
 import { WalletService } from './wallet.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
+type WalletTxMock = {
+  user: { findUnique: jest.Mock };
+  wallet: { upsert: jest.Mock; update: jest.Mock };
+  walletTransaction: { create: jest.Mock };
+};
+
+type WalletPrismaMock = {
+  wallet: { upsert: jest.Mock; update: jest.Mock };
+  walletTransaction: { create: jest.Mock };
+  user: { findUnique: jest.Mock };
+  deal: { aggregate: jest.Mock };
+  $transaction: jest.Mock;
+};
+
 describe('WalletService', () => {
   let service: WalletService;
-  let prisma: any;
-  let tx: any;
+  let prisma: WalletPrismaMock;
+  let tx: WalletTxMock;
 
   beforeEach(async () => {
     tx = {
@@ -20,11 +34,19 @@ describe('WalletService', () => {
       walletTransaction: { create: jest.fn() },
       user: { findUnique: jest.fn() },
       deal: { aggregate: jest.fn() },
-      $transaction: jest.fn(async (cb: (txArg: any) => Promise<void>) => cb(tx)),
+      $transaction: jest.fn(
+        async (cb: (txArg: WalletTxMock) => Promise<void>) => cb(tx),
+      ),
     };
 
     const module = await Test.createTestingModule({
-      providers: [WalletService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        WalletService,
+        {
+          provide: PrismaService,
+          useValue: prisma as unknown as PrismaService,
+        },
+      ],
     }).compile();
 
     service = module.get(WalletService);
@@ -91,7 +113,7 @@ describe('WalletService', () => {
   });
 
   describe('lockEscrow', () => {
-    let txEscrow: any;
+    let txEscrow: WalletTxMock;
 
     beforeEach(() => {
       txEscrow = {
@@ -101,7 +123,10 @@ describe('WalletService', () => {
     });
 
     it('should lock funds when balance is sufficient', async () => {
-      txEscrow.wallet.upsert.mockResolvedValue({ userId: 'u1', balance: 10000 });
+      txEscrow.wallet.upsert.mockResolvedValue({
+        userId: 'u1',
+        balance: 10000,
+      });
 
       await service.lockEscrow(txEscrow, 'u1', 'deal1', 5000);
 
@@ -123,9 +148,9 @@ describe('WalletService', () => {
     it('should throw ForbiddenException when balance is insufficient', async () => {
       txEscrow.wallet.upsert.mockResolvedValue({ userId: 'u1', balance: 1000 });
 
-      await expect(service.lockEscrow(txEscrow, 'u1', 'deal1', 5000)).rejects.toThrow(
-        ForbiddenException,
-      );
+      await expect(
+        service.lockEscrow(txEscrow, 'u1', 'deal1', 5000),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 
@@ -165,7 +190,8 @@ describe('WalletService', () => {
 
   describe('releaseEscrowToSeller', () => {
     it('should increment seller balance and create transaction', async () => {
-      const tx: any = {
+      const tx: WalletTxMock = {
+        user: { findUnique: jest.fn() },
         wallet: { upsert: jest.fn().mockResolvedValue({}), update: jest.fn() },
         walletTransaction: { create: jest.fn() },
       };
@@ -190,7 +216,8 @@ describe('WalletService', () => {
 
   describe('refundToBuyer', () => {
     it('should increment buyer balance and create refund transaction', async () => {
-      const tx: any = {
+      const tx: WalletTxMock = {
+        user: { findUnique: jest.fn() },
         wallet: { upsert: jest.fn().mockResolvedValue({}), update: jest.fn() },
         walletTransaction: { create: jest.fn() },
       };

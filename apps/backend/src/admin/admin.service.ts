@@ -246,20 +246,27 @@ export class AdminService {
   }
 
   async getOverview() {
-    const [users, listings, activeListings, deals, activeDeals, reviews, reports] =
-      await Promise.all([
-        this.prisma.user.count(),
-        this.prisma.listing.count(),
-        this.prisma.listing.count({ where: { status: 'ACTIVE' } }),
-        this.prisma.deal.count(),
-        this.prisma.deal.count({
-          where: { status: { in: ['INITIATED', 'FUNDED', 'DELIVERED'] } },
-        }),
-        this.prisma.review.count(),
-        this.prisma.report.count({
-          where: { status: { in: ['OPEN', 'UNDER_REVIEW'] } },
-        }),
-      ]);
+    const [
+      users,
+      listings,
+      activeListings,
+      deals,
+      activeDeals,
+      reviews,
+      reports,
+    ] = await Promise.all([
+      this.prisma.user.count(),
+      this.prisma.listing.count(),
+      this.prisma.listing.count({ where: { status: 'ACTIVE' } }),
+      this.prisma.deal.count(),
+      this.prisma.deal.count({
+        where: { status: { in: ['INITIATED', 'FUNDED', 'DELIVERED'] } },
+      }),
+      this.prisma.review.count(),
+      this.prisma.report.count({
+        where: { status: { in: ['OPEN', 'UNDER_REVIEW'] } },
+      }),
+    ]);
 
     return {
       users,
@@ -611,21 +618,22 @@ export class AdminService {
         });
 
         if (conversation) {
-          evidenceMessages = (await this.prisma.message.findMany({
-            where: { conversationId: conversation.id },
-            orderBy: { createdAt: 'desc' },
-            take: 8,
-            select: {
-              id: true,
-              senderId: true,
-              text: true,
-              mediaUrl: true,
-              mediaType: true,
-              createdAt: true,
-              sender: { select: { id: true, displayName: true } },
-            },
-          }))
-            .reverse() as unknown as Prisma.InputJsonValue[];
+          evidenceMessages = (
+            await this.prisma.message.findMany({
+              where: { conversationId: conversation.id },
+              orderBy: { createdAt: 'desc' },
+              take: 8,
+              select: {
+                id: true,
+                senderId: true,
+                text: true,
+                mediaUrl: true,
+                mediaType: true,
+                createdAt: true,
+                sender: { select: { id: true, displayName: true } },
+              },
+            })
+          ).reverse() as unknown as Prisma.InputJsonValue[];
         }
       }
     } else if (report.targetType === 'LISTING') {
@@ -661,21 +669,22 @@ export class AdminService {
         });
 
         if (relatedConversation) {
-          evidenceMessages = (await this.prisma.message.findMany({
-            where: { conversationId: relatedConversation.id },
-            orderBy: { createdAt: 'desc' },
-            take: 8,
-            select: {
-              id: true,
-              senderId: true,
-              text: true,
-              mediaUrl: true,
-              mediaType: true,
-              createdAt: true,
-              sender: { select: { id: true, displayName: true } },
-            },
-          }))
-            .reverse() as unknown as Prisma.InputJsonValue[];
+          evidenceMessages = (
+            await this.prisma.message.findMany({
+              where: { conversationId: relatedConversation.id },
+              orderBy: { createdAt: 'desc' },
+              take: 8,
+              select: {
+                id: true,
+                senderId: true,
+                text: true,
+                mediaUrl: true,
+                mediaType: true,
+                createdAt: true,
+                sender: { select: { id: true, displayName: true } },
+              },
+            })
+          ).reverse() as unknown as Prisma.InputJsonValue[];
         }
       }
     } else if (report.targetType === 'REVIEW') {
@@ -716,21 +725,22 @@ export class AdminService {
         });
 
         if (conversation) {
-          evidenceMessages = (await this.prisma.message.findMany({
-            where: { conversationId: conversation.id },
-            orderBy: { createdAt: 'desc' },
-            take: 8,
-            select: {
-              id: true,
-              senderId: true,
-              text: true,
-              mediaUrl: true,
-              mediaType: true,
-              createdAt: true,
-              sender: { select: { id: true, displayName: true } },
-            },
-          }))
-            .reverse() as unknown as Prisma.InputJsonValue[];
+          evidenceMessages = (
+            await this.prisma.message.findMany({
+              where: { conversationId: conversation.id },
+              orderBy: { createdAt: 'desc' },
+              take: 8,
+              select: {
+                id: true,
+                senderId: true,
+                text: true,
+                mediaUrl: true,
+                mediaType: true,
+                createdAt: true,
+                sender: { select: { id: true, displayName: true } },
+              },
+            })
+          ).reverse() as unknown as Prisma.InputJsonValue[];
         }
       }
     } else if (report.targetType === 'USER') {
@@ -1405,7 +1415,7 @@ export class AdminService {
         userId: user.id,
         senderAdminId: admin.id,
         title: 'New achievement unlocked',
-        text: `Congratulations! You unlocked \"${definition.title}\" (${definition.code}).`,
+        text: `Congratulations! You unlocked "${definition.title}" (${definition.code}).`,
       });
     }
 
@@ -1527,7 +1537,9 @@ export class AdminService {
     const bannedUntil =
       isPermanent || !durationMap[dto.duration]
         ? null
-        : new Date(now.getTime() + durationMap[dto.duration] * 24 * 60 * 60 * 1000);
+        : new Date(
+            now.getTime() + durationMap[dto.duration] * 24 * 60 * 60 * 1000,
+          );
 
     const updated = await this.prisma.user.update({
       where: { id: userId },
@@ -1649,8 +1661,7 @@ export class AdminService {
     const reason = dto.reason.trim();
     const now = new Date();
     const warningExpiresAt = new Date(
-      now.getTime() +
-        AdminService.WARNING_EXPIRES_DAYS * 24 * 60 * 60 * 1000,
+      now.getTime() + AdminService.WARNING_EXPIRES_DAYS * 24 * 60 * 60 * 1000,
     );
 
     const user = await this.prisma.user.findUnique({
@@ -1931,11 +1942,7 @@ export class AdminService {
     return { ok: true };
   }
 
-  async archiveListing(
-    listingId: string,
-    adminId: string,
-    requestId?: string,
-  ) {
+  async archiveListing(listingId: string, adminId: string, requestId?: string) {
     const existing = await this.prisma.listing.findUnique({
       where: { id: listingId },
       select: { id: true, status: true, title: true, sellerId: true },
@@ -1969,11 +1976,7 @@ export class AdminService {
     return updated;
   }
 
-  async restoreListing(
-    listingId: string,
-    adminId: string,
-    requestId?: string,
-  ) {
+  async restoreListing(listingId: string, adminId: string, requestId?: string) {
     const existing = await this.prisma.listing.findUnique({
       where: { id: listingId },
       select: { id: true, status: true, title: true, sellerId: true },
@@ -2153,7 +2156,8 @@ export class AdminService {
       });
 
       const extendsStreak =
-        currentStats?.lastWinWeekStart?.getTime() === previousWeekStart.getTime();
+        currentStats?.lastWinWeekStart?.getTime() ===
+        previousWeekStart.getTime();
       const streakAfterWin = extendsStreak
         ? (currentStats?.currentStreak ?? 0) + 1
         : 1;
@@ -2210,9 +2214,8 @@ export class AdminService {
 
       await this.walletService.grantWeeklyReward(tx, winner.id, rewardAmount);
 
-      const streakAchievementCodes = this.resolveWeeklyStreakAchievementCodes(
-        streakAfterWin,
-      );
+      const streakAchievementCodes =
+        this.resolveWeeklyStreakAchievementCodes(streakAfterWin);
 
       const streakDefinitions = await tx.achievementDefinition.findMany({
         where: {
@@ -2318,7 +2321,9 @@ export class AdminService {
         title: 'Weekly Top Seller reward',
         text: `You won Weekly Top Sellers and received $${(
           result.winnerNotificationPayload.rewardAmount / 100
-        ).toFixed(2)}. Current streak: ${result.winnerNotificationPayload.streakAfterWin}.`,
+        ).toFixed(
+          2,
+        )}. Current streak: ${result.winnerNotificationPayload.streakAfterWin}.`,
       });
 
       for (const achievement of result.winnerNotificationPayload
@@ -2326,13 +2331,16 @@ export class AdminService {
         await this.systemNotificationsService.createForUser({
           userId: result.winnerNotificationPayload.userId,
           title: 'New achievement unlocked',
-          text: `Congratulations! You unlocked \"${achievement.title}\" (${achievement.code}).`,
+          text: `Congratulations! You unlocked "${achievement.title}" (${achievement.code}).`,
         });
       }
     }
 
-    const { winnerNotificationPayload: _winnerNotificationPayload, ...response } =
-      result;
+    const response = {
+      alreadyFinalized: result.alreadyFinalized,
+      competition: result.competition,
+      winner: result.winner,
+    };
 
     await this.createAuditLog({
       actorAdminId: adminId,
@@ -2370,8 +2378,8 @@ export class AdminService {
     const result = await this.systemNotificationsService.broadcastFromAdmin(
       adminId,
       {
-      title: dto.title,
-      text,
+        title: dto.title,
+        text,
       },
     );
 

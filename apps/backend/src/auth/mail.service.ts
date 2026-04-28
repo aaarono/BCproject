@@ -1,4 +1,8 @@
-import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 
 @Injectable()
@@ -43,7 +47,8 @@ export class MailService {
     text: string;
     html?: string;
   }) {
-    const from = process.env.SMTP_FROM ?? 'TradeGame <no-reply@tradegame.local>';
+    const from =
+      process.env.SMTP_FROM ?? 'TradeGame <no-reply@tradegame.local>';
 
     if (!this.smtpConfigured && !this.isProduction) {
       this.logger.warn(
@@ -56,7 +61,9 @@ export class MailService {
 
     const transporter = this.getTransporter();
     if (!transporter) {
-      throw new InternalServerErrorException('Unable to initialize mail transport');
+      throw new InternalServerErrorException(
+        'Unable to initialize mail transport',
+      );
     }
 
     await transporter.sendMail({

@@ -41,10 +41,14 @@ export class MessagesService {
     }));
 
     if (normalizedMediaItems.length > 8) {
-      throw new BadRequestException('No more than 8 media attachments are allowed');
+      throw new BadRequestException(
+        'No more than 8 media attachments are allowed',
+      );
     }
 
-    if (normalizedMediaItems.some((item) => !item.mediaUrl || !item.mediaType)) {
+    if (
+      normalizedMediaItems.some((item) => !item.mediaUrl || !item.mediaType)
+    ) {
       throw new BadRequestException('Invalid media items payload');
     }
 
@@ -55,15 +59,21 @@ export class MessagesService {
     }
 
     if (normalizedMediaUrl && !params.mediaType) {
-      throw new ForbiddenException('mediaType is required when mediaUrl is provided');
+      throw new ForbiddenException(
+        'mediaType is required when mediaUrl is provided',
+      );
     }
 
     if (!normalizedMediaUrl && params.mediaType) {
-      throw new ForbiddenException('mediaUrl is required when mediaType is provided');
+      throw new ForbiddenException(
+        'mediaUrl is required when mediaType is provided',
+      );
     }
 
     if ((normalizedMediaUrl || params.mediaType) && hasMediaItems) {
-      throw new BadRequestException('Use either mediaUrl/mediaType or mediaItems payload');
+      throw new BadRequestException(
+        'Use either mediaUrl/mediaType or mediaItems payload',
+      );
     }
 
     const resolvedMediaItems = hasMediaItems
@@ -81,7 +91,8 @@ export class MessagesService {
         text: normalizedText,
         mediaUrl: firstMedia?.mediaUrl ?? null,
         mediaType: firstMedia?.mediaType ?? null,
-        mediaItems: resolvedMediaItems.length > 0 ? resolvedMediaItems : undefined,
+        mediaItems:
+          resolvedMediaItems.length > 0 ? resolvedMediaItems : undefined,
       },
       include: { sender: { select: { id: true, displayName: true } } },
     });

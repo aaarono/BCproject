@@ -36,7 +36,8 @@ export class CreateListingDto {
 
   @ApiProperty({
     required: false,
-    example: 'http://localhost:3000/uploads/listings/1711220100000-123456789.jpg',
+    example:
+      'http://localhost:3000/uploads/listings/1711220100000-123456789.jpg',
     description: 'Optional listing preview image URL',
   })
   @IsOptional()

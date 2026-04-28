@@ -50,7 +50,9 @@ export class ConversationsController {
     return this.service.getMessages(id, user.sub);
   }
 
-  @ApiOperation({ summary: 'Get older messages in a conversation (cursor-based)' })
+  @ApiOperation({
+    summary: 'Get older messages in a conversation (cursor-based)',
+  })
   @Get(':id/messages/older')
   getOlderMessages(
     @CurrentUser() user: JwtPayload,
@@ -58,7 +60,9 @@ export class ConversationsController {
     @Query() query: GetOlderMessagesQueryDto,
   ) {
     if (!query.beforeCreatedAt || !query.beforeId) {
-      throw new BadRequestException('beforeCreatedAt and beforeId are required');
+      throw new BadRequestException(
+        'beforeCreatedAt and beforeId are required',
+      );
     }
 
     return this.service.getOlderMessages({

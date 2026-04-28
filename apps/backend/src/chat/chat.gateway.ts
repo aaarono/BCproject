@@ -241,19 +241,23 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       senderConversation.sellerId,
     );
 
-    this.server.to(this.userRoom(senderConversation.buyerId)).emit('inbox:update', {
-      conversation: {
-        ...buyerConversation,
-        messages: [message],
-      },
-    });
+    this.server
+      .to(this.userRoom(senderConversation.buyerId))
+      .emit('inbox:update', {
+        conversation: {
+          ...buyerConversation,
+          messages: [message],
+        },
+      });
 
-    this.server.to(this.userRoom(senderConversation.sellerId)).emit('inbox:update', {
-      conversation: {
-        ...sellerConversation,
-        messages: [message],
-      },
-    });
+    this.server
+      .to(this.userRoom(senderConversation.sellerId))
+      .emit('inbox:update', {
+        conversation: {
+          ...sellerConversation,
+          messages: [message],
+        },
+      });
 
     return { ok: true, message };
   }

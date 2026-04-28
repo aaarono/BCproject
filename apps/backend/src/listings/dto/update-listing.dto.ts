@@ -29,7 +29,8 @@ export class UpdateListingDto {
   description?: string;
 
   @ApiPropertyOptional({
-    example: 'http://localhost:3000/uploads/listings/1711220100000-123456789.jpg',
+    example:
+      'http://localhost:3000/uploads/listings/1711220100000-123456789.jpg',
     description: 'Optional listing preview image URL',
   })
   @IsOptional()

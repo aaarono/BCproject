@@ -317,7 +317,7 @@ export class UsersService {
       await this.systemNotificationsService.createForUser({
         userId,
         title: 'New achievement unlocked',
-        text: `Congratulations! You unlocked \"${definition.title}\" (${definition.code}).`,
+        text: `Congratulations! You unlocked "${definition.title}" (${definition.code}).`,
       });
     }
   }
@@ -598,25 +598,26 @@ export class UsersService {
       .sort((a, b) => b.score - a.score)
       .slice(0, limit);
 
-    const firstUnlockedBadgeBySellerId = await this.getFirstUnlockedBadgeByUserIds(
-      ranked.map((seller) => seller.id),
-    );
+    const firstUnlockedBadgeBySellerId =
+      await this.getFirstUnlockedBadgeByUserIds(
+        ranked.map((seller) => seller.id),
+      );
 
     return ranked.map((seller) => {
-        const selectedBadges = seller.profileBadges.map((badge) => ({
-          code: badge.definition.code,
-          title: badge.definition.title,
-        }));
+      const selectedBadges = seller.profileBadges.map((badge) => ({
+        code: badge.definition.code,
+        title: badge.definition.title,
+      }));
 
-        const fallbackBadge = firstUnlockedBadgeBySellerId.get(seller.id);
-        const profileBadges =
-          selectedBadges.length > 0
-            ? selectedBadges
-            : fallbackBadge
-              ? [fallbackBadge]
-              : [];
+      const fallbackBadge = firstUnlockedBadgeBySellerId.get(seller.id);
+      const profileBadges =
+        selectedBadges.length > 0
+          ? selectedBadges
+          : fallbackBadge
+            ? [fallbackBadge]
+            : [];
 
-        return {
+      return {
         ...seller,
         achievements: achievementsBySellerId.get(seller.id) ?? [],
         profileBadges,
@@ -906,7 +907,12 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    const [achievements, selectedProfileBadges, warningCount, nextWarningExpiresAt] = await Promise.all([
+    const [
+      achievements,
+      selectedProfileBadges,
+      warningCount,
+      nextWarningExpiresAt,
+    ] = await Promise.all([
       this.getAchievementsForUser(userId),
       this.getSelectedProfileBadgesForUser(userId),
       this.getActiveWarningCount(userId),

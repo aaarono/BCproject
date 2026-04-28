@@ -87,7 +87,9 @@ export class ConversationsService {
       GROUP BY m."conversationId"
     `);
 
-    return new Map(rows.map((row) => [row.conversationId, Number(row.unreadCount)]));
+    return new Map(
+      rows.map((row) => [row.conversationId, Number(row.unreadCount)]),
+    );
   }
 
   private assertParticipant(
@@ -158,7 +160,8 @@ export class ConversationsService {
 
     this.assertParticipant(conv, userId);
 
-    const lastReadAt = conv.buyerId === userId ? conv.buyerLastReadAt : conv.sellerLastReadAt;
+    const lastReadAt =
+      conv.buyerId === userId ? conv.buyerLastReadAt : conv.sellerLastReadAt;
     const unreadCount = await this.getUnreadCountForConversation(
       conv.id,
       userId,

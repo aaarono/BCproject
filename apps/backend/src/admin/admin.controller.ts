@@ -26,6 +26,7 @@ import type { JwtPayload } from '../auth/jwt.strategy';
 import { AdminGuard } from './admin.guard';
 import { AdminService } from './admin.service';
 import { AssignAchievementDto } from './dto/assign-achievement.dto';
+import { BroadcastSystemMessageDto } from './dto/broadcast-system-message.dto';
 import { CreateAchievementDto } from './dto/create-achievement.dto';
 import { ListAdminQueryDto } from './dto/list-admin-query.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
@@ -129,6 +130,21 @@ export class AdminController {
   @Get('achievements/assignments')
   listAchievementAssignments(@Query() query: ListAdminQueryDto) {
     return this.adminService.listAchievementAssignments(query);
+  }
+
+  @ApiOperation({ summary: 'Finalize previous week top seller reward' })
+  @Post('weekly-rewards/finalize-previous-week')
+  finalizePreviousWeekTopSellerReward() {
+    return this.adminService.finalizePreviousWeekTopSellerReward();
+  }
+
+  @ApiOperation({ summary: 'Broadcast system message to all users' })
+  @Post('system-notifications/broadcast')
+  broadcastSystemMessage(
+    @CurrentUser() admin: JwtPayload,
+    @Body() dto: BroadcastSystemMessageDto,
+  ) {
+    return this.adminService.broadcastSystemMessage(admin.sub, dto);
   }
 
   @ApiOperation({ summary: 'Delete review as admin' })

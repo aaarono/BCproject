@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -11,12 +12,21 @@ import {
   Role,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { SystemNotificationsService } from '../system-notifications/system-notifications.service';
+import { WalletService } from '../wallet/wallet.service';
+import { BroadcastSystemMessageDto } from './dto/broadcast-system-message.dto';
 import { CreateAchievementDto } from './dto/create-achievement.dto';
 import { ListAdminQueryDto } from './dto/list-admin-query.dto';
 
 @Injectable()
 export class AdminService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly walletService: WalletService,
+    private readonly systemNotificationsService: SystemNotificationsService,
+  ) {}
+
+  private static readonly DEFAULT_WEEKLY_REWARD_AMOUNT = 5000;
 
   private normalizePagination(query: ListAdminQueryDto) {
     const page = Math.max(1, query.page ?? 1);
@@ -24,6 +34,144 @@ export class AdminService {
     const skip = (page - 1) * limit;
 
     return { page, limit, skip };
+  }
+
+  private getPreviousWeekRange(now = new Date()) {
+    const utcToday = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+    );
+    const dayOfWeek = utcToday.getUTCDay();
+    const deltaToMonday = (dayOfWeek + 6) % 7;
+
+    const currentWeekStart = new Date(utcToday);
+    currentWeekStart.setUTCDate(currentWeekStart.getUTCDate() - deltaToMonday);
+
+    const previousWeekStart = new Date(currentWeekStart);
+    previousWeekStart.setUTCDate(previousWeekStart.getUTCDate() - 7);
+
+    return {
+      weekStart: previousWeekStart,
+      weekEnd: currentWeekStart,
+    };
+  }
+
+  private resolveWeeklyRewardAmount() {
+    const fromEnv = Number.parseInt(
+      process.env.WEEKLY_TOP_SELLER_REWARD_CENTS ?? '',
+      10,
+    );
+
+    if (!Number.isFinite(fromEnv) || fromEnv <= 0) {
+      return AdminService.DEFAULT_WEEKLY_REWARD_AMOUNT;
+    }
+
+    return fromEnv;
+  }
+
+  private resolveWeeklyStreakAchievementCodes(streakAfterWin: number) {
+    const codes = ['WEEKLY_CHAMPION'];
+
+    if (streakAfterWin >= 2) {
+      codes.push('WEEKLY_STREAK_2');
+    }
+
+    if (streakAfterWin >= 4) {
+      codes.push('WEEKLY_STREAK_4');
+    }
+
+    if (streakAfterWin >= 8) {
+      codes.push('WEEKLY_STREAK_8');
+    }
+
+    return codes;
+  }
+
+  private async getWeeklyRankedSellers(
+    tx: Prisma.TransactionClient,
+    weekStart: Date,
+    weekEnd: Date,
+  ) {
+    const candidates = await tx.user.findMany({
+      where: {
+        OR: [
+          {
+            sellerDeals: {
+              some: {
+                status: 'COMPLETED',
+                createdAt: {
+                  gte: weekStart,
+                  lt: weekEnd,
+                },
+              },
+            },
+          },
+          {
+            ratingCount: {
+              gt: 0,
+            },
+          },
+        ],
+      },
+      select: {
+        id: true,
+        displayName: true,
+        ratingAvg: true,
+        ratingCount: true,
+      },
+      take: 200,
+    });
+
+    const enriched = await Promise.all(
+      candidates.map(async (seller) => {
+        const [completedDeals, activeListings] = await Promise.all([
+          tx.deal.count({
+            where: {
+              sellerId: seller.id,
+              status: 'COMPLETED',
+              createdAt: {
+                gte: weekStart,
+                lt: weekEnd,
+              },
+            },
+          }),
+          tx.listing.count({
+            where: {
+              sellerId: seller.id,
+              status: 'ACTIVE',
+            },
+          }),
+        ]);
+
+        const trustFactor = Math.log10(seller.ratingCount + 1);
+        const activityBoost = completedDeals * 0.05;
+        const score = seller.ratingAvg * trustFactor + activityBoost;
+
+        return {
+          ...seller,
+          completedDeals,
+          activeListings,
+          score: Number(score.toFixed(4)),
+        };
+      }),
+    );
+
+    return enriched
+      .filter((seller) => seller.completedDeals > 0)
+      .sort((a, b) => {
+        if (b.score !== a.score) {
+          return b.score - a.score;
+        }
+
+        if (b.completedDeals !== a.completedDeals) {
+          return b.completedDeals - a.completedDeals;
+        }
+
+        if (b.ratingCount !== a.ratingCount) {
+          return b.ratingCount - a.ratingCount;
+        }
+
+        return a.id.localeCompare(b.id);
+      });
   }
 
   async getOverview() {
@@ -416,6 +564,14 @@ export class AdminService {
       throw new NotFoundException('Achievement definition not found');
     }
 
+    const existedBefore = await this.prisma.userAchievement.findFirst({
+      where: {
+        userId: user.id,
+        definitionId: definition.id,
+      },
+      select: { id: true },
+    });
+
     await this.prisma.$transaction(async (tx) => {
       await tx.userAchievement.createMany({
         data: [
@@ -435,6 +591,15 @@ export class AdminService {
         },
       });
     });
+
+    if (!existedBefore) {
+      await this.systemNotificationsService.createForUser({
+        userId: user.id,
+        senderAdminId: admin.id,
+        title: 'New achievement unlocked',
+        text: `Congratulations! You unlocked \"${definition.title}\" (${definition.code}).`,
+      });
+    }
 
     const userAchievement = await this.prisma.userAchievement.findFirst({
       where: {
@@ -548,6 +713,293 @@ export class AdminService {
       });
 
       return { ok: true };
+    });
+  }
+
+  async finalizePreviousWeekTopSellerReward() {
+    const { weekStart, weekEnd } = this.getPreviousWeekRange();
+    const rewardAmount = this.resolveWeeklyRewardAmount();
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const competition = await tx.weeklyCompetition.upsert({
+        where: {
+          weekStart,
+        },
+        update: {
+          weekEnd,
+        },
+        create: {
+          weekStart,
+          weekEnd,
+        },
+      });
+
+      if (competition.status === 'FINALIZED') {
+        const existingWinner = await tx.weeklyWinner.findUnique({
+          where: {
+            competitionId: competition.id,
+          },
+          select: {
+            id: true,
+            rank: true,
+            score: true,
+            rewardAmount: true,
+            streakAfterWin: true,
+            user: {
+              select: {
+                id: true,
+                displayName: true,
+              },
+            },
+          },
+        });
+
+        return {
+          alreadyFinalized: true,
+          competition,
+          winner: existingWinner,
+          winnerNotificationPayload: null,
+        };
+      }
+
+      const ranked = await this.getWeeklyRankedSellers(tx, weekStart, weekEnd);
+      const winner = ranked[0];
+
+      if (!winner) {
+        const canceledCompetition = await tx.weeklyCompetition.update({
+          where: {
+            id: competition.id,
+          },
+          data: {
+            status: 'CANCELED',
+            rewardAmount: 0,
+            winnerUserId: null,
+            finalizedAt: new Date(),
+          },
+        });
+
+        return {
+          alreadyFinalized: false,
+          competition: canceledCompetition,
+          winner: null,
+          winnerNotificationPayload: null,
+        };
+      }
+
+      const previousWeekStart = new Date(weekStart);
+      previousWeekStart.setUTCDate(previousWeekStart.getUTCDate() - 7);
+
+      const currentStats = await tx.userWeeklyStats.findUnique({
+        where: {
+          userId: winner.id,
+        },
+        select: {
+          userId: true,
+          totalWins: true,
+          currentStreak: true,
+          bestStreak: true,
+          lastWinWeekStart: true,
+        },
+      });
+
+      const extendsStreak =
+        currentStats?.lastWinWeekStart?.getTime() === previousWeekStart.getTime();
+      const streakAfterWin = extendsStreak
+        ? (currentStats?.currentStreak ?? 0) + 1
+        : 1;
+
+      await tx.userWeeklyStats.upsert({
+        where: {
+          userId: winner.id,
+        },
+        update: {
+          totalWins: {
+            increment: 1,
+          },
+          currentStreak: streakAfterWin,
+          bestStreak: Math.max(currentStats?.bestStreak ?? 0, streakAfterWin),
+          lastWinWeekStart: weekStart,
+        },
+        create: {
+          userId: winner.id,
+          totalWins: 1,
+          currentStreak: streakAfterWin,
+          bestStreak: streakAfterWin,
+          lastWinWeekStart: weekStart,
+        },
+      });
+
+      await tx.weeklyWinner.upsert({
+        where: {
+          competitionId: competition.id,
+        },
+        update: {
+          userId: winner.id,
+          rank: 1,
+          score: winner.score,
+          completedDeals: winner.completedDeals,
+          ratingAvgSnapshot: winner.ratingAvg,
+          ratingCountSnapshot: winner.ratingCount,
+          activeListings: winner.activeListings,
+          streakAfterWin,
+          rewardAmount,
+        },
+        create: {
+          competitionId: competition.id,
+          userId: winner.id,
+          rank: 1,
+          score: winner.score,
+          completedDeals: winner.completedDeals,
+          ratingAvgSnapshot: winner.ratingAvg,
+          ratingCountSnapshot: winner.ratingCount,
+          activeListings: winner.activeListings,
+          streakAfterWin,
+          rewardAmount,
+        },
+      });
+
+      await this.walletService.grantWeeklyReward(tx, winner.id, rewardAmount);
+
+      const streakAchievementCodes = this.resolveWeeklyStreakAchievementCodes(
+        streakAfterWin,
+      );
+
+      const streakDefinitions = await tx.achievementDefinition.findMany({
+        where: {
+          code: {
+            in: streakAchievementCodes,
+          },
+        },
+        select: {
+          id: true,
+          code: true,
+          title: true,
+        },
+      });
+
+      const existingStreakAchievements = await tx.userAchievement.findMany({
+        where: {
+          userId: winner.id,
+          definitionId: {
+            in: streakDefinitions.map((definition) => definition.id),
+          },
+        },
+        select: {
+          definitionId: true,
+        },
+      });
+
+      const existingDefinitionIds = new Set(
+        existingStreakAchievements.map((item) => item.definitionId),
+      );
+
+      const newStreakDefinitions = streakDefinitions.filter(
+        (definition) => !existingDefinitionIds.has(definition.id),
+      );
+
+      if (newStreakDefinitions.length > 0) {
+        await tx.userAchievement.createMany({
+          data: newStreakDefinitions.map((definition) => ({
+            userId: winner.id,
+            definitionId: definition.id,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
+      const finalizedCompetition = await tx.weeklyCompetition.update({
+        where: {
+          id: competition.id,
+        },
+        data: {
+          status: 'FINALIZED',
+          winnerUserId: winner.id,
+          rewardAmount,
+          finalizedAt: new Date(),
+        },
+        select: {
+          id: true,
+          weekStart: true,
+          weekEnd: true,
+          status: true,
+          winnerUserId: true,
+          rewardAmount: true,
+          finalizedAt: true,
+          winner: {
+            select: {
+              id: true,
+              displayName: true,
+            },
+          },
+        },
+      });
+
+      const winnerNotificationPayload = {
+        userId: winner.id,
+        rewardAmount,
+        streakAfterWin,
+        unlockedAchievements: newStreakDefinitions.map((definition) => ({
+          code: definition.code,
+          title: definition.title,
+        })),
+      };
+
+      return {
+        alreadyFinalized: false,
+        competition: finalizedCompetition,
+        winner: {
+          id: winner.id,
+          displayName: winner.displayName,
+          score: winner.score,
+          completedDeals: winner.completedDeals,
+          activeListings: winner.activeListings,
+          ratingAvg: winner.ratingAvg,
+          ratingCount: winner.ratingCount,
+          streakAfterWin,
+          rewardAmount,
+        },
+        winnerNotificationPayload,
+      };
+    });
+
+    if (result.winnerNotificationPayload) {
+      await this.systemNotificationsService.createForUser({
+        userId: result.winnerNotificationPayload.userId,
+        title: 'Weekly Top Seller reward',
+        text: `You won Weekly Top Sellers and received $${(
+          result.winnerNotificationPayload.rewardAmount / 100
+        ).toFixed(2)}. Current streak: ${result.winnerNotificationPayload.streakAfterWin}.`,
+      });
+
+      for (const achievement of result.winnerNotificationPayload
+        .unlockedAchievements) {
+        await this.systemNotificationsService.createForUser({
+          userId: result.winnerNotificationPayload.userId,
+          title: 'New achievement unlocked',
+          text: `Congratulations! You unlocked \"${achievement.title}\" (${achievement.code}).`,
+        });
+      }
+    }
+
+    const { winnerNotificationPayload: _winnerNotificationPayload, ...response } =
+      result;
+
+    return response;
+  }
+
+  async broadcastSystemMessage(
+    adminId: string,
+    dto: BroadcastSystemMessageDto,
+  ) {
+    const text = dto.text?.trim();
+
+    if (!text) {
+      throw new BadRequestException('Message text is required');
+    }
+
+    return this.systemNotificationsService.broadcastFromAdmin(adminId, {
+      title: dto.title,
+      text,
     });
   }
 }

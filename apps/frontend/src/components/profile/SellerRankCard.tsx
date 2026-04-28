@@ -9,11 +9,6 @@ type SellerRank = {
   ratingCount: number;
   completedDeals: number;
   activeListings: number;
-  achievements?: Array<{
-    code: string;
-    title: string;
-    unlockedAt: string;
-  }>;
 };
 
 export function SellerRankCard({
@@ -58,19 +53,6 @@ export function SellerRankCard({
           <div>{seller.activeListings} listings</div>
         </div>
       </div>
-
-      {seller.achievements && seller.achievements.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1">
-          {seller.achievements.slice(0, 2).map((achievement) => (
-            <span
-              key={achievement.code}
-              className="rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
-            >
-              {achievement.title}
-            </span>
-          ))}
-        </div>
-      )}
     </Link>
   );
 }

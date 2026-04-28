@@ -4,11 +4,13 @@ import { useAuth } from "../auth/AuthContext";
 import { http } from "../api/http";
 import { getSocket } from "../api/socket";
 import { ConversationView } from "../components/chat/ConversationView";
+import { SystemConversationView } from "../components/chat/SystemConversationView";
 import { Card, CardContent, CardHeader } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
 import { ErrorState, LoadingState } from "../components/ui/PageStates";
 import { EmptyState } from "../components/ui/EmptyState";
 import { Avatar } from "../components/ui/Avatar";
+import { Badge } from "../components/ui/Badge";
 
 function extractErrorMessage(error: unknown, fallback: string) {
   if (
@@ -43,6 +45,8 @@ type Conversation = {
   listingId: string;
   buyerId: string;
   sellerId: string;
+  isSystem?: boolean;
+  systemTitle?: string;
   unreadCount?: number;
   createdAt: string;
   listing: {
@@ -66,6 +70,9 @@ type Conversation = {
 
 function sortConversations(items: Conversation[]) {
   return [...items].sort((a, b) => {
+    if (a.isSystem && !b.isSystem) return -1;
+    if (!a.isSystem && b.isSystem) return 1;
+
     const aTime = a.messages[0]?.createdAt ?? a.createdAt;
     const bTime = b.messages[0]?.createdAt ?? b.createdAt;
     return new Date(bTime).getTime() - new Date(aTime).getTime();
@@ -130,10 +137,16 @@ export function InboxPage() {
       setSelectedConversationId((prev) => prev ?? updatedConversation.id);
     };
 
+    const handleSystemInboxRefresh = () => {
+      void loadInbox();
+    };
+
     socket.on("inbox:update", handleInboxUpdate);
+    socket.on("system:inbox:refresh", handleSystemInboxRefresh);
 
     return () => {
       socket.off("inbox:update", handleInboxUpdate);
+      socket.off("system:inbox:refresh", handleSystemInboxRefresh);
     };
   }, [user]);
 
@@ -145,6 +158,15 @@ export function InboxPage() {
     if (!query) return conversations;
 
     return conversations.filter((conv) => {
+      if (conv.isSystem) {
+        const lastMessage = conv.messages[0]?.text ?? "";
+        return (
+          "tradegame".includes(query) ||
+          "system".includes(query) ||
+          lastMessage.toLowerCase().includes(query)
+        );
+      }
+
       const otherUser = user?.id === conv.buyer.id ? conv.seller.displayName : conv.buyer.displayName;
       const lastMessage = conv.messages[0]?.text ?? "";
 
@@ -200,10 +222,16 @@ export function InboxPage() {
 
           <div className="divide-y divide-border">
             {filteredConversations.map((conv) => {
-              const otherUser =
-                user?.id === conv.buyer.id ? conv.seller.displayName : conv.buyer.displayName;
-              const otherUserAvatar =
-                user?.id === conv.buyer.id ? conv.seller.avatarUrl : conv.buyer.avatarUrl;
+              const otherUser = conv.isSystem
+                ? conv.systemTitle ?? "TradeGame"
+                : user?.id === conv.buyer.id
+                  ? conv.seller.displayName
+                  : conv.buyer.displayName;
+              const otherUserAvatar = conv.isSystem
+                ? undefined
+                : user?.id === conv.buyer.id
+                  ? conv.seller.avatarUrl
+                  : conv.buyer.avatarUrl;
 
               const lastMessage = conv.messages[0];
               const timestamp = lastMessage?.createdAt ?? conv.createdAt;
@@ -230,6 +258,9 @@ export function InboxPage() {
                         <div className="min-w-0">
                           <div className="line-clamp-1 text-sm font-semibold text-foreground">{otherUser}</div>
                           <div className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{conv.listing.title}</div>
+                          {conv.isSystem && (
+                            <Badge variant="outline" className="mt-1 text-[10px]">Pinned</Badge>
+                          )}
                         </div>
                         <div className="shrink-0 text-[11px] text-muted-foreground">
                           {new Date(timestamp).toLocaleString()}
@@ -252,7 +283,19 @@ export function InboxPage() {
 
       <div className="min-h-[720px]">
         {selectedConversation ? (
-          <ConversationView conversation={selectedConversation} />
+          selectedConversation.isSystem ? (
+            <SystemConversationView
+              onMarkedRead={() => {
+                setConversations((prev) =>
+                  prev.map((item) =>
+                    item.id === "system" ? { ...item, unreadCount: 0 } : item,
+                  ),
+                );
+              }}
+            />
+          ) : (
+            <ConversationView conversation={selectedConversation} />
+          )
         ) : (
           <Card className="flex h-[720px] items-center justify-center">
             <CardContent className="text-muted-foreground">Select a conversation</CardContent>

@@ -21,6 +21,14 @@ type Profile = {
   role: "BUYER" | "SELLER" | "ADMIN";
   ratingAvg: number;
   ratingCount: number;
+  profileBadges?: Array<{
+    code: string;
+    title: string;
+  }>;
+  activeBadge?: {
+    code: string;
+    title: string;
+  } | null;
   achievements: Achievement[];
 };
 
@@ -179,6 +187,12 @@ export function ProfilePage() {
               </div>
 
               <div className="mt-6 flex flex-wrap justify-center gap-6 text-sm sm:justify-start">
+                {(profile.profileBadges ?? []).map((badge) => (
+                  <div key={badge.code} className="flex items-center gap-2 text-muted-foreground">
+                    <Badge variant="outline">{badge.title}</Badge>
+                  </div>
+                ))}
+
                 <div className="flex items-center gap-2">
                   <Star className="h-5 w-5 fill-warning text-warning" />
                   <span className="text-lg font-semibold text-foreground">{profile.ratingAvg.toFixed(1)}</span>

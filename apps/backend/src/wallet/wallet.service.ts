@@ -20,6 +20,8 @@ export class WalletService {
         return 'Refund received';
       case 'WITHDRAW':
         return 'Funds withdrawn';
+      case 'WEEKLY_REWARD':
+        return 'Weekly top seller reward';
       default:
         return 'Wallet transaction';
     }
@@ -265,6 +267,32 @@ export class WalletService {
         type: 'REFUND',
         amount,
         dealId,
+      },
+    });
+  }
+
+  async grantWeeklyReward(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    amount: number,
+  ) {
+    if (amount <= 0) {
+      throw new ForbiddenException('Invalid reward amount');
+    }
+
+    await this.getOrCreateWalletTx(tx, userId);
+
+    await tx.wallet.update({
+      where: { userId },
+      data: { balance: { increment: amount } },
+    });
+
+    await tx.walletTransaction.create({
+      data: {
+        walletId: userId,
+        userId,
+        type: 'WEEKLY_REWARD',
+        amount,
       },
     });
   }

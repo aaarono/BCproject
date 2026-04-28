@@ -140,7 +140,7 @@ export function Navbar() {
           <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <Gamepad2 className="h-5 w-5" />
           </span>
-          <span className="text-lg font-semibold tracking-tight text-foreground">TradeGame</span>
+          <span className="text-lg font-semibold tracking-tight text-foreground">TradeMarket</span>
         </Link>
 
         <nav className="hidden items-center gap-1 md:flex">

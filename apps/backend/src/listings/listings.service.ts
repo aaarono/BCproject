@@ -272,6 +272,84 @@ export class ListingsService {
     );
   }
 
+  private resolveSellerProfileBadges(seller: {
+    profileBadges?: Array<{
+      definition: {
+        code: string;
+        title: string;
+      };
+    }>;
+    achievements?: Array<{
+      definition: {
+        code: string;
+        title: string;
+      };
+    }>;
+    activeBadgeDefinition?: {
+      code: string;
+      title: string;
+    } | null;
+  }) {
+    if (seller.profileBadges && seller.profileBadges.length > 0) {
+      return seller.profileBadges.slice(0, 3).map((item) => ({
+        code: item.definition.code,
+        title: item.definition.title,
+      }));
+    }
+
+    if (seller.achievements && seller.achievements.length > 0) {
+      const firstUnlocked = seller.achievements[0];
+      return [
+        {
+          code: firstUnlocked.definition.code,
+          title: firstUnlocked.definition.title,
+        },
+      ];
+    }
+
+    if (seller.activeBadgeDefinition) {
+      return [
+        {
+          code: seller.activeBadgeDefinition.code,
+          title: seller.activeBadgeDefinition.title,
+        },
+      ];
+    }
+
+    return [];
+  }
+
+  private withResolvedSellerBadges<
+    T extends {
+      seller: {
+        profileBadges?: Array<{
+          definition: {
+            code: string;
+            title: string;
+          };
+        }>;
+        achievements?: Array<{
+          definition: {
+            code: string;
+            title: string;
+          };
+        }>;
+        activeBadgeDefinition?: {
+          code: string;
+          title: string;
+        } | null;
+      };
+    },
+  >(listings: T[]) {
+    return listings.map((listing) => ({
+      ...listing,
+      seller: {
+        ...listing.seller,
+        profileBadges: this.resolveSellerProfileBadges(listing.seller),
+      },
+    }));
+  }
+
   async getFeed(query: ListingQueryDto) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 12;
@@ -352,17 +430,42 @@ export class ListingsService {
               avatarUrl: true,
               ratingAvg: true,
               ratingCount: true,
-              achievements: {
-                orderBy: { unlockedAt: 'desc' },
-                take: 3,
+              _count: {
                 select: {
-                  unlockedAt: true,
+                  sellerDeals: {
+                    where: {
+                      status: 'COMPLETED',
+                    },
+                  },
+                },
+              },
+              profileBadges: {
+                orderBy: { sortOrder: 'asc' },
+                select: {
                   definition: {
                     select: {
                       code: true,
                       title: true,
                     },
                   },
+                },
+              },
+              achievements: {
+                orderBy: { unlockedAt: 'asc' },
+                take: 1,
+                select: {
+                  definition: {
+                    select: {
+                      code: true,
+                      title: true,
+                    },
+                  },
+                },
+              },
+              activeBadgeDefinition: {
+                select: {
+                  code: true,
+                  title: true,
                 },
               },
             },
@@ -372,7 +475,8 @@ export class ListingsService {
       this.prisma.listing.count({ where }),
     ]);
 
-    const data = await this.withPricingMeta(rawData);
+    const withPricing = await this.withPricingMeta(rawData);
+    const data = this.withResolvedSellerBadges(withPricing);
 
     return {
       data,
@@ -391,17 +495,42 @@ export class ListingsService {
             avatarUrl: true,
             ratingAvg: true,
             ratingCount: true,
-            achievements: {
-              orderBy: { unlockedAt: 'desc' },
-              take: 3,
+            _count: {
               select: {
-                unlockedAt: true,
+                sellerDeals: {
+                  where: {
+                    status: 'COMPLETED',
+                  },
+                },
+              },
+            },
+            profileBadges: {
+              orderBy: { sortOrder: 'asc' },
+              select: {
                 definition: {
                   select: {
                     code: true,
                     title: true,
                   },
                 },
+              },
+            },
+            achievements: {
+              orderBy: { unlockedAt: 'asc' },
+              take: 1,
+              select: {
+                definition: {
+                  select: {
+                    code: true,
+                    title: true,
+                  },
+                },
+              },
+            },
+            activeBadgeDefinition: {
+              select: {
+                code: true,
+                title: true,
               },
             },
           },
@@ -411,7 +540,9 @@ export class ListingsService {
 
     if (!rawListing) throw new NotFoundException('Listing not found');
 
-    const [listing] = await this.withPricingMeta([rawListing]);
+    const [listing] = this.withResolvedSellerBadges(
+      await this.withPricingMeta([rawListing]),
+    );
     return listing;
   }
 
@@ -615,17 +746,42 @@ export class ListingsService {
               avatarUrl: true,
               ratingAvg: true,
               ratingCount: true,
-              achievements: {
-                orderBy: { unlockedAt: 'desc' },
-                take: 3,
+              _count: {
                 select: {
-                  unlockedAt: true,
+                  sellerDeals: {
+                    where: {
+                      status: 'COMPLETED',
+                    },
+                  },
+                },
+              },
+              profileBadges: {
+                orderBy: { sortOrder: 'asc' },
+                select: {
                   definition: {
                     select: {
                       code: true,
                       title: true,
                     },
                   },
+                },
+              },
+              achievements: {
+                orderBy: { unlockedAt: 'asc' },
+                take: 1,
+                select: {
+                  definition: {
+                    select: {
+                      code: true,
+                      title: true,
+                    },
+                  },
+                },
+              },
+              activeBadgeDefinition: {
+                select: {
+                  code: true,
+                  title: true,
                 },
               },
             },
@@ -660,7 +816,9 @@ export class ListingsService {
         });
       }
 
-      const [result] = await this.withPricingMeta([updated]);
+      const [result] = this.withResolvedSellerBadges(
+        await this.withPricingMeta([updated]),
+      );
       return result;
     });
   }

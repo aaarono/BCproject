@@ -4,9 +4,10 @@ import { extractHttpErrorMessage } from "../utils/httpError";
 import { Card, CardContent, CardHeader } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
+import { Badge } from "../components/ui/Badge";
 import { ErrorState, LoadingState } from "../components/ui/PageStates";
 import { PageContainer, PageHeader } from "../components/ui/PageLayout";
-import { Bell, Camera, CreditCard, Monitor, Moon, Save, Shield, Sun, User } from "lucide-react";
+import { Bell, Camera, CreditCard, GripVertical, Monitor, Moon, Save, Shield, Sun, User } from "lucide-react";
 import { cn } from "../lib/cn";
 import { Avatar } from "../components/ui/Avatar";
 import { useAuth } from "../auth/AuthContext";
@@ -23,6 +24,20 @@ type Profile = {
   email: string;
   displayName: string;
   avatarUrl?: string | null;
+  profileBadges?: Array<{
+    code: string;
+    title: string;
+  }>;
+  activeBadge?: {
+    code: string;
+    title: string;
+  } | null;
+  achievements?: Array<{
+    code: string;
+    title: string;
+    description: string;
+    unlockedAt: string;
+  }>;
   paymentCardLast4?: string | null;
   paymentCardBrand?: string | null;
   paymentCardLinkedAt?: string | null;
@@ -37,6 +52,10 @@ export function SettingsPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
+  const [activeBadgeCode, setActiveBadgeCode] = useState("");
+  const [profileBadgeCodes, setProfileBadgeCodes] = useState<string[]>([]);
+  const [draggedProfileBadgeCode, setDraggedProfileBadgeCode] = useState<string | null>(null);
+  const [dropTargetSlotIndex, setDropTargetSlotIndex] = useState<number | null>(null);
   const [paymentCardNumber, setPaymentCardNumber] = useState("");
   const [notifications, setNotifications] = useState({
     newMessage: true,
@@ -50,6 +69,7 @@ export function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const [badgeSaving, setBadgeSaving] = useState(false);
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [paymentSaving, setPaymentSaving] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => getStoredThemeMode());
@@ -62,6 +82,8 @@ export function SettingsPage() {
     setProfile(res.data);
     setDisplayName(res.data.displayName);
     setEmail(res.data.email);
+    setActiveBadgeCode(res.data.activeBadge?.code ?? "");
+    setProfileBadgeCodes((res.data.profileBadges ?? []).map((badge) => badge.code));
   }
 
   useEffect(() => {
@@ -226,6 +248,77 @@ export function SettingsPage() {
     }
   }
 
+  async function saveActiveBadge() {
+    setErr(null);
+    setSuccess(null);
+    setBadgeSaving(true);
+
+    try {
+      await http.patch("/users/me/active-badge", {
+        code: activeBadgeCode || undefined,
+      });
+      await loadProfile();
+      setSuccess("Active badge updated.");
+    } catch (error: unknown) {
+      setErr(extractHttpErrorMessage(error, "Failed to update active badge"));
+    } finally {
+      setBadgeSaving(false);
+    }
+  }
+
+  function toggleProfileBadge(code: string) {
+    setErr(null);
+    setProfileBadgeCodes((prev) => {
+      if (prev.includes(code)) {
+        return prev.filter((item) => item !== code);
+      }
+
+      if (prev.length >= 3) {
+        setErr("You can select up to 3 profile badges.");
+        return prev;
+      }
+
+      return [...prev, code];
+    });
+  }
+
+  function moveProfileBadgeToSlot(code: string, slotIndex: number) {
+    setProfileBadgeCodes((prev) => {
+      const currentIndex = prev.indexOf(code);
+      if (currentIndex < 0) return prev;
+
+      const next = prev.filter((item) => item !== code);
+      const insertAt = Math.max(0, Math.min(slotIndex, next.length));
+      next.splice(insertAt, 0, code);
+      return next;
+    });
+  }
+
+  function removeProfileBadge(code: string) {
+    setErr(null);
+    setProfileBadgeCodes((prev) => prev.filter((item) => item !== code));
+  }
+
+  const achievementsByCode = new Map((profile?.achievements ?? []).map((achievement) => [achievement.code, achievement]));
+
+  async function saveProfileBadges() {
+    setErr(null);
+    setSuccess(null);
+    setBadgeSaving(true);
+
+    try {
+      await http.patch("/users/me/profile-badges", {
+        codes: profileBadgeCodes,
+      });
+      await loadProfile();
+      setSuccess("Profile badges updated.");
+    } catch (error: unknown) {
+      setErr(extractHttpErrorMessage(error, "Failed to update profile badges"));
+    } finally {
+      setBadgeSaving(false);
+    }
+  }
+
   if (loading) return <LoadingState width="max-w-2xl" />;
   if (err && !profile) return <ErrorState width="max-w-2xl" message={err} />;
 
@@ -341,6 +434,128 @@ export function SettingsPage() {
                 <label className="mb-1 block text-sm font-medium text-foreground">Email</label>
                 <Input value={email} onChange={(e) => setEmail(e.target.value)} />
               </div>
+            </div>
+
+            <div className="space-y-2 rounded-lg border border-border bg-muted/60 p-3">
+              <div className="text-sm font-medium text-foreground">Active achievement badge</div>
+              <div className="text-xs text-muted-foreground">Choose one of your unlocked achievements to highlight on profile and leaderboards.</div>
+              <select
+                value={activeBadgeCode}
+                onChange={(event) => setActiveBadgeCode(event.target.value)}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="">No active badge</option>
+                {(profile?.achievements ?? []).map((achievement) => (
+                  <option key={achievement.code} value={achievement.code}>
+                    {achievement.title}
+                  </option>
+                ))}
+              </select>
+              <Button variant="outline" onClick={saveActiveBadge} disabled={badgeSaving}>
+                {badgeSaving ? "Saving..." : "Save active badge"}
+              </Button>
+            </div>
+
+            <div className="space-y-2 rounded-lg border border-border bg-muted/60 p-3">
+              <div className="text-sm font-medium text-foreground">Profile badges (up to 3)</div>
+              <div className="text-xs text-muted-foreground">Pick up to 3 unlocked achievements, then drag to set fixed order 1/2/3.</div>
+              <div className="flex flex-wrap gap-2">
+                {(profile?.achievements ?? []).map((achievement) => {
+                  const selected = profileBadgeCodes.includes(achievement.code);
+                  return (
+                    <Button
+                      key={achievement.code}
+                      type="button"
+                      size="sm"
+                      variant={selected ? "default" : "outline"}
+                      onClick={() => toggleProfileBadge(achievement.code)}
+                    >
+                      {achievement.title}
+                    </Button>
+                  );
+                })}
+              </div>
+              <div className="space-y-2 rounded-lg border border-border bg-background/70 p-3">
+                <div className="text-xs font-medium text-foreground">Order and preview (profile view)</div>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {[0, 1, 2].map((slotIndex) => {
+                    const badgeCode = profileBadgeCodes[slotIndex];
+                    const badge = badgeCode ? achievementsByCode.get(badgeCode) : undefined;
+
+                    return (
+                      <div
+                        key={slotIndex}
+                        onDragOver={(event) => {
+                          event.preventDefault();
+                          setDropTargetSlotIndex(slotIndex);
+                        }}
+                        onDragEnter={(event) => {
+                          event.preventDefault();
+                          setDropTargetSlotIndex(slotIndex);
+                        }}
+                        onDragLeave={() => {
+                          setDropTargetSlotIndex((prev) => (prev === slotIndex ? null : prev));
+                        }}
+                        onDrop={(event) => {
+                          event.preventDefault();
+                          if (!draggedProfileBadgeCode) return;
+                          moveProfileBadgeToSlot(draggedProfileBadgeCode, slotIndex);
+                          setDraggedProfileBadgeCode(null);
+                          setDropTargetSlotIndex(null);
+                        }}
+                        className={cn(
+                          "rounded-md border border-dashed bg-muted/40 p-2 transition",
+                          dropTargetSlotIndex === slotIndex
+                            ? "border-primary/70 bg-primary/10"
+                            : "border-border",
+                        )}
+                      >
+                        <div className="mb-1 text-[11px] text-muted-foreground">Slot {slotIndex + 1}</div>
+                        {badge ? (
+                          <div
+                            draggable
+                            onDragStart={() => {
+                              setDraggedProfileBadgeCode(badge.code);
+                              setDropTargetSlotIndex(slotIndex);
+                            }}
+                            onDragEnd={() => {
+                              setDraggedProfileBadgeCode(null);
+                              setDropTargetSlotIndex(null);
+                            }}
+                            className="flex items-center justify-between gap-2"
+                          >
+                            <div className="inline-flex items-center gap-1.5">
+                              <span
+                                className="inline-flex h-5 w-5 items-center justify-center rounded border border-border bg-background text-muted-foreground"
+                                title="Drag to reorder"
+                                aria-label="Drag to reorder"
+                              >
+                                <GripVertical className="h-3 w-3" />
+                              </span>
+                              <Badge variant="outline" className="border-border bg-muted text-[10px] text-muted-foreground">
+                                {badge.title}
+                              </Badge>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeProfileBadge(badge.code)}
+                              className="text-xs text-muted-foreground hover:text-foreground"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="text-[11px] text-muted-foreground">Drop badge here</div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="text-xs text-muted-foreground">Selected: {profileBadgeCodes.length}/3</div>
+              <Button variant="outline" onClick={saveProfileBadges} disabled={badgeSaving}>
+                {badgeSaving ? "Saving..." : "Save profile badges"}
+              </Button>
             </div>
 
             {err && <div className="text-sm text-destructive">{err}</div>}

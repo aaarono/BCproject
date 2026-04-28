@@ -30,7 +30,13 @@ type WalletSummary = {
 
 type WalletTransaction = {
   id: string;
-  type: "TOPUP" | "WITHDRAW" | "ESCROW_LOCK" | "ESCROW_RELEASE" | "REFUND";
+  type:
+    | "TOPUP"
+    | "WITHDRAW"
+    | "ESCROW_LOCK"
+    | "ESCROW_RELEASE"
+    | "REFUND"
+    | "WEEKLY_REWARD";
   amount: number;
   dealId?: string | null;
   createdAt: string;
@@ -154,6 +160,8 @@ export function WalletPage() {
         return <ArrowUpRight className="h-4 w-4 text-destructive" />;
       case "REFUND":
         return <RefreshCw className="h-4 w-4 text-info" />;
+      case "WEEKLY_REWARD":
+        return <ArrowDownLeft className="h-4 w-4 text-success" />;
       case "WITHDRAW":
         return <ArrowUpRight className="h-4 w-4 text-destructive" />;
       default:
@@ -165,6 +173,7 @@ export function WalletPage() {
     switch (type) {
       case "TOPUP":
       case "REFUND":
+      case "WEEKLY_REWARD":
         return "text-success";
       case "ESCROW_LOCK":
       case "ESCROW_RELEASE":

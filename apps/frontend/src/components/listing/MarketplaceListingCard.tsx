@@ -18,6 +18,15 @@ export function MarketplaceListingCard({
 }) {
   const effectivePrice = listing.effectivePrice ?? listing.price;
   const initials = listing.seller.displayName.slice(0, 2).toUpperCase();
+  const profileBadges =
+    listing.seller.profileBadges && listing.seller.profileBadges.length > 0
+      ? listing.seller.profileBadges.slice(0, 3)
+      : listing.seller.activeBadgeDefinition
+        ? [listing.seller.activeBadgeDefinition]
+        : listing.seller.activeBadge
+          ? [listing.seller.activeBadge]
+          : [];
+  const completedSales = listing.seller._count?.sellerDeals ?? 0;
 
   return (
     <Link
@@ -77,17 +86,23 @@ export function MarketplaceListingCard({
             />
           </div>
           <span className="truncate text-xs text-muted-foreground">{listing.seller.displayName}</span>
-          <div className="ml-auto flex items-center gap-1">
+          <div className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
             <Star className="h-3 w-3 fill-warning text-warning" />
-            <span className="text-xs font-medium text-foreground">{listing.seller.ratingAvg.toFixed(1)}</span>
+            <span className="font-medium text-foreground">{listing.seller.ratingAvg.toFixed(1)}</span>
+            <span>·</span>
+            <span>{completedSales} deals</span>
           </div>
         </div>
 
-        {listing.seller.achievements && listing.seller.achievements.length > 0 && (
+        {profileBadges.length > 0 && (
           <div className="flex flex-wrap gap-1">
-            {listing.seller.achievements.slice(0, 2).map((achievement) => (
-              <Badge key={achievement.definition.code} variant="outline" className="text-[10px]">
-                {achievement.definition.title}
+            {profileBadges.map((badge) => (
+              <Badge
+                key={badge.code}
+                variant="outline"
+                className="border-border bg-muted text-[10px] text-muted-foreground"
+              >
+                {badge.title}
               </Badge>
             ))}
           </div>

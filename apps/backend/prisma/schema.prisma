@@ -52,6 +52,13 @@ enum WalletTxType {
   ESCROW_LOCK
   ESCROW_RELEASE
   REFUND
+  WEEKLY_REWARD
+}
+
+enum WeeklyCompetitionStatus {
+  PENDING
+  FINALIZED
+  CANCELED
 }
 
 model User {
@@ -60,6 +67,7 @@ model User {
   passwordHash String
   displayName  String
   avatarUrl    String?
+  activeBadgeDefinitionId String?
   paymentCardLast4   String?
   paymentCardBrand   String?
   paymentCardLinkedAt DateTime?
@@ -83,8 +91,17 @@ model User {
   reviewsGiven    Review[] @relation("BuyerReviews")
   reviewsReceived Review[] @relation("SellerReviews")
   achievements    UserAchievement[]
+  profileBadges   UserProfileBadge[]
+  activeBadgeDefinition AchievementDefinition? @relation("ActiveBadgeDefinition", fields: [activeBadgeDefinitionId], references: [id])
+  weeklyStats UserWeeklyStats?
+  wonCompetitions WeeklyCompetition[] @relation("CompetitionWinner")
+  weeklyWinnerSnapshots WeeklyWinner[]
   createdAchievementAssignments AchievementAssignment[] @relation("AdminAchievementAssignments")
   assignedAchievements          AchievementAssignment[] @relation("UserAchievementAssignments")
+  systemNotifications SystemNotification[] @relation("UserSystemNotifications")
+  createdSystemNotifications SystemNotification[] @relation("AdminSystemNotifications")
+
+  @@index([activeBadgeDefinitionId])
 }
 
 model AchievementDefinition {
@@ -95,7 +112,24 @@ model AchievementDefinition {
   createdAt   DateTime @default(now())
 
   users UserAchievement[]
+  profileBadgeUsers UserProfileBadge[]
+  activeBadgeUsers User[] @relation("ActiveBadgeDefinition")
   manualAssignments AchievementAssignment[]
+}
+
+model UserProfileBadge {
+  id           String   @id @default(cuid())
+  userId       String
+  definitionId String
+  sortOrder    Int
+  createdAt    DateTime @default(now())
+
+  user       User                  @relation(fields: [userId], references: [id])
+  definition AchievementDefinition @relation(fields: [definitionId], references: [id])
+
+  @@unique([userId, definitionId])
+  @@unique([userId, sortOrder])
+  @@index([userId, sortOrder])
 }
 
 model UserAchievement {
@@ -125,6 +159,72 @@ model AchievementAssignment {
   @@index([createdAt])
   @@index([adminId, createdAt])
   @@index([userId, createdAt])
+}
+
+model WeeklyCompetition {
+  id           String                  @id @default(cuid())
+  weekStart    DateTime                @unique
+  weekEnd      DateTime
+  status       WeeklyCompetitionStatus @default(PENDING)
+  winnerUserId String?
+  rewardAmount Int                     @default(0)
+  finalizedAt  DateTime?
+  createdAt    DateTime                @default(now())
+
+  winner  User?         @relation("CompetitionWinner", fields: [winnerUserId], references: [id])
+  summary WeeklyWinner?
+
+  @@index([status, weekStart])
+  @@index([winnerUserId, weekStart])
+}
+
+model WeeklyWinner {
+  id                 String   @id @default(cuid())
+  competitionId      String   @unique
+  userId             String
+  rank               Int
+  score              Float
+  completedDeals     Int
+  ratingAvgSnapshot  Float
+  ratingCountSnapshot Int
+  activeListings      Int
+  streakAfterWin     Int
+  rewardAmount       Int
+  createdAt          DateTime @default(now())
+
+  competition WeeklyCompetition @relation(fields: [competitionId], references: [id])
+  user        User              @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
+}
+
+model UserWeeklyStats {
+  userId        String   @id
+  totalWins     Int      @default(0)
+  currentStreak Int      @default(0)
+  bestStreak    Int      @default(0)
+  lastWinWeekStart DateTime?
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model SystemNotification {
+  id            String   @id @default(cuid())
+  userId        String
+  senderAdminId String?
+  title         String
+  text          String
+  createdAt     DateTime @default(now())
+  readAt        DateTime?
+
+  user User @relation("UserSystemNotifications", fields: [userId], references: [id])
+  senderAdmin User? @relation("AdminSystemNotifications", fields: [senderAdminId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
+  @@index([senderAdminId, createdAt])
 }
 
 model Listing {

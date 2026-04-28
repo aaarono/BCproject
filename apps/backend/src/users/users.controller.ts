@@ -20,6 +20,8 @@ import { UsersService } from './users.service';
 import { UpdateMeDto } from './dto/update-me.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdatePaymentCardDto } from './dto/update-payment-card.dto';
+import { UpdateActiveBadgeDto } from './dto/update-active-badge.dto';
+import { UpdateProfileBadgesDto } from './dto/update-profile-badges.dto';
 import { diskStorage } from 'multer';
 import type { Request } from 'express';
 import { extname } from 'path';
@@ -132,6 +134,28 @@ export class UsersController {
     return this.usersService.unlinkPaymentCard(user.sub);
   }
 
+  @ApiOperation({ summary: 'Set or clear my active achievement badge' })
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Patch('me/active-badge')
+  updateMyActiveBadge(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: UpdateActiveBadgeDto,
+  ) {
+    return this.usersService.updateMyActiveBadge(user.sub, dto);
+  }
+
+  @ApiOperation({ summary: 'Select up to 3 profile achievement badges' })
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Patch('me/profile-badges')
+  updateMyProfileBadges(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: UpdateProfileBadgesDto,
+  ) {
+    return this.usersService.updateMyProfileBadges(user.sub, dto);
+  }
+
   @ApiOperation({ summary: 'Get top sellers leaderboard' })
   @Get('top-sellers')
   getTopSellers(@Query('limit') limit?: string) {
@@ -142,6 +166,24 @@ export class UsersController {
   @Get('top-sellers/weekly')
   getWeeklyTopSellers(@Query('limit') limit?: string) {
     return this.usersService.getWeeklyTopSellers(limit);
+  }
+
+  @ApiOperation({ summary: 'Get weekly top seller winners history' })
+  @Get('top-sellers/winners')
+  getTopSellerWinners(@Query('limit') limit?: string) {
+    return this.usersService.getTopSellerWinners(limit);
+  }
+
+  @ApiOperation({ summary: 'Get user achievements and active badge' })
+  @Get(':id/achievements')
+  getUserAchievements(@Param('id') id: string) {
+    return this.usersService.getUserAchievements(id);
+  }
+
+  @ApiOperation({ summary: 'Get user weekly competition stats' })
+  @Get(':id/weekly-stats')
+  getUserWeeklyStats(@Param('id') id: string) {
+    return this.usersService.getUserWeeklyStats(id);
   }
 
   @ApiOperation({ summary: 'Get public profile of a user' })

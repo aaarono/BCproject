@@ -5,8 +5,8 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import { WalletService } from 'src/wallet/wallet.service';
-import { ChatGateway } from 'src/chat/chat.gateway';
+import { WalletService } from '../wallet/wallet.service';
+import { ChatGateway } from '../chat/chat.gateway';
 import { getDealExpiresAt } from './deal-timeout.util';
 
 @Injectable()

@@ -31,13 +31,21 @@ export type Listing = {
     avatarUrl?: string | null;
     ratingAvg: number;
     ratingCount: number;
-    achievements?: Array<{
-      unlockedAt: string;
-      definition: {
-        code: string;
-        title: string;
-      };
+    _count?: {
+      sellerDeals: number;
+    };
+    profileBadges?: Array<{
+      code: string;
+      title: string;
     }>;
+    activeBadgeDefinition?: {
+      code: string;
+      title: string;
+    } | null;
+    activeBadge?: {
+      code: string;
+      title: string;
+    } | null;
   };
 };
 

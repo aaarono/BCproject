@@ -5,6 +5,7 @@ import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import { Card, CardContent, CardHeader } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
+import { Textarea } from "../components/ui/Textarea";
 import { ErrorState, LoadingState } from "../components/ui/PageStates";
 import { PageContainer, PageHeader } from "../components/ui/PageLayout";
 import { formatUsdFromCents } from "../lib/currency";
@@ -103,6 +104,25 @@ type ListResponse<T> = {
   meta: { page: number; limit: number; total: number; totalPages: number };
 };
 
+type WeeklyFinalizeResponse = {
+  alreadyFinalized: boolean;
+  competition: {
+    status: "PENDING" | "FINALIZED" | "CANCELED";
+    weekStart: string;
+    weekEnd: string;
+    rewardAmount: number;
+    winner?: {
+      id: string;
+      displayName: string;
+    } | null;
+  };
+  winner?: {
+    id: string;
+    displayName: string;
+    rewardAmount: number;
+  } | null;
+};
+
 function formatAmount(cents: number) {
   return formatUsdFromCents(cents);
 }
@@ -123,6 +143,8 @@ export function AdminPage() {
   const [achievementDescription, setAchievementDescription] = useState("");
   const [selectedAchievementCode, setSelectedAchievementCode] = useState("");
   const [selectedUserId, setSelectedUserId] = useState("");
+  const [systemMessageTitle, setSystemMessageTitle] = useState("TradeGame notifications");
+  const [systemMessageText, setSystemMessageText] = useState("");
 
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
@@ -302,6 +324,76 @@ export function AdminPage() {
     }
   }
 
+  async function finalizePreviousWeekReward() {
+    setBusy(true);
+    setErr(null);
+    setSuccess(null);
+
+    try {
+      const response = await http.post<WeeklyFinalizeResponse>(
+        "/admin/weekly-rewards/finalize-previous-week",
+      );
+
+      const winnerName =
+        response.data.winner?.displayName ??
+        response.data.competition.winner?.displayName;
+
+      if (response.data.competition.status === "CANCELED") {
+        setSuccess("Weekly reward finalized: no eligible winner this week.");
+      } else if (response.data.alreadyFinalized) {
+        setSuccess(
+          winnerName
+            ? `Weekly reward was already finalized for ${winnerName}.`
+            : "Weekly reward was already finalized.",
+        );
+      } else {
+        setSuccess(
+          winnerName
+            ? `Weekly reward finalized. Winner: ${winnerName}.`
+            : "Weekly reward finalized.",
+        );
+      }
+
+      await loadAll();
+    } catch (error: unknown) {
+      setErr(
+        extractHttpErrorMessage(error, "Failed to finalize weekly reward"),
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function broadcastSystemMessage() {
+    setBusy(true);
+    setErr(null);
+    setSuccess(null);
+
+    try {
+      const text = systemMessageText.trim();
+
+      if (!text) {
+        setErr("Message text is required.");
+        return;
+      }
+
+      const response = await http.post<{ sent: number }>(
+        "/admin/system-notifications/broadcast",
+        {
+          title: systemMessageTitle.trim() || undefined,
+          text,
+        },
+      );
+
+      setSystemMessageText("");
+      setSuccess(`Broadcast sent to ${response.data.sent} users.`);
+    } catch (error: unknown) {
+      setErr(extractHttpErrorMessage(error, "Failed to send broadcast"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (loading) return <LoadingState width="max-w-7xl" />;
   if (err && !overview) return <ErrorState width="max-w-7xl" message={err} />;
 
@@ -360,6 +452,14 @@ export function AdminPage() {
             </Button>
             <Button type="button" onClick={() => refreshByTab().catch(() => {})} disabled={busy}>
               {busy ? "Working..." : "Refresh"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => finalizePreviousWeekReward().catch(() => {})}
+              disabled={busy}
+            >
+              Finalize weekly reward
             </Button>
           </div>
 
@@ -490,6 +590,28 @@ export function AdminPage() {
 
           {activeTab === "achievements" && (
             <div className="space-y-4">
+              <div className="rounded-xl border border-border bg-muted p-3">
+                <div className="mb-3 text-sm font-medium text-foreground">System broadcast (pinned TradeGame chat)</div>
+                <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                  <Input
+                    placeholder="Title"
+                    value={systemMessageTitle}
+                    onChange={(e) => setSystemMessageTitle(e.target.value)}
+                  />
+                  <Button type="button" disabled={busy} onClick={() => broadcastSystemMessage().catch(() => {})}>
+                    {busy ? "Sending..." : "Send broadcast"}
+                  </Button>
+                </div>
+                <div className="mt-2">
+                  <Textarea
+                    placeholder="Message text"
+                    value={systemMessageText}
+                    onChange={(e) => setSystemMessageText(e.target.value)}
+                    rows={4}
+                  />
+                </div>
+              </div>
+
               <div className="rounded-xl border border-border bg-muted p-3">
                 <div className="mb-3 text-sm font-medium text-foreground">Create new achievement</div>
                 <div className="grid gap-2 sm:grid-cols-3">

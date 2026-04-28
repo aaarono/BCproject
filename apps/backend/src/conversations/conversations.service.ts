@@ -344,6 +344,67 @@ export class ConversationsService {
       unreadCount: unreadCounts.get(conversation.id) ?? 0,
     }));
 
-    return withUnread;
+    const [latestSystemNotification, unreadSystemCount] = await Promise.all([
+      this.prisma.systemNotification.findFirst({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          title: true,
+          text: true,
+          createdAt: true,
+        },
+      }),
+      this.prisma.systemNotification.count({
+        where: {
+          userId,
+          readAt: null,
+        },
+      }),
+    ]);
+
+    const systemConversation = {
+      id: 'system',
+      listingId: 'system',
+      buyerId: userId,
+      sellerId: 'system',
+      createdAt: latestSystemNotification?.createdAt ?? new Date(0),
+      isSystem: true,
+      systemTitle: 'TradeGame',
+      listing: {
+        id: 'system',
+        title: 'TradeGame notifications',
+        price: 0,
+        type: 'SERVICE',
+      },
+      buyer: {
+        id: userId,
+        displayName: 'You',
+        avatarUrl: null,
+      },
+      seller: {
+        id: 'system',
+        displayName: 'TradeGame',
+        avatarUrl: null,
+      },
+      unreadCount: unreadSystemCount,
+      messages: latestSystemNotification
+        ? [
+            {
+              id: latestSystemNotification.id,
+              conversationId: 'system',
+              text: latestSystemNotification.text,
+              createdAt: latestSystemNotification.createdAt,
+              sender: {
+                id: 'system',
+                displayName: 'TradeGame',
+              },
+              title: latestSystemNotification.title,
+            },
+          ]
+        : [],
+    };
+
+    return [systemConversation, ...withUnread];
   }
 }

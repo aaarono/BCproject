@@ -8,12 +8,18 @@ import * as bcrypt from 'bcrypt';
 import { unlink } from 'fs/promises';
 import { basename, join } from 'path';
 import { PrismaService } from '../../prisma/prisma.service';
+import { SystemNotificationsService } from '../system-notifications/system-notifications.service';
 import { UpdateMeDto } from './dto/update-me.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { UpdateActiveBadgeDto } from './dto/update-active-badge.dto';
+import { UpdateProfileBadgesDto } from './dto/update-profile-badges.dto';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly systemNotificationsService: SystemNotificationsService,
+  ) {}
 
   private readonly topSellersMaxLimit = 20;
   private readonly topSellersDefaultLimit = 10;
@@ -25,6 +31,12 @@ export class UsersService {
     topRatedMinRatingAvg: 4.8,
     topRatedMinRatingCount: 10,
     catalogBuilderMinActiveListings: 10,
+    salesMilestone25: 25,
+    salesMilestone50: 50,
+    salesMilestone100: 100,
+    salesMilestone250: 250,
+    salesMilestone500: 500,
+    salesMilestone1000: 1000,
   } as const;
 
   private resolveEligibleAchievements(stats: {
@@ -61,6 +73,30 @@ export class UsersService {
       this.achievementThresholds.catalogBuilderMinActiveListings
     ) {
       eligible.push('CATALOG_BUILDER');
+    }
+
+    if (stats.completedDeals >= this.achievementThresholds.salesMilestone25) {
+      eligible.push('SALES_25');
+    }
+
+    if (stats.completedDeals >= this.achievementThresholds.salesMilestone50) {
+      eligible.push('SALES_50');
+    }
+
+    if (stats.completedDeals >= this.achievementThresholds.salesMilestone100) {
+      eligible.push('SALES_100');
+    }
+
+    if (stats.completedDeals >= this.achievementThresholds.salesMilestone250) {
+      eligible.push('SALES_250');
+    }
+
+    if (stats.completedDeals >= this.achievementThresholds.salesMilestone500) {
+      eligible.push('SALES_500');
+    }
+
+    if (stats.completedDeals >= this.achievementThresholds.salesMilestone1000) {
+      eligible.push('SALES_1000');
     }
 
     return eligible;
@@ -115,6 +151,45 @@ export class UsersService {
     return byUserId;
   }
 
+  private async getFirstUnlockedBadgeByUserIds(userIds: string[]) {
+    if (userIds.length === 0) {
+      return new Map<string, { code: string; title: string }>();
+    }
+
+    const rows = await this.prisma.userAchievement.findMany({
+      where: {
+        userId: {
+          in: userIds,
+        },
+      },
+      orderBy: {
+        unlockedAt: 'asc',
+      },
+      select: {
+        userId: true,
+        definition: {
+          select: {
+            code: true,
+            title: true,
+          },
+        },
+      },
+    });
+
+    const firstByUserId = new Map<string, { code: string; title: string }>();
+
+    for (const row of rows) {
+      if (!firstByUserId.has(row.userId)) {
+        firstByUserId.set(row.userId, {
+          code: row.definition.code,
+          title: row.definition.title,
+        });
+      }
+    }
+
+    return firstByUserId;
+  }
+
   private async syncAchievementsForUser(userId: string) {
     const [user, completedDeals, activeListings] = await Promise.all([
       this.prisma.user.findUnique({
@@ -161,6 +236,8 @@ export class UsersService {
       },
       select: {
         id: true,
+        code: true,
+        title: true,
       },
     });
 
@@ -168,13 +245,45 @@ export class UsersService {
       return;
     }
 
+    const existing = await this.prisma.userAchievement.findMany({
+      where: {
+        userId,
+        definitionId: {
+          in: definitions.map((definition) => definition.id),
+        },
+      },
+      select: {
+        definitionId: true,
+      },
+    });
+
+    const existingDefinitionIds = new Set(
+      existing.map((item) => item.definitionId),
+    );
+
+    const missingDefinitions = definitions.filter(
+      (definition) => !existingDefinitionIds.has(definition.id),
+    );
+
+    if (missingDefinitions.length === 0) {
+      return;
+    }
+
     await this.prisma.userAchievement.createMany({
-      data: definitions.map((definition) => ({
+      data: missingDefinitions.map((definition) => ({
         userId,
         definitionId: definition.id,
       })),
       skipDuplicates: true,
     });
+
+    for (const definition of missingDefinitions) {
+      await this.systemNotificationsService.createForUser({
+        userId,
+        title: 'New achievement unlocked',
+        text: `Congratulations! You unlocked \"${definition.title}\" (${definition.code}).`,
+      });
+    }
   }
 
   private async getAchievementsForUser(userId: string) {
@@ -205,6 +314,58 @@ export class UsersService {
       description: item.definition.description,
       unlockedAt: item.unlockedAt,
     }));
+  }
+
+  private async getSelectedProfileBadgesForUser(userId: string) {
+    const selected = await this.prisma.userProfileBadge.findMany({
+      where: { userId },
+      orderBy: { sortOrder: 'asc' },
+      select: {
+        sortOrder: true,
+        definition: {
+          select: {
+            code: true,
+            title: true,
+          },
+        },
+      },
+    });
+
+    return selected.map((item) => ({
+      code: item.definition.code,
+      title: item.definition.title,
+      sortOrder: item.sortOrder,
+    }));
+  }
+
+  private resolveProfileBadges(
+    selected: Array<{ code: string; title: string; sortOrder: number }>,
+    achievements: Array<{
+      code: string;
+      title: string;
+      description: string;
+      unlockedAt: Date;
+    }>,
+  ) {
+    if (selected.length > 0) {
+      return selected.map((item) => ({
+        code: item.code,
+        title: item.title,
+      }));
+    }
+
+    const firstUnlocked = achievements
+      .slice()
+      .sort((a, b) => a.unlockedAt.getTime() - b.unlockedAt.getTime())[0];
+
+    return firstUnlocked
+      ? [
+          {
+            code: firstUnlocked.code,
+            title: firstUnlocked.title,
+          },
+        ]
+      : [];
   }
 
   private getLocalAvatarPathFromUrl(url: string | null | undefined) {
@@ -309,6 +470,26 @@ export class UsersService {
         avatarUrl: true,
         ratingAvg: true,
         ratingCount: true,
+        profileBadges: {
+          orderBy: {
+            sortOrder: 'asc' as const,
+          },
+          select: {
+            sortOrder: true,
+            definition: {
+              select: {
+                code: true,
+                title: true,
+              },
+            },
+          },
+        },
+        activeBadgeDefinition: {
+          select: {
+            code: true,
+            title: true,
+          },
+        },
       },
       orderBy: [
         { ratingAvg: 'desc' as const },
@@ -376,14 +557,288 @@ export class UsersService {
     const achievementsBySellerId =
       await this.getAchievementsByUserIds(sellerIds);
 
-    return enriched
+    const ranked = enriched
       .filter((seller) => seller.ratingCount > 0 || seller.completedDeals > 0)
       .sort((a, b) => b.score - a.score)
-      .map((seller) => ({
+      .slice(0, limit);
+
+    const firstUnlockedBadgeBySellerId = await this.getFirstUnlockedBadgeByUserIds(
+      ranked.map((seller) => seller.id),
+    );
+
+    return ranked.map((seller) => {
+        const selectedBadges = seller.profileBadges.map((badge) => ({
+          code: badge.definition.code,
+          title: badge.definition.title,
+        }));
+
+        const fallbackBadge = firstUnlockedBadgeBySellerId.get(seller.id);
+        const profileBadges =
+          selectedBadges.length > 0
+            ? selectedBadges
+            : fallbackBadge
+              ? [fallbackBadge]
+              : [];
+
+        return {
         ...seller,
         achievements: achievementsBySellerId.get(seller.id) ?? [],
-      }))
-      .slice(0, limit);
+        profileBadges,
+        activeBadge: seller.activeBadgeDefinition
+          ? {
+              code: seller.activeBadgeDefinition.code,
+              title: seller.activeBadgeDefinition.title,
+            }
+          : (fallbackBadge ?? null),
+      };
+    });
+  }
+
+  async getUserAchievements(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        activeBadgeDefinition: {
+          select: {
+            code: true,
+            title: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const achievements = await this.getAchievementsForUser(userId);
+
+    return {
+      userId: user.id,
+      activeBadge: user.activeBadgeDefinition
+        ? {
+            code: user.activeBadgeDefinition.code,
+            title: user.activeBadgeDefinition.title,
+          }
+        : null,
+      achievements,
+    };
+  }
+
+  async updateMyActiveBadge(userId: string, dto: UpdateActiveBadgeDto) {
+    const normalizedCode = dto.code?.trim().toUpperCase();
+
+    if (!normalizedCode) {
+      const user = await this.prisma.user.update({
+        where: { id: userId },
+        data: { activeBadgeDefinitionId: null },
+        select: {
+          id: true,
+          activeBadgeDefinition: {
+            select: {
+              code: true,
+              title: true,
+            },
+          },
+        },
+      });
+
+      return {
+        userId: user.id,
+        activeBadge: null,
+      };
+    }
+
+    await this.syncAchievementsForUser(userId);
+
+    const unlockedAchievement = await this.prisma.userAchievement.findFirst({
+      where: {
+        userId,
+        definition: {
+          code: normalizedCode,
+        },
+      },
+      select: {
+        definitionId: true,
+      },
+    });
+
+    if (!unlockedAchievement) {
+      throw new BadRequestException(
+        'You can set only an unlocked achievement as active badge',
+      );
+    }
+
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        activeBadgeDefinitionId: unlockedAchievement.definitionId,
+      },
+      select: {
+        id: true,
+        activeBadgeDefinition: {
+          select: {
+            code: true,
+            title: true,
+          },
+        },
+      },
+    });
+
+    return {
+      userId: user.id,
+      activeBadge: user.activeBadgeDefinition
+        ? {
+            code: user.activeBadgeDefinition.code,
+            title: user.activeBadgeDefinition.title,
+          }
+        : null,
+    };
+  }
+
+  async updateMyProfileBadges(userId: string, dto: UpdateProfileBadgesDto) {
+    await this.syncAchievementsForUser(userId);
+
+    const normalizedCodes = Array.from(
+      new Set((dto.codes ?? []).map((code) => code.trim().toUpperCase())),
+    ).filter((code) => code.length > 0);
+
+    if (normalizedCodes.length > 3) {
+      throw new BadRequestException('You can select up to 3 profile badges');
+    }
+
+    const unlocked = await this.prisma.userAchievement.findMany({
+      where: {
+        userId,
+        definition: {
+          code: {
+            in: normalizedCodes,
+          },
+        },
+      },
+      select: {
+        definitionId: true,
+        definition: {
+          select: {
+            code: true,
+            title: true,
+          },
+        },
+      },
+    });
+
+    if (unlocked.length !== normalizedCodes.length) {
+      throw new BadRequestException(
+        'All selected profile badges must be unlocked achievements',
+      );
+    }
+
+    const unlockedByCode = new Map(
+      unlocked.map((item) => [item.definition.code, item]),
+    );
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.userProfileBadge.deleteMany({ where: { userId } });
+
+      if (normalizedCodes.length > 0) {
+        await tx.userProfileBadge.createMany({
+          data: normalizedCodes.map((code, index) => ({
+            userId,
+            definitionId: unlockedByCode.get(code)!.definitionId,
+            sortOrder: index,
+          })),
+        });
+      }
+    });
+
+    const selected = await this.getSelectedProfileBadgesForUser(userId);
+    return {
+      userId,
+      profileBadges: selected.map((item) => ({
+        code: item.code,
+        title: item.title,
+      })),
+    };
+  }
+
+  async getUserWeeklyStats(userId: string) {
+    const [user, stats] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          displayName: true,
+          avatarUrl: true,
+        },
+      }),
+      this.prisma.userWeeklyStats.findUnique({
+        where: { userId },
+        select: {
+          totalWins: true,
+          currentStreak: true,
+          bestStreak: true,
+          lastWinWeekStart: true,
+          updatedAt: true,
+        },
+      }),
+    ]);
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return {
+      user,
+      stats: stats ?? {
+        totalWins: 0,
+        currentStreak: 0,
+        bestStreak: 0,
+        lastWinWeekStart: null,
+        updatedAt: null,
+      },
+    };
+  }
+
+  async getTopSellerWinners(limit?: string | number) {
+    const normalizedLimit = this.normalizeTopSellersLimit(limit);
+    const winners = await this.prisma.weeklyWinner.findMany({
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: normalizedLimit,
+      select: {
+        id: true,
+        rank: true,
+        score: true,
+        rewardAmount: true,
+        completedDeals: true,
+        ratingAvgSnapshot: true,
+        ratingCountSnapshot: true,
+        activeListings: true,
+        streakAfterWin: true,
+        createdAt: true,
+        competition: {
+          select: {
+            weekStart: true,
+            weekEnd: true,
+          },
+        },
+        user: {
+          select: {
+            id: true,
+            displayName: true,
+            avatarUrl: true,
+          },
+        },
+      },
+    });
+
+    return winners.map((winner) => ({
+      ...winner,
+      weekStart: winner.competition.weekStart,
+      weekEnd: winner.competition.weekEnd,
+    }));
   }
 
   async getMyProfile(userId: string) {
@@ -395,6 +850,12 @@ export class UsersService {
         email: true,
         displayName: true,
         avatarUrl: true,
+        activeBadgeDefinition: {
+          select: {
+            code: true,
+            title: true,
+          },
+        },
         paymentCardLast4: true,
         paymentCardBrand: true,
         paymentCardLinkedAt: true,
@@ -408,10 +869,23 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    const achievements = await this.getAchievementsForUser(userId);
+    const [achievements, selectedProfileBadges] = await Promise.all([
+      this.getAchievementsForUser(userId),
+      this.getSelectedProfileBadgesForUser(userId),
+    ]);
 
     return {
       ...user,
+      activeBadge: user.activeBadgeDefinition
+        ? {
+            code: user.activeBadgeDefinition.code,
+            title: user.activeBadgeDefinition.title,
+          }
+        : null,
+      profileBadges: this.resolveProfileBadges(
+        selectedProfileBadges,
+        achievements,
+      ),
       achievements,
     };
   }
@@ -604,6 +1078,12 @@ export class UsersService {
         createdAt: true,
         displayName: true,
         avatarUrl: true,
+        activeBadgeDefinition: {
+          select: {
+            code: true,
+            title: true,
+          },
+        },
         ratingAvg: true,
         ratingCount: true,
         listings: {
@@ -653,10 +1133,23 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    const achievements = await this.getAchievementsForUser(userId);
+    const [achievements, selectedProfileBadges] = await Promise.all([
+      this.getAchievementsForUser(userId),
+      this.getSelectedProfileBadgesForUser(userId),
+    ]);
 
     return {
       ...user,
+      activeBadge: user.activeBadgeDefinition
+        ? {
+            code: user.activeBadgeDefinition.code,
+            title: user.activeBadgeDefinition.title,
+          }
+        : null,
+      profileBadges: this.resolveProfileBadges(
+        selectedProfileBadges,
+        achievements,
+      ),
       achievements,
     };
   }

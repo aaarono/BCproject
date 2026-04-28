@@ -80,6 +80,22 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.to(this.userRoom(deal.sellerId)).emit('deal:update', deal);
   }
 
+  emitSystemInboxUpdate(userId: string, conversation: unknown) {
+    this.server.to(this.userRoom(userId)).emit('inbox:update', {
+      conversation,
+    });
+  }
+
+  emitSystemInboxRefresh(userId: string) {
+    this.server.to(this.userRoom(userId)).emit('system:inbox:refresh', {
+      ok: true,
+    });
+  }
+
+  emitSystemMessage(userId: string, message: unknown) {
+    this.server.to(this.userRoom(userId)).emit('system:message:new', message);
+  }
+
   async handleConnection(client: AuthedSocket) {
     try {
       const authToken = this.extractAuthToken(client.handshake.auth);

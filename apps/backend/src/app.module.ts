@@ -15,6 +15,7 @@ import { ReviewsModule } from './reviews/reviews.module';
 import { UsersModule } from './users/users.module';
 import { ChatModule } from './chat/chat.module';
 import { AdminModule } from './admin/admin.module';
+import { SystemNotificationsModule } from './system-notifications/system-notifications.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { AdminModule } from './admin/admin.module';
     ReviewsModule,
     UsersModule,
     ChatModule,
+    SystemNotificationsModule,
     AdminModule,
   ],
   controllers: [AppController],

@@ -18,6 +18,10 @@ type TopSeller = {
   completedDeals: number;
   activeListings: number;
   score: number;
+  activeBadge?: {
+    code: string;
+    title: string;
+  } | null;
   achievements?: Array<{
     code: string;
     title: string;
@@ -25,12 +29,32 @@ type TopSeller = {
   }>;
 };
 
+type WeeklyWinner = {
+  id: string;
+  rank: number;
+  score: number;
+  rewardAmount: number;
+  completedDeals: number;
+  ratingAvgSnapshot: number;
+  ratingCountSnapshot: number;
+  activeListings: number;
+  streakAfterWin: number;
+  createdAt: string;
+  weekStart: string;
+  weekEnd: string;
+  user: {
+    id: string;
+    displayName: string;
+    avatarUrl?: string | null;
+  };
+};
+
 type LeaderboardMode = "weekly" | "overall";
 
 const PODIUM_REWARDS_BY_RANK: Record<number, number> = {
-  1: 2500,
-  2: 1500,
-  3: 500,
+  1: 5000,
+  2: 2500,
+  3: 1000,
 };
 
 const PODIUM_ORDER: Array<1 | 2 | 3> = [2, 1, 3];
@@ -109,7 +133,6 @@ function PodiumSellerCard({
               <div className="text-lg font-semibold text-warning">
                 ★ {seller.ratingAvg.toFixed(2)}
               </div>
-
               <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
                 <span>{seller.completedDeals} deals</span>
                 <span>•</span>
@@ -138,6 +161,7 @@ function PodiumSellerCard({
 export function TopSellersPage() {
   const [overallItems, setOverallItems] = useState<TopSeller[]>([]);
   const [weeklyItems, setWeeklyItems] = useState<TopSeller[]>([]);
+  const [weeklyWinners, setWeeklyWinners] = useState<WeeklyWinner[]>([]);
   const [activeMode, setActiveMode] = useState<LeaderboardMode>("weekly");
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [loading, setLoading] = useState(true);
@@ -151,11 +175,15 @@ export function TopSellersPage() {
       http.get<TopSeller[]>("/users/top-sellers/weekly", {
         params: { limit: 20 },
       }),
+      http.get<WeeklyWinner[]>("/users/top-sellers/winners", {
+        params: { limit: 8 },
+      }),
     ])
-      .then(([overall, weekly]) => {
+      .then(([overall, weekly, winners]) => {
         if (!cancelled) {
           setOverallItems(overall.data);
           setWeeklyItems(weekly.data);
+          setWeeklyWinners(winners.data);
           setErr(null);
         }
       })
@@ -289,6 +317,59 @@ export function TopSellersPage() {
               ))
             )}
           </div>
+
+          {activeMode === "weekly" && (
+            <div className="space-y-3 rounded-2xl border border-border bg-card p-4">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground">
+                Weekly winners history
+              </h2>
+              {weeklyWinners.length === 0 ? (
+                <div className="rounded-xl border border-border bg-muted p-4 text-sm text-muted-foreground">
+                  No finalized weekly winners yet.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {weeklyWinners.map((winner) => (
+                    <Link
+                      key={winner.id}
+                      to={`/users/${winner.user.id}`}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-border bg-muted p-3 transition hover:bg-accent"
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        <Avatar
+                          src={winner.user.avatarUrl ?? undefined}
+                          alt={winner.user.displayName}
+                          fallback={winner.user.displayName
+                            .slice(0, 2)
+                            .toUpperCase()}
+                          className="h-10 w-10"
+                          fallbackClassName="text-xs font-semibold"
+                        />
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-semibold text-foreground">
+                            {winner.user.displayName}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {new Date(winner.weekStart).toLocaleDateString()} -{" "}
+                            {new Date(winner.weekEnd).toLocaleDateString()}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right text-xs text-muted-foreground">
+                        <div className="font-semibold text-foreground">
+                          {formatUsdFromCents(winner.rewardAmount)}
+                        </div>
+                        <div>
+                          {winner.completedDeals} deals • streak{" "}
+                          {winner.streakAfterWin}
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
 

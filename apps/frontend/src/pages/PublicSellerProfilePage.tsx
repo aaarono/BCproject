@@ -12,6 +12,7 @@ import { Avatar } from "../components/ui/Avatar";
 import { formatUsdFromCents } from "../lib/currency";
 import { getSocket } from "../api/socket";
 import { useAuth } from "../auth/AuthContext";
+import { ReportDialog } from "../components/report/ReportDialog";
 
 type Listing = {
   id: string;
@@ -84,6 +85,7 @@ export function PublicSellerProfilePage() {
   const [activeTab, setActiveTab] = useState<"listings" | "reviews" | "achievements">("listings");
   const [brokenListingImages, setBrokenListingImages] = useState<Set<string>>(new Set());
   const [isOnline, setIsOnline] = useState(false);
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
@@ -182,7 +184,18 @@ export function PublicSellerProfilePage() {
                 </div>
 
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (!user) {
+                        nav("/login");
+                        return;
+                      }
+
+                      setReportDialogOpen(true);
+                    }}
+                  >
                     <Flag className="h-4 w-4" />
                     Report
                   </Button>
@@ -367,6 +380,14 @@ export function PublicSellerProfilePage() {
           </Card>
         )}
       </div>
+
+      <ReportDialog
+        open={reportDialogOpen}
+        title="Report seller"
+        reportedUserId={profile.id}
+        defaultTargetType="USER"
+        onClose={() => setReportDialogOpen(false)}
+      />
     </div>
   );
 }

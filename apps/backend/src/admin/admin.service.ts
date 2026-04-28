@@ -9,6 +9,8 @@ import {
   DealStatus,
   ListingStatus,
   Prisma,
+  ReportStatus,
+  ReportTargetType,
   Role,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -17,6 +19,7 @@ import { WalletService } from '../wallet/wallet.service';
 import { BroadcastSystemMessageDto } from './dto/broadcast-system-message.dto';
 import { CreateAchievementDto } from './dto/create-achievement.dto';
 import { ListAdminQueryDto } from './dto/list-admin-query.dto';
+import { ModerateReportDto } from './dto/moderate-report.dto';
 
 @Injectable()
 export class AdminService {
@@ -175,7 +178,7 @@ export class AdminService {
   }
 
   async getOverview() {
-    const [users, listings, activeListings, deals, activeDeals, reviews] =
+    const [users, listings, activeListings, deals, activeDeals, reviews, reports] =
       await Promise.all([
         this.prisma.user.count(),
         this.prisma.listing.count(),
@@ -185,6 +188,9 @@ export class AdminService {
           where: { status: { in: ['INITIATED', 'FUNDED', 'DELIVERED'] } },
         }),
         this.prisma.review.count(),
+        this.prisma.report.count({
+          where: { status: { in: ['OPEN', 'UNDER_REVIEW'] } },
+        }),
       ]);
 
     return {
@@ -194,7 +200,119 @@ export class AdminService {
       deals,
       activeDeals,
       reviews,
+      reports,
     };
+  }
+
+  async listReports(
+    query: ListAdminQueryDto,
+    status?: ReportStatus,
+    targetType?: ReportTargetType,
+  ) {
+    const { page, limit, skip } = this.normalizePagination(query);
+    const search = query.search?.trim();
+
+    const where: Prisma.ReportWhereInput = {
+      ...(status ? { status } : {}),
+      ...(targetType ? { targetType } : {}),
+      ...(search
+        ? {
+            OR: [
+              { reason: { contains: search, mode: 'insensitive' } },
+              { details: { contains: search, mode: 'insensitive' } },
+              { targetId: { contains: search, mode: 'insensitive' } },
+              {
+                reporter: {
+                  displayName: { contains: search, mode: 'insensitive' },
+                },
+              },
+              {
+                reporter: {
+                  email: { contains: search, mode: 'insensitive' },
+                },
+              },
+            ],
+          }
+        : {}),
+    };
+
+    const [data, total] = await Promise.all([
+      this.prisma.report.findMany({
+        where,
+        orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          targetType: true,
+          targetId: true,
+          reason: true,
+          details: true,
+          status: true,
+          adminNote: true,
+          reviewedAt: true,
+          createdAt: true,
+          reporter: {
+            select: {
+              id: true,
+              displayName: true,
+              email: true,
+            },
+          },
+          reviewedByAdmin: {
+            select: {
+              id: true,
+              displayName: true,
+              email: true,
+            },
+          },
+        },
+      }),
+      this.prisma.report.count({ where }),
+    ]);
+
+    return {
+      data,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+    };
+  }
+
+  async moderateReport(id: string, adminId: string, dto: ModerateReportDto) {
+    const report = await this.prisma.report.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!report) {
+      throw new NotFoundException('Report not found');
+    }
+
+    const normalizedAdminNote = dto.adminNote?.trim();
+    const reviewedAt = dto.status === 'OPEN' ? null : new Date();
+
+    return this.prisma.report.update({
+      where: { id },
+      data: {
+        status: dto.status,
+        adminNote:
+          normalizedAdminNote && normalizedAdminNote.length > 0
+            ? normalizedAdminNote
+            : null,
+        reviewedByAdminId: dto.status === 'OPEN' ? null : adminId,
+        reviewedAt,
+      },
+      select: {
+        id: true,
+        status: true,
+        adminNote: true,
+        reviewedAt: true,
+      },
+    });
   }
 
   async listUsers(query: ListAdminQueryDto) {

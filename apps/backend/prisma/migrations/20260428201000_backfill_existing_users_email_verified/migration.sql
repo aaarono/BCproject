@@ -1,0 +1,4 @@
+UPDATE "User"
+SET "emailVerifiedAt" = NOW()
+WHERE "emailVerifiedAt" IS NULL
+  AND "emailVerificationTokenHash" IS NULL;

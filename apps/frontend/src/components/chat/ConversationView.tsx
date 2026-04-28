@@ -21,6 +21,7 @@ import { Card } from "../ui/Card";
 import { Input } from "../ui/Input";
 import { Avatar } from "../ui/Avatar";
 import { formatUsdFromCents } from "../../lib/currency";
+import { ReportDialog } from "../report/ReportDialog";
 
 function extractErrorMessage(error: unknown, fallback: string) {
   if (
@@ -189,6 +190,7 @@ export function ConversationView({
   const [hasOlderMessages, setHasOlderMessages] = useState(false);
   const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
   const [isOtherUserOnline, setIsOtherUserOnline] = useState(false);
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
 
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const mediaInputRef = useRef<HTMLInputElement | null>(null);
@@ -766,12 +768,26 @@ export function ConversationView({
             </div>
           </div>
 
-          <Button variant="outline" size="sm">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setReportDialogOpen(true);
+            }}
+          >
             <Flag className="h-4 w-4" />
             Report
           </Button>
         </div>
       </div>
+
+      <ReportDialog
+        open={reportDialogOpen}
+        title="Report user"
+        reportedUserId={otherUserId}
+        defaultTargetType="USER"
+        onClose={() => setReportDialogOpen(false)}
+      />
 
       <div className="border-b border-border bg-muted px-4 py-2">
         <Link

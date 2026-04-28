@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader } from "../components/ui/Card";
 import { ErrorState, LoadingState } from "../components/ui/PageStates";
 import { Input } from "../components/ui/Input";
 import { formatUsdFromCents } from "../lib/currency";
+import { ReportDialog } from "../components/report/ReportDialog";
 
 type Conversation = {
   id: string;
@@ -39,6 +40,7 @@ export function ListingPage() {
   const [chatLoading, setChatLoading] = useState(false);
   const [sellerActionLoading, setSellerActionLoading] = useState(false);
   const [quantity, setQuantity] = useState(1);
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
 
   const isOwner = user?.id === listing?.seller.id;
 
@@ -361,6 +363,32 @@ export function ListingPage() {
                   )}
                 </CardContent>
               </Card>
+            )}
+
+            {user && !isOwner && (
+              <Card>
+                <CardHeader className="font-semibold text-foreground">Report listing</CardHeader>
+                <CardContent className="space-y-3">
+                  <Button
+                    fullWidth
+                    variant="outline"
+                    onClick={() => setReportDialogOpen(true)}
+                  >
+                    Report this listing
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {listing && (
+              <ReportDialog
+                open={reportDialogOpen}
+                title="Report listing"
+                reportedUserId={listing.seller.id}
+                defaultTargetType="LISTING"
+                defaultTargetId={listing.id}
+                onClose={() => setReportDialogOpen(false)}
+              />
             )}
           </div>
         </div>

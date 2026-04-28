@@ -61,6 +61,21 @@ enum WeeklyCompetitionStatus {
   CANCELED
 }
 
+enum ReportTargetType {
+  LISTING
+  USER
+  REVIEW
+  DEAL
+  MESSAGE
+}
+
+enum ReportStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  REJECTED
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -105,6 +120,8 @@ model User {
   assignedAchievements          AchievementAssignment[] @relation("UserAchievementAssignments")
   systemNotifications SystemNotification[] @relation("UserSystemNotifications")
   createdSystemNotifications SystemNotification[] @relation("AdminSystemNotifications")
+  reportsSubmitted Report[] @relation("ReportsSubmitted")
+  reportsReviewed Report[] @relation("ReportsReviewed")
 
   @@index([activeBadgeDefinitionId])
 }
@@ -230,6 +247,29 @@ model SystemNotification {
   @@index([userId, createdAt])
   @@index([userId, readAt])
   @@index([senderAdminId, createdAt])
+}
+
+model Report {
+  id                String           @id @default(cuid())
+  reporterId        String
+  targetType        ReportTargetType
+  targetId          String
+  reason            String
+  details           String?
+  status            ReportStatus     @default(OPEN)
+  adminNote         String?
+  reviewedByAdminId String?
+  reviewedAt        DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  reporter        User  @relation("ReportsSubmitted", fields: [reporterId], references: [id])
+  reviewedByAdmin User? @relation("ReportsReviewed", fields: [reviewedByAdminId], references: [id])
+
+  @@index([reporterId, createdAt])
+  @@index([targetType, targetId])
+  @@index([status, createdAt])
+  @@index([reviewedByAdminId, reviewedAt])
 }
 
 model Listing {

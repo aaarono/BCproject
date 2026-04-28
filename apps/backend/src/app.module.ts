@@ -16,6 +16,7 @@ import { UsersModule } from './users/users.module';
 import { ChatModule } from './chat/chat.module';
 import { AdminModule } from './admin/admin.module';
 import { SystemNotificationsModule } from './system-notifications/system-notifications.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { SystemNotificationsModule } from './system-notifications/system-notific
     ReviewsModule,
     UsersModule,
     ChatModule,
+    ReportsModule,
     SystemNotificationsModule,
     AdminModule,
   ],

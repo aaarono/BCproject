@@ -17,6 +17,7 @@ type Overview = {
   deals: number;
   activeDeals: number;
   reviews: number;
+  reports: number;
 };
 
 type UserItem = {
@@ -99,6 +100,28 @@ type AchievementAssignmentItem = {
   };
 };
 
+type ReportItem = {
+  id: string;
+  targetType: "LISTING" | "USER" | "REVIEW" | "DEAL" | "MESSAGE";
+  targetId: string;
+  reason: string;
+  details?: string | null;
+  status: "OPEN" | "UNDER_REVIEW" | "RESOLVED" | "REJECTED";
+  adminNote?: string | null;
+  reviewedAt?: string | null;
+  createdAt: string;
+  reporter: {
+    id: string;
+    displayName: string;
+    email: string;
+  };
+  reviewedByAdmin?: {
+    id: string;
+    displayName: string;
+    email: string;
+  } | null;
+};
+
 type ListResponse<T> = {
   data: T[];
   meta: { page: number; limit: number; total: number; totalPages: number };
@@ -128,8 +151,10 @@ function formatAmount(cents: number) {
 }
 
 export function AdminPage() {
-  const [activeTab, setActiveTab] = useState<"users" | "listings" | "deals" | "reviews" | "achievements">("users");
+  const [activeTab, setActiveTab] = useState<"users" | "listings" | "deals" | "reviews" | "reports" | "achievements">("users");
   const [dealCancellationFilter, setDealCancellationFilter] = useState<"ALL" | "BUYER" | "SELLER" | "SYSTEM">("ALL");
+  const [reportStatusFilter, setReportStatusFilter] = useState<"ALL" | "OPEN" | "UNDER_REVIEW" | "RESOLVED" | "REJECTED">("ALL");
+  const [reportTargetFilter, setReportTargetFilter] = useState<"ALL" | "LISTING" | "USER" | "REVIEW" | "DEAL" | "MESSAGE">("ALL");
   const [overview, setOverview] = useState<Overview | null>(null);
   const [users, setUsers] = useState<UserItem[]>([]);
   const [listings, setListings] = useState<ListingItem[]>([]);
@@ -137,6 +162,7 @@ export function AdminPage() {
   const [reviews, setReviews] = useState<ReviewItem[]>([]);
   const [achievements, setAchievements] = useState<AchievementItem[]>([]);
   const [achievementAssignments, setAchievementAssignments] = useState<AchievementAssignmentItem[]>([]);
+  const [reports, setReports] = useState<ReportItem[]>([]);
 
   const [achievementCode, setAchievementCode] = useState("");
   const [achievementTitle, setAchievementTitle] = useState("");
@@ -154,7 +180,7 @@ export function AdminPage() {
 
   const tabClass = useMemo(
     () =>
-      (tab: "users" | "listings" | "deals" | "reviews" | "achievements") =>
+      (tab: "users" | "listings" | "deals" | "reviews" | "reports" | "achievements") =>
         `rounded-lg px-3 py-2 text-sm font-medium transition ${
           activeTab === tab ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent"
         }`,
@@ -174,13 +200,19 @@ export function AdminPage() {
           ? { canceledByActor: dealCancellationFilter }
           : {}),
       };
+      const reportsParams = {
+        ...queryParams,
+        ...(reportStatusFilter !== "ALL" ? { status: reportStatusFilter } : {}),
+        ...(reportTargetFilter !== "ALL" ? { targetType: reportTargetFilter } : {}),
+      };
 
-      const [overviewRes, usersRes, listingsRes, dealsRes, reviewsRes, achievementsRes, assignmentHistoryRes] = await Promise.all([
+      const [overviewRes, usersRes, listingsRes, dealsRes, reviewsRes, reportsRes, achievementsRes, assignmentHistoryRes] = await Promise.all([
         http.get<Overview>("/admin/overview"),
         http.get<ListResponse<UserItem>>("/admin/users", { params: queryParams }),
         http.get<ListResponse<ListingItem>>("/admin/listings", { params: queryParams }),
         http.get<ListResponse<DealItem>>("/admin/deals", { params: dealsParams }),
         http.get<ListResponse<ReviewItem>>("/admin/reviews", { params: { limit: 20 } }),
+        http.get<ListResponse<ReportItem>>("/admin/reports", { params: reportsParams }),
         http.get<ListResponse<AchievementItem>>("/admin/achievements", { params: queryParams }),
         http.get<ListResponse<AchievementAssignmentItem>>("/admin/achievements/assignments", { params: { limit: 20 } }),
       ]);
@@ -190,6 +222,7 @@ export function AdminPage() {
       setListings(listingsRes.data.data);
       setDeals(dealsRes.data.data);
       setReviews(reviewsRes.data.data);
+      setReports(reportsRes.data.data);
       setAchievements(achievementsRes.data.data);
       setAchievementAssignments(assignmentHistoryRes.data.data);
     } catch (error: unknown) {
@@ -202,7 +235,7 @@ export function AdminPage() {
   useEffect(() => {
     loadAll().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dealCancellationFilter]);
+  }, [dealCancellationFilter, reportStatusFilter, reportTargetFilter]);
 
   async function refreshByTab() {
     setBusy(true);
@@ -259,6 +292,29 @@ export function AdminPage() {
       setSuccess("Review deleted.");
     } catch (error: unknown) {
       setErr(extractHttpErrorMessage(error, "Failed to delete review"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function moderateReport(reportId: string, status: ReportItem["status"]) {
+    setBusy(true);
+    setErr(null);
+    setSuccess(null);
+
+    try {
+      const rawNote = window.prompt("Admin note (optional)", "");
+      const adminNote = rawNote === null ? undefined : rawNote;
+
+      await http.patch(`/admin/reports/${reportId}`, {
+        status,
+        adminNote,
+      });
+
+      await loadAll();
+      setSuccess(`Report updated to ${status}.`);
+    } catch (error: unknown) {
+      setErr(extractHttpErrorMessage(error, "Failed to moderate report"));
     } finally {
       setBusy(false);
     }
@@ -401,33 +457,35 @@ export function AdminPage() {
     <PageContainer width="max-w-7xl" className="space-y-6">
       <PageHeader
         title="Admin"
-        subtitle="Users, listings, deals and review moderation in one place."
+        subtitle="Users, listings, deals, reports and review moderation in one place."
       />
 
       {overview && (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-7">
           <Card><CardContent className="space-y-1"><div className="text-xs text-muted-foreground">Users</div><div className="text-lg font-semibold text-foreground">{overview.users}</div></CardContent></Card>
           <Card><CardContent className="space-y-1"><div className="text-xs text-muted-foreground">Listings</div><div className="text-lg font-semibold text-foreground">{overview.listings}</div></CardContent></Card>
           <Card><CardContent className="space-y-1"><div className="text-xs text-muted-foreground">Active Listings</div><div className="text-lg font-semibold text-foreground">{overview.activeListings}</div></CardContent></Card>
           <Card><CardContent className="space-y-1"><div className="text-xs text-muted-foreground">Deals</div><div className="text-lg font-semibold text-foreground">{overview.deals}</div></CardContent></Card>
           <Card><CardContent className="space-y-1"><div className="text-xs text-muted-foreground">Active Deals</div><div className="text-lg font-semibold text-foreground">{overview.activeDeals}</div></CardContent></Card>
           <Card><CardContent className="space-y-1"><div className="text-xs text-muted-foreground">Reviews</div><div className="text-lg font-semibold text-foreground">{overview.reviews}</div></CardContent></Card>
+          <Card><CardContent className="space-y-1"><div className="text-xs text-muted-foreground">Open Reports</div><div className="text-lg font-semibold text-foreground">{overview.reports}</div></CardContent></Card>
         </div>
       )}
 
       <Card>
         <CardHeader className="space-y-3">
-          <div className="grid w-full grid-cols-2 gap-2 rounded-xl border border-border bg-card p-2 sm:w-[580px] sm:grid-cols-5">
+          <div className="grid w-full grid-cols-2 gap-2 rounded-xl border border-border bg-card p-2 sm:w-[700px] sm:grid-cols-6">
             <button type="button" className={tabClass("users")} onClick={() => setActiveTab("users")}>Users</button>
             <button type="button" className={tabClass("listings")} onClick={() => setActiveTab("listings")}>Listings</button>
             <button type="button" className={tabClass("deals")} onClick={() => setActiveTab("deals")}>Deals</button>
             <button type="button" className={tabClass("reviews")} onClick={() => setActiveTab("reviews")}>Reviews</button>
+            <button type="button" className={tabClass("reports")} onClick={() => setActiveTab("reports")}>Reports</button>
             <button type="button" className={tabClass("achievements")} onClick={() => setActiveTab("achievements")}>Achievements</button>
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row">
             <Input
-              placeholder="Search users/listings..."
+              placeholder="Search users/listings/reports..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
@@ -445,6 +503,41 @@ export function AdminPage() {
                 <option value="BUYER">Canceled by buyer</option>
                 <option value="SELLER">Canceled by seller</option>
                 <option value="SYSTEM">Canceled by timeout</option>
+              </select>
+            )}
+            {activeTab === "reports" && (
+              <select
+                className="h-10 rounded-lg border border-input bg-background px-3 text-sm text-foreground"
+                value={reportStatusFilter}
+                onChange={(e) =>
+                  setReportStatusFilter(
+                    e.target.value as "ALL" | "OPEN" | "UNDER_REVIEW" | "RESOLVED" | "REJECTED",
+                  )
+                }
+              >
+                <option value="ALL">All report statuses</option>
+                <option value="OPEN">Open</option>
+                <option value="UNDER_REVIEW">Under review</option>
+                <option value="RESOLVED">Resolved</option>
+                <option value="REJECTED">Rejected</option>
+              </select>
+            )}
+            {activeTab === "reports" && (
+              <select
+                className="h-10 rounded-lg border border-input bg-background px-3 text-sm text-foreground"
+                value={reportTargetFilter}
+                onChange={(e) =>
+                  setReportTargetFilter(
+                    e.target.value as "ALL" | "LISTING" | "USER" | "REVIEW" | "DEAL" | "MESSAGE",
+                  )
+                }
+              >
+                <option value="ALL">All targets</option>
+                <option value="LISTING">Listing</option>
+                <option value="USER">User</option>
+                <option value="REVIEW">Review</option>
+                <option value="DEAL">Deal</option>
+                <option value="MESSAGE">Message</option>
               </select>
             )}
             <Button type="button" variant="outline" onClick={() => loadAll().catch(() => {})} disabled={busy}>
@@ -585,6 +678,58 @@ export function AdminPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {activeTab === "reports" && (
+            <div className="space-y-3">
+              {reports.map((report) => (
+                <div key={report.id} className="rounded-xl border border-border bg-muted p-3">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="font-medium text-foreground">{report.reason}</div>
+                      <div className="text-xs text-muted-foreground">
+                        Reporter: {report.reporter.displayName} ({report.reporter.email})
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Target: {report.targetType} · {report.targetId}
+                      </div>
+                      {report.details && (
+                        <div className="mt-1 text-sm text-foreground whitespace-pre-wrap">{report.details}</div>
+                      )}
+                      {report.adminNote && (
+                        <div className="mt-1 text-xs text-muted-foreground">Admin note: {report.adminNote}</div>
+                      )}
+                      <div className="text-xs text-muted-foreground">
+                        Created: {new Date(report.createdAt).toLocaleString()}
+                        {report.reviewedAt ? ` · Reviewed: ${new Date(report.reviewedAt).toLocaleString()}` : ""}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="outline">{report.status}</Badge>
+                      <Button size="sm" variant="outline" disabled={busy} onClick={() => moderateReport(report.id, "UNDER_REVIEW")}>
+                        Review
+                      </Button>
+                      <Button size="sm" disabled={busy} onClick={() => moderateReport(report.id, "RESOLVED")}>
+                        Resolve
+                      </Button>
+                      <Button size="sm" variant="destructive" disabled={busy} onClick={() => moderateReport(report.id, "REJECTED")}>
+                        Reject
+                      </Button>
+                      <Button size="sm" variant="ghost" disabled={busy} onClick={() => moderateReport(report.id, "OPEN")}>
+                        Reopen
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {reports.length === 0 && (
+                <div className="rounded-xl border border-border bg-muted p-4 text-sm text-muted-foreground">
+                  No reports found for selected filters.
+                </div>
+              )}
             </div>
           )}
 

@@ -19,6 +19,8 @@ import {
   DealCancellationActor,
   DealStatus,
   ListingStatus,
+  ReportStatus,
+  ReportTargetType,
 } from '@prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -29,6 +31,7 @@ import { AssignAchievementDto } from './dto/assign-achievement.dto';
 import { BroadcastSystemMessageDto } from './dto/broadcast-system-message.dto';
 import { CreateAchievementDto } from './dto/create-achievement.dto';
 import { ListAdminQueryDto } from './dto/list-admin-query.dto';
+import { ModerateReportDto } from './dto/moderate-report.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 
 @ApiTags('Admin')
@@ -112,6 +115,28 @@ export class AdminController {
   @Get('reviews')
   listReviews(@Query() query: ListAdminQueryDto) {
     return this.adminService.listReviews(query);
+  }
+
+  @ApiOperation({ summary: 'List user reports for moderation' })
+  @ApiQuery({ name: 'status', required: false, enum: ReportStatus })
+  @ApiQuery({ name: 'targetType', required: false, enum: ReportTargetType })
+  @Get('reports')
+  listReports(
+    @Query() query: ListAdminQueryDto,
+    @Query('status') status?: ReportStatus,
+    @Query('targetType') targetType?: ReportTargetType,
+  ) {
+    return this.adminService.listReports(query, status, targetType);
+  }
+
+  @ApiOperation({ summary: 'Moderate report status and note' })
+  @Patch('reports/:id')
+  moderateReport(
+    @Param('id') id: string,
+    @CurrentUser() admin: JwtPayload,
+    @Body() dto: ModerateReportDto,
+  ) {
+    return this.adminService.moderateReport(id, admin.sub, dto);
   }
 
   @ApiOperation({ summary: 'List achievements for admin panel' })

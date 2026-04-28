@@ -31,6 +31,7 @@ async function bootstrap() {
   app.use((req, res, next) => {
     const requestId = randomUUID();
     const startedAt = process.hrtime.bigint();
+    (req as express.Request & { requestId?: string }).requestId = requestId;
 
     res.setHeader('x-request-id', requestId);
     res.on('finish', () => {

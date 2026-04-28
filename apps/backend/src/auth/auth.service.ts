@@ -123,6 +123,23 @@ export class AuthService {
       );
     }
 
+    if (user.isBannedPermanent) {
+      throw new UnauthorizedException(
+        user.banReason
+          ? `Account is banned: ${user.banReason}`
+          : 'Account is banned',
+      );
+    }
+
+    if (user.bannedUntil && user.bannedUntil.getTime() > Date.now()) {
+      const untilText = user.bannedUntil.toLocaleString();
+      throw new UnauthorizedException(
+        user.banReason
+          ? `Account is temporarily banned until ${untilText}: ${user.banReason}`
+          : `Account is temporarily banned until ${untilText}`,
+      );
+    }
+
     const accessToken = await this.signAccessToken(
       user.id,
       user.email,
@@ -301,6 +318,9 @@ export class AuthService {
         displayName: true,
         avatarUrl: true,
         role: true,
+        isBannedPermanent: true,
+        bannedUntil: true,
+        banReason: true,
         ratingAvg: true,
         ratingCount: true,
       },

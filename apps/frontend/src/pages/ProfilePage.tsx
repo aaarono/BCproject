@@ -21,6 +21,9 @@ type Profile = {
   role: "BUYER" | "SELLER" | "ADMIN";
   ratingAvg: number;
   ratingCount: number;
+  warningCount: number;
+  warningLimit: number;
+  nextWarningExpiresAt?: string | null;
   profileBadges?: Array<{
     code: string;
     title: string;
@@ -84,6 +87,9 @@ export function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const activeMyListings = myListings.filter((listing) => listing.status === "ACTIVE");
+  const warningResetDays = profile?.nextWarningExpiresAt
+    ? Math.max(0, Math.floor((new Date(profile.nextWarningExpiresAt).getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
+    : null;
 
   async function loadProfile() {
     const res = await http.get<Profile>("/users/me/profile");
@@ -173,6 +179,12 @@ export function ProfilePage() {
               <div className="flex flex-col items-center gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <h1 className="text-2xl font-bold text-foreground">{profile.displayName}</h1>
+                  {profile.warningCount > 0 && (
+                    <p className="text-sm font-medium text-destructive">
+                      Warnings {profile.warningCount}/{profile.warningLimit}
+                      {warningResetDays !== null ? ` (resets in ${warningResetDays} days)` : ""}
+                    </p>
+                  )}
                   <p className="text-muted-foreground">{profile.email}</p>
                 </div>
 

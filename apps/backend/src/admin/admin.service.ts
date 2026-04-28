@@ -17,9 +17,13 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { SystemNotificationsService } from '../system-notifications/system-notifications.service';
 import { WalletService } from '../wallet/wallet.service';
 import { BroadcastSystemMessageDto } from './dto/broadcast-system-message.dto';
+import { BanUserDto } from './dto/ban-user.dto';
 import { CreateAchievementDto } from './dto/create-achievement.dto';
 import { ListAdminQueryDto } from './dto/list-admin-query.dto';
 import { ModerateReportDto } from './dto/moderate-report.dto';
+import { UpdateAchievementDto } from './dto/update-achievement.dto';
+import { type AdminRoleValue } from './dto/update-user-role.dto';
+import { WarnUserDto } from './dto/warn-user.dto';
 
 @Injectable()
 export class AdminService {
@@ -30,6 +34,40 @@ export class AdminService {
   ) {}
 
   private static readonly DEFAULT_WEEKLY_REWARD_AMOUNT = 5000;
+  private static readonly WARNING_EXPIRES_DAYS = 30;
+
+  private resolveWarningLimit(stage: number) {
+    return stage >= 2 ? 2 : 3;
+  }
+
+  private buildBanMessage(params: {
+    reason: string;
+    duration: string;
+    until?: Date | null;
+    isPermanent?: boolean;
+  }) {
+    if (params.isPermanent) {
+      return `Your account has been permanently banned. Reason: "${params.reason}".`;
+    }
+
+    const untilText = params.until
+      ? ` until ${params.until.toLocaleString()}`
+      : '';
+
+    return `Your account has been banned for ${params.duration}${untilText}. Reason: "${params.reason}".`;
+  }
+
+  private async getActiveWarningCount(userId: string, now = new Date()) {
+    return this.prisma.userWarning.count({
+      where: {
+        userId,
+        revokedAt: null,
+        expiresAt: {
+          gt: now,
+        },
+      },
+    });
+  }
 
   private normalizePagination(query: ListAdminQueryDto) {
     const page = Math.max(1, query.page ?? 1);
@@ -37,6 +75,36 @@ export class AdminService {
     const skip = (page - 1) * limit;
 
     return { page, limit, skip };
+  }
+
+  private async createAuditLog(params: {
+    actorAdminId: string;
+    action: string;
+    entityType: string;
+    entityId?: string | null;
+    requestId?: string;
+    summary?: string;
+    before?: Prisma.InputJsonValue;
+    after?: Prisma.InputJsonValue;
+    metadata?: Prisma.InputJsonValue;
+  }) {
+    try {
+      await this.prisma.auditLog.create({
+        data: {
+          actorAdminId: params.actorAdminId,
+          action: params.action,
+          entityType: params.entityType,
+          entityId: params.entityId ?? null,
+          requestId: params.requestId ?? null,
+          summary: params.summary ?? null,
+          before: params.before,
+          after: params.after,
+          metadata: params.metadata,
+        },
+      });
+    } catch {
+      // Audit trail should not block primary admin operation.
+    }
   }
 
   private getPreviousWeekRange(now = new Date()) {
@@ -204,6 +272,79 @@ export class AdminService {
     };
   }
 
+  async listAuditLogs(
+    query: ListAdminQueryDto,
+    action?: string,
+    entityType?: string,
+  ) {
+    const { page, limit, skip } = this.normalizePagination(query);
+    const search = query.search?.trim();
+
+    const where: Prisma.AuditLogWhereInput = {
+      ...(action ? { action } : {}),
+      ...(entityType ? { entityType } : {}),
+      ...(search
+        ? {
+            OR: [
+              { action: { contains: search, mode: 'insensitive' } },
+              { entityType: { contains: search, mode: 'insensitive' } },
+              { entityId: { contains: search, mode: 'insensitive' } },
+              { summary: { contains: search, mode: 'insensitive' } },
+              {
+                actorAdmin: {
+                  displayName: { contains: search, mode: 'insensitive' },
+                },
+              },
+              {
+                actorAdmin: {
+                  email: { contains: search, mode: 'insensitive' },
+                },
+              },
+            ],
+          }
+        : {}),
+    };
+
+    const [data, total] = await Promise.all([
+      this.prisma.auditLog.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          action: true,
+          entityType: true,
+          entityId: true,
+          requestId: true,
+          summary: true,
+          before: true,
+          after: true,
+          metadata: true,
+          createdAt: true,
+          actorAdmin: {
+            select: {
+              id: true,
+              displayName: true,
+              email: true,
+            },
+          },
+        },
+      }),
+      this.prisma.auditLog.count({ where }),
+    ]);
+
+    return {
+      data,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+    };
+  }
+
   async listReports(
     query: ListAdminQueryDto,
     status?: ReportStatus,
@@ -282,10 +423,362 @@ export class AdminService {
     };
   }
 
-  async moderateReport(id: string, adminId: string, dto: ModerateReportDto) {
+  private async getUserModerationSnapshot(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        displayName: true,
+        email: true,
+        isBannedPermanent: true,
+        bannedUntil: true,
+        banReason: true,
+        warningStage: true,
+      },
+    });
+
+    if (!user) {
+      return null;
+    }
+
+    const now = new Date();
+    const warningCount = await this.prisma.userWarning.count({
+      where: {
+        userId,
+        revokedAt: null,
+        expiresAt: { gt: now },
+      },
+    });
+
+    const isTemporarilyBanned =
+      !user.isBannedPermanent &&
+      user.bannedUntil !== null &&
+      user.bannedUntil.getTime() > now.getTime();
+
+    return {
+      id: user.id,
+      displayName: user.displayName,
+      email: user.email,
+      warningCount,
+      warningLimit: this.resolveWarningLimit(user.warningStage),
+      isBanned: user.isBannedPermanent || isTemporarilyBanned,
+      isBannedPermanent: user.isBannedPermanent,
+      bannedUntil: user.bannedUntil,
+      banReason: user.banReason,
+    };
+  }
+
+  async getReportCase(reportId: string) {
+    const report = await this.prisma.report.findUnique({
+      where: { id: reportId },
+      select: {
+        id: true,
+        targetType: true,
+        targetId: true,
+        reason: true,
+        details: true,
+        status: true,
+        adminNote: true,
+        reviewedAt: true,
+        createdAt: true,
+        reporterId: true,
+        reporter: {
+          select: {
+            id: true,
+            displayName: true,
+            email: true,
+          },
+        },
+        reviewedByAdmin: {
+          select: {
+            id: true,
+            displayName: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    if (!report) {
+      throw new NotFoundException('Report not found');
+    }
+
+    let target: Prisma.InputJsonValue | null = null;
+    let evidenceMessages: Prisma.InputJsonValue[] = [];
+    let reportedUserId: string | null = null;
+
+    if (report.targetType === 'MESSAGE') {
+      const message = await this.prisma.message.findUnique({
+        where: { id: report.targetId },
+        select: {
+          id: true,
+          conversationId: true,
+          senderId: true,
+          text: true,
+          mediaUrl: true,
+          mediaType: true,
+          createdAt: true,
+          sender: {
+            select: {
+              id: true,
+              displayName: true,
+              email: true,
+            },
+          },
+          conversation: {
+            select: {
+              id: true,
+              listingId: true,
+              buyerId: true,
+              sellerId: true,
+              listing: {
+                select: {
+                  id: true,
+                  title: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (message) {
+        reportedUserId = message.senderId;
+        target = message as unknown as Prisma.InputJsonValue;
+
+        const contextMessages = await this.prisma.message.findMany({
+          where: { conversationId: message.conversationId },
+          orderBy: { createdAt: 'asc' },
+          take: 50,
+          select: {
+            id: true,
+            senderId: true,
+            text: true,
+            mediaUrl: true,
+            mediaType: true,
+            createdAt: true,
+            sender: {
+              select: {
+                id: true,
+                displayName: true,
+              },
+            },
+          },
+        });
+
+        const centerIndex = contextMessages.findIndex(
+          (item) => item.id === message.id,
+        );
+
+        if (centerIndex >= 0) {
+          evidenceMessages = contextMessages.slice(
+            Math.max(0, centerIndex - 3),
+            Math.min(contextMessages.length, centerIndex + 4),
+          ) as unknown as Prisma.InputJsonValue[];
+        }
+      }
+    } else if (report.targetType === 'DEAL') {
+      const deal = await this.prisma.deal.findUnique({
+        where: { id: report.targetId },
+        select: {
+          id: true,
+          status: true,
+          createdAt: true,
+          quantity: true,
+          totalAmountSnapshot: true,
+          listingId: true,
+          buyerId: true,
+          sellerId: true,
+          buyer: { select: { id: true, displayName: true, email: true } },
+          seller: { select: { id: true, displayName: true, email: true } },
+          listing: { select: { id: true, title: true } },
+        },
+      });
+
+      if (deal) {
+        reportedUserId =
+          report.reporterId === deal.buyerId ? deal.sellerId : deal.buyerId;
+        target = deal as unknown as Prisma.InputJsonValue;
+
+        const conversation = await this.prisma.conversation.findUnique({
+          where: {
+            listingId_buyerId: {
+              listingId: deal.listingId,
+              buyerId: deal.buyerId,
+            },
+          },
+          select: { id: true },
+        });
+
+        if (conversation) {
+          evidenceMessages = (await this.prisma.message.findMany({
+            where: { conversationId: conversation.id },
+            orderBy: { createdAt: 'desc' },
+            take: 8,
+            select: {
+              id: true,
+              senderId: true,
+              text: true,
+              mediaUrl: true,
+              mediaType: true,
+              createdAt: true,
+              sender: { select: { id: true, displayName: true } },
+            },
+          }))
+            .reverse() as unknown as Prisma.InputJsonValue[];
+        }
+      }
+    } else if (report.targetType === 'LISTING') {
+      const listing = await this.prisma.listing.findUnique({
+        where: { id: report.targetId },
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          status: true,
+          price: true,
+          category: true,
+          createdAt: true,
+          sellerId: true,
+          seller: { select: { id: true, displayName: true, email: true } },
+        },
+      });
+
+      if (listing) {
+        reportedUserId = listing.sellerId;
+        target = listing as unknown as Prisma.InputJsonValue;
+
+        const relatedConversation = await this.prisma.conversation.findFirst({
+          where: {
+            listingId: listing.id,
+            OR: [
+              { buyerId: report.reporterId },
+              { sellerId: report.reporterId },
+            ],
+          },
+          orderBy: { createdAt: 'desc' },
+          select: { id: true },
+        });
+
+        if (relatedConversation) {
+          evidenceMessages = (await this.prisma.message.findMany({
+            where: { conversationId: relatedConversation.id },
+            orderBy: { createdAt: 'desc' },
+            take: 8,
+            select: {
+              id: true,
+              senderId: true,
+              text: true,
+              mediaUrl: true,
+              mediaType: true,
+              createdAt: true,
+              sender: { select: { id: true, displayName: true } },
+            },
+          }))
+            .reverse() as unknown as Prisma.InputJsonValue[];
+        }
+      }
+    } else if (report.targetType === 'REVIEW') {
+      const review = await this.prisma.review.findUnique({
+        where: { id: report.targetId },
+        select: {
+          id: true,
+          rating: true,
+          comment: true,
+          createdAt: true,
+          buyerId: true,
+          sellerId: true,
+          dealId: true,
+          buyer: { select: { id: true, displayName: true, email: true } },
+          seller: { select: { id: true, displayName: true, email: true } },
+          deal: {
+            select: {
+              id: true,
+              listingId: true,
+              listing: { select: { id: true, title: true } },
+            },
+          },
+        },
+      });
+
+      if (review) {
+        reportedUserId = review.buyerId;
+        target = review as unknown as Prisma.InputJsonValue;
+
+        const conversation = await this.prisma.conversation.findUnique({
+          where: {
+            listingId_buyerId: {
+              listingId: review.deal.listingId,
+              buyerId: review.buyerId,
+            },
+          },
+          select: { id: true },
+        });
+
+        if (conversation) {
+          evidenceMessages = (await this.prisma.message.findMany({
+            where: { conversationId: conversation.id },
+            orderBy: { createdAt: 'desc' },
+            take: 8,
+            select: {
+              id: true,
+              senderId: true,
+              text: true,
+              mediaUrl: true,
+              mediaType: true,
+              createdAt: true,
+              sender: { select: { id: true, displayName: true } },
+            },
+          }))
+            .reverse() as unknown as Prisma.InputJsonValue[];
+        }
+      }
+    } else if (report.targetType === 'USER') {
+      const targetUser = await this.prisma.user.findUnique({
+        where: { id: report.targetId },
+        select: {
+          id: true,
+          displayName: true,
+          email: true,
+          createdAt: true,
+          ratingAvg: true,
+          ratingCount: true,
+          _count: {
+            select: {
+              listings: true,
+              sellerDeals: true,
+            },
+          },
+        },
+      });
+
+      if (targetUser) {
+        reportedUserId = targetUser.id;
+        target = targetUser as unknown as Prisma.InputJsonValue;
+      }
+    }
+
+    const reportedUser = reportedUserId
+      ? await this.getUserModerationSnapshot(reportedUserId)
+      : null;
+
+    return {
+      report,
+      reportedUser,
+      target,
+      evidenceMessages,
+    };
+  }
+
+  async moderateReport(
+    id: string,
+    adminId: string,
+    dto: ModerateReportDto,
+    requestId?: string,
+  ) {
     const report = await this.prisma.report.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, status: true, adminNote: true },
     });
 
     if (!report) {
@@ -295,7 +788,7 @@ export class AdminService {
     const normalizedAdminNote = dto.adminNote?.trim();
     const reviewedAt = dto.status === 'OPEN' ? null : new Date();
 
-    return this.prisma.report.update({
+    const updated = await this.prisma.report.update({
       where: { id },
       data: {
         status: dto.status,
@@ -313,6 +806,25 @@ export class AdminService {
         reviewedAt: true,
       },
     });
+
+    await this.createAuditLog({
+      actorAdminId: adminId,
+      action: 'REPORT_MODERATED',
+      entityType: 'REPORT',
+      entityId: id,
+      requestId,
+      summary: `Report status changed to ${updated.status}`,
+      before: {
+        status: report.status,
+        adminNote: report.adminNote,
+      },
+      after: {
+        status: updated.status,
+        adminNote: updated.adminNote,
+      },
+    });
+
+    return updated;
   }
 
   async listUsers(query: ListAdminQueryDto) {
@@ -340,6 +852,10 @@ export class AdminService {
           displayName: true,
           avatarUrl: true,
           role: true,
+          isBannedPermanent: true,
+          bannedUntil: true,
+          banReason: true,
+          warningStage: true,
           ratingAvg: true,
           ratingCount: true,
           createdAt: true,
@@ -355,8 +871,40 @@ export class AdminService {
       this.prisma.user.count({ where }),
     ]);
 
+    const now = new Date();
+    const warningCounts = await this.prisma.userWarning.groupBy({
+      by: ['userId'],
+      where: {
+        userId: { in: data.map((user) => user.id) },
+        revokedAt: null,
+        expiresAt: { gt: now },
+      },
+      _count: {
+        _all: true,
+      },
+    });
+
+    const warningCountByUserId = new Map(
+      warningCounts.map((row) => [row.userId, row._count._all]),
+    );
+
+    const users = data.map((user) => {
+      const warningCount = warningCountByUserId.get(user.id) ?? 0;
+      const isTemporarilyBanned =
+        !user.isBannedPermanent &&
+        user.bannedUntil !== null &&
+        user.bannedUntil.getTime() > now.getTime();
+
+      return {
+        ...user,
+        warningCount,
+        warningLimit: this.resolveWarningLimit(user.warningStage),
+        isBanned: user.isBannedPermanent || isTemporarilyBanned,
+      };
+    });
+
     return {
-      data,
+      data: users,
       meta: {
         page,
         limit,
@@ -571,9 +1119,13 @@ export class AdminService {
     };
   }
 
-  async createAchievement(dto: CreateAchievementDto) {
+  async createAchievement(
+    dto: CreateAchievementDto,
+    adminId: string,
+    requestId?: string,
+  ) {
     try {
-      return await this.prisma.achievementDefinition.create({
+      const created = await this.prisma.achievementDefinition.create({
         data: {
           code: dto.code.trim().toUpperCase(),
           title: dto.title.trim(),
@@ -587,6 +1139,21 @@ export class AdminService {
           createdAt: true,
         },
       });
+
+      await this.createAuditLog({
+        actorAdminId: adminId,
+        action: 'ACHIEVEMENT_CREATED',
+        entityType: 'ACHIEVEMENT',
+        entityId: created.id,
+        requestId,
+        summary: `Achievement ${created.code} created`,
+        after: {
+          code: created.code,
+          title: created.title,
+        },
+      });
+
+      return created;
     } catch (error: unknown) {
       if (
         error &&
@@ -599,6 +1166,128 @@ export class AdminService {
 
       throw error;
     }
+  }
+
+  async updateAchievement(
+    achievementId: string,
+    dto: UpdateAchievementDto,
+    adminId: string,
+    requestId?: string,
+  ) {
+    const existing = await this.prisma.achievementDefinition.findUnique({
+      where: { id: achievementId },
+      select: {
+        id: true,
+        code: true,
+        title: true,
+        description: true,
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Achievement not found');
+    }
+
+    const updated = await this.prisma.achievementDefinition.update({
+      where: { id: achievementId },
+      data: {
+        title: dto.title.trim(),
+        description: dto.description.trim(),
+      },
+      select: {
+        id: true,
+        code: true,
+        title: true,
+        description: true,
+        createdAt: true,
+      },
+    });
+
+    await this.createAuditLog({
+      actorAdminId: adminId,
+      action: 'ACHIEVEMENT_UPDATED',
+      entityType: 'ACHIEVEMENT',
+      entityId: achievementId,
+      requestId,
+      summary: `Achievement ${updated.code} updated`,
+      before: {
+        title: existing.title,
+        description: existing.description,
+      },
+      after: {
+        title: updated.title,
+        description: updated.description,
+      },
+    });
+
+    return updated;
+  }
+
+  async deleteAchievement(
+    achievementId: string,
+    adminId: string,
+    requestId?: string,
+  ) {
+    const existing = await this.prisma.achievementDefinition.findUnique({
+      where: { id: achievementId },
+      select: {
+        id: true,
+        code: true,
+        title: true,
+        _count: {
+          select: {
+            users: true,
+            profileBadgeUsers: true,
+            activeBadgeUsers: true,
+            manualAssignments: true,
+          },
+        },
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Achievement not found');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.updateMany({
+        where: { activeBadgeDefinitionId: achievementId },
+        data: { activeBadgeDefinitionId: null },
+      });
+
+      await tx.userProfileBadge.deleteMany({
+        where: { definitionId: achievementId },
+      });
+
+      await tx.userAchievement.deleteMany({
+        where: { definitionId: achievementId },
+      });
+
+      await tx.achievementAssignment.deleteMany({
+        where: { definitionId: achievementId },
+      });
+
+      await tx.achievementDefinition.delete({
+        where: { id: achievementId },
+      });
+    });
+
+    await this.createAuditLog({
+      actorAdminId: adminId,
+      action: 'ACHIEVEMENT_DELETED',
+      entityType: 'ACHIEVEMENT',
+      entityId: achievementId,
+      requestId,
+      summary: `Achievement ${existing.code} deleted`,
+      metadata: {
+        users: existing._count.users,
+        profileBadgeUsers: existing._count.profileBadgeUsers,
+        activeBadgeUsers: existing._count.activeBadgeUsers,
+        manualAssignments: existing._count.manualAssignments,
+      },
+    });
+
+    return { ok: true };
   }
 
   async listAchievementAssignments(query: ListAdminQueryDto) {
@@ -652,6 +1341,7 @@ export class AdminService {
     userId: string,
     achievementCode: string,
     adminId: string,
+    requestId?: string,
   ) {
     const normalizedCode = achievementCode.trim().toUpperCase();
 
@@ -729,7 +1419,7 @@ export class AdminService {
       },
     });
 
-    return {
+    const result = {
       admin,
       user,
       achievement: {
@@ -739,21 +1429,43 @@ export class AdminService {
       },
       unlockedAt: userAchievement?.unlockedAt ?? new Date(),
     };
+
+    await this.createAuditLog({
+      actorAdminId: adminId,
+      action: 'ACHIEVEMENT_ASSIGNED',
+      entityType: 'USER',
+      entityId: user.id,
+      requestId,
+      summary: `Assigned ${definition.code} to ${user.displayName}`,
+      metadata: {
+        achievementCode: definition.code,
+        achievementId: definition.id,
+      },
+    });
+
+    return result;
   }
 
-  async updateUserRole(userId: string, role: Role) {
+  async updateUserRole(
+    userId: string,
+    role: AdminRoleValue,
+    adminId: string,
+    requestId?: string,
+  ) {
     const existing = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true },
+      select: { id: true, role: true, email: true, displayName: true },
     });
 
     if (!existing) {
       throw new NotFoundException('User not found');
     }
 
-    return this.prisma.user.update({
+    const normalizedRole = role === 'ADMIN' ? Role.ADMIN : Role.BUYER;
+
+    const updated = await this.prisma.user.update({
       where: { id: userId },
-      data: { role },
+      data: { role: normalizedRole },
       select: {
         id: true,
         email: true,
@@ -761,19 +1473,479 @@ export class AdminService {
         role: true,
       },
     });
+
+    await this.createAuditLog({
+      actorAdminId: adminId,
+      action: 'USER_ROLE_UPDATED',
+      entityType: 'USER',
+      entityId: userId,
+      requestId,
+      summary: `Role changed to ${role} for ${updated.displayName}`,
+      before: { role: existing.role },
+      after: { role: updated.role },
+    });
+
+    return updated;
   }
 
-  async archiveListing(listingId: string) {
+  async banUser(
+    userId: string,
+    dto: BanUserDto,
+    adminId: string,
+    requestId?: string,
+  ) {
+    const reason = dto.reason.trim();
+    const now = new Date();
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        displayName: true,
+        role: true,
+        isBannedPermanent: true,
+        bannedUntil: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.role === Role.ADMIN) {
+      throw new BadRequestException('Cannot ban another admin account');
+    }
+
+    const isPermanent = dto.duration === 'PERMANENT';
+    const durationMap: Record<string, number> = {
+      '1day': 1,
+      '3days': 3,
+      '7days': 7,
+      '30days': 30,
+    };
+
+    const bannedUntil =
+      isPermanent || !durationMap[dto.duration]
+        ? null
+        : new Date(now.getTime() + durationMap[dto.duration] * 24 * 60 * 60 * 1000);
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        isBannedPermanent: isPermanent,
+        bannedUntil,
+        banReason: reason,
+      },
+      select: {
+        id: true,
+        displayName: true,
+        isBannedPermanent: true,
+        bannedUntil: true,
+        banReason: true,
+      },
+    });
+
+    await this.systemNotificationsService.createForUser({
+      userId,
+      senderAdminId: adminId,
+      title: 'Account moderation',
+      text: this.buildBanMessage({
+        reason,
+        duration: dto.duration,
+        until: bannedUntil,
+        isPermanent,
+      }),
+    });
+
+    await this.createAuditLog({
+      actorAdminId: adminId,
+      action: 'USER_BANNED',
+      entityType: 'USER',
+      entityId: userId,
+      requestId,
+      summary: `User banned (${dto.duration})`,
+      before: {
+        isBannedPermanent: user.isBannedPermanent,
+        bannedUntil: user.bannedUntil,
+      },
+      after: {
+        isBannedPermanent: updated.isBannedPermanent,
+        bannedUntil: updated.bannedUntil,
+        banReason: updated.banReason,
+      },
+    });
+
+    return {
+      ok: true,
+      user: updated,
+    };
+  }
+
+  async unbanUser(userId: string, adminId: string, requestId?: string) {
+    const existing = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        displayName: true,
+        isBannedPermanent: true,
+        bannedUntil: true,
+        banReason: true,
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('User not found');
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        isBannedPermanent: false,
+        bannedUntil: null,
+        banReason: null,
+      },
+      select: {
+        id: true,
+        displayName: true,
+        isBannedPermanent: true,
+        bannedUntil: true,
+      },
+    });
+
+    await this.systemNotificationsService.createForUser({
+      userId,
+      senderAdminId: adminId,
+      title: 'Account moderation',
+      text: 'Your account ban has been lifted by the administration team.',
+    });
+
+    await this.createAuditLog({
+      actorAdminId: adminId,
+      action: 'USER_UNBANNED',
+      entityType: 'USER',
+      entityId: userId,
+      requestId,
+      summary: `User unbanned: ${updated.displayName}`,
+      before: {
+        isBannedPermanent: existing.isBannedPermanent,
+        bannedUntil: existing.bannedUntil,
+        banReason: existing.banReason,
+      },
+      after: {
+        isBannedPermanent: updated.isBannedPermanent,
+        bannedUntil: updated.bannedUntil,
+      },
+    });
+
+    return { ok: true };
+  }
+
+  async warnUser(
+    userId: string,
+    dto: WarnUserDto,
+    adminId: string,
+    requestId?: string,
+  ) {
+    const reason = dto.reason.trim();
+    const now = new Date();
+    const warningExpiresAt = new Date(
+      now.getTime() +
+        AdminService.WARNING_EXPIRES_DAYS * 24 * 60 * 60 * 1000,
+    );
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        displayName: true,
+        role: true,
+        warningStage: true,
+        isBannedPermanent: true,
+        bannedUntil: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.role === Role.ADMIN) {
+      throw new BadRequestException('Cannot warn another admin account');
+    }
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      await tx.userWarning.create({
+        data: {
+          userId,
+          issuedByAdminId: adminId,
+          reason,
+          expiresAt: warningExpiresAt,
+        },
+      });
+
+      const activeWarnings = await tx.userWarning.findMany({
+        where: {
+          userId,
+          revokedAt: null,
+          expiresAt: {
+            gt: now,
+          },
+        },
+        orderBy: {
+          createdAt: 'asc',
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      const warningLimit = this.resolveWarningLimit(user.warningStage);
+
+      if (activeWarnings.length < warningLimit) {
+        return {
+          escalated: false,
+          warningCount: activeWarnings.length,
+          warningLimit,
+          stage: user.warningStage,
+        };
+      }
+
+      const isSecondStage = user.warningStage >= 2;
+
+      await tx.userWarning.updateMany({
+        where: {
+          id: { in: activeWarnings.map((item) => item.id) },
+          revokedAt: null,
+        },
+        data: {
+          revokedAt: now,
+          revokedByAdminId: adminId,
+        },
+      });
+
+      if (isSecondStage) {
+        await tx.user.update({
+          where: { id: userId },
+          data: {
+            isBannedPermanent: true,
+            bannedUntil: null,
+            banReason: `Auto-ban after ${warningLimit}/${warningLimit} warnings`,
+          },
+        });
+
+        return {
+          escalated: true,
+          escalationType: 'PERMANENT' as const,
+          warningCount: 0,
+          warningLimit,
+          stage: user.warningStage,
+        };
+      }
+
+      const banUntil = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          isBannedPermanent: false,
+          bannedUntil: banUntil,
+          banReason: `Auto-ban after ${warningLimit}/${warningLimit} warnings`,
+          warningStage: 2,
+        },
+      });
+
+      return {
+        escalated: true,
+        escalationType: 'TEMP_30_DAYS' as const,
+        warningCount: 0,
+        warningLimit: 2,
+        stage: 2,
+        banUntil,
+      };
+    });
+
+    const warningMessageBase = `You received a warning for reason: "${reason}". Please follow marketplace rules to avoid restrictions.`;
+
+    if (!result.escalated) {
+      await this.systemNotificationsService.createForUser({
+        userId,
+        senderAdminId: adminId,
+        title: 'Warning issued',
+        text: `${warningMessageBase} Current warnings: ${result.warningCount}/${result.warningLimit}.`,
+      });
+    } else if (result.escalationType === 'TEMP_30_DAYS') {
+      await this.systemNotificationsService.createForUser({
+        userId,
+        senderAdminId: adminId,
+        title: 'Warning escalation',
+        text: `${warningMessageBase} You reached warning limit and have been banned for 30 days. After unban your warning threshold is 2.`,
+      });
+    } else {
+      await this.systemNotificationsService.createForUser({
+        userId,
+        senderAdminId: adminId,
+        title: 'Warning escalation',
+        text: `${warningMessageBase} You reached warning limit again and your account has been permanently banned.`,
+      });
+    }
+
+    await this.createAuditLog({
+      actorAdminId: adminId,
+      action: 'USER_WARNED',
+      entityType: 'USER',
+      entityId: userId,
+      requestId,
+      summary: `Warning issued to ${user.displayName}`,
+      metadata: {
+        reason,
+        warningCount: result.warningCount,
+        warningLimit: result.warningLimit,
+        warningStage: result.stage,
+        escalated: result.escalated,
+        escalationType: result.escalated ? result.escalationType : null,
+      },
+    });
+
+    return {
+      ok: true,
+      warningCount: result.warningCount,
+      warningLimit: result.warningLimit,
+      escalated: result.escalated,
+      escalationType: result.escalated ? result.escalationType : null,
+    };
+  }
+
+  async unwarnUser(userId: string, adminId: string, requestId?: string) {
+    const now = new Date();
+
+    const [user, latestActiveWarning] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, displayName: true },
+      }),
+      this.prisma.userWarning.findFirst({
+        where: {
+          userId,
+          revokedAt: null,
+          expiresAt: { gt: now },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        select: {
+          id: true,
+          reason: true,
+        },
+      }),
+    ]);
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (!latestActiveWarning) {
+      throw new BadRequestException('User has no active warnings');
+    }
+
+    await this.prisma.userWarning.update({
+      where: { id: latestActiveWarning.id },
+      data: {
+        revokedAt: now,
+        revokedByAdminId: adminId,
+      },
+    });
+
+    const warningCount = await this.getActiveWarningCount(userId, now);
+    const targetUser = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { warningStage: true },
+    });
+
+    await this.systemNotificationsService.createForUser({
+      userId,
+      senderAdminId: adminId,
+      title: 'Warning removed',
+      text: `One warning has been removed from your account by administration.`,
+    });
+
+    await this.createAuditLog({
+      actorAdminId: adminId,
+      action: 'USER_UNWARNED',
+      entityType: 'USER',
+      entityId: userId,
+      requestId,
+      summary: `One warning removed from ${user.displayName}`,
+      metadata: {
+        removedWarningId: latestActiveWarning.id,
+        reason: latestActiveWarning.reason,
+        warningCount,
+      },
+    });
+
+    return {
+      ok: true,
+      warningCount,
+      warningLimit: this.resolveWarningLimit(targetUser?.warningStage ?? 1),
+    };
+  }
+
+  async removeUserAvatar(userId: string, adminId: string, requestId?: string) {
+    const existing = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        displayName: true,
+        avatarUrl: true,
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('User not found');
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        avatarUrl: null,
+      },
+    });
+
+    await this.systemNotificationsService.createForUser({
+      userId,
+      senderAdminId: adminId,
+      title: 'Profile moderation',
+      text: 'Your avatar has been removed by administration due to policy violation.',
+    });
+
+    await this.createAuditLog({
+      actorAdminId: adminId,
+      action: 'USER_AVATAR_REMOVED',
+      entityType: 'USER',
+      entityId: userId,
+      requestId,
+      summary: `Avatar removed for ${existing.displayName}`,
+      before: { avatarUrl: existing.avatarUrl },
+      after: { avatarUrl: null },
+    });
+
+    return { ok: true };
+  }
+
+  async archiveListing(
+    listingId: string,
+    adminId: string,
+    requestId?: string,
+  ) {
     const existing = await this.prisma.listing.findUnique({
       where: { id: listingId },
-      select: { id: true },
+      select: { id: true, status: true, title: true, sellerId: true },
     });
 
     if (!existing) {
       throw new NotFoundException('Listing not found');
     }
 
-    return this.prisma.listing.update({
+    const updated = await this.prisma.listing.update({
       where: { id: listingId },
       data: { status: 'ARCHIVED' },
       select: {
@@ -781,19 +1953,37 @@ export class AdminService {
         status: true,
       },
     });
+
+    await this.createAuditLog({
+      actorAdminId: adminId,
+      action: 'LISTING_ARCHIVED',
+      entityType: 'LISTING',
+      entityId: listingId,
+      requestId,
+      summary: `Listing archived: ${existing.title}`,
+      before: { status: existing.status },
+      after: { status: updated.status },
+      metadata: { sellerId: existing.sellerId },
+    });
+
+    return updated;
   }
 
-  async restoreListing(listingId: string) {
+  async restoreListing(
+    listingId: string,
+    adminId: string,
+    requestId?: string,
+  ) {
     const existing = await this.prisma.listing.findUnique({
       where: { id: listingId },
-      select: { id: true },
+      select: { id: true, status: true, title: true, sellerId: true },
     });
 
     if (!existing) {
       throw new NotFoundException('Listing not found');
     }
 
-    return this.prisma.listing.update({
+    const updated = await this.prisma.listing.update({
       where: { id: listingId },
       data: { status: 'ACTIVE' },
       select: {
@@ -801,13 +1991,34 @@ export class AdminService {
         status: true,
       },
     });
+
+    await this.createAuditLog({
+      actorAdminId: adminId,
+      action: 'LISTING_RESTORED',
+      entityType: 'LISTING',
+      entityId: listingId,
+      requestId,
+      summary: `Listing restored: ${existing.title}`,
+      before: { status: existing.status },
+      after: { status: updated.status },
+      metadata: { sellerId: existing.sellerId },
+    });
+
+    return updated;
   }
 
-  async deleteReview(reviewId: string) {
-    return this.prisma.$transaction(async (tx) => {
+  async deleteReview(reviewId: string, adminId: string, requestId?: string) {
+    const result = await this.prisma.$transaction(async (tx) => {
       const review = await tx.review.findUnique({
         where: { id: reviewId },
-        select: { id: true, sellerId: true },
+        select: {
+          id: true,
+          sellerId: true,
+          buyerId: true,
+          rating: true,
+          comment: true,
+          dealId: true,
+        },
       });
 
       if (!review) {
@@ -830,11 +2041,32 @@ export class AdminService {
         },
       });
 
-      return { ok: true };
+      return { ok: true, review };
     });
+
+    await this.createAuditLog({
+      actorAdminId: adminId,
+      action: 'REVIEW_DELETED',
+      entityType: 'REVIEW',
+      entityId: reviewId,
+      requestId,
+      summary: 'Review deleted by admin',
+      before: {
+        rating: result.review.rating,
+        comment: result.review.comment,
+        dealId: result.review.dealId,
+        sellerId: result.review.sellerId,
+        buyerId: result.review.buyerId,
+      },
+    });
+
+    return { ok: true };
   }
 
-  async finalizePreviousWeekTopSellerReward() {
+  async finalizePreviousWeekTopSellerReward(
+    adminId: string,
+    requestId?: string,
+  ) {
     const { weekStart, weekEnd } = this.getPreviousWeekRange();
     const rewardAmount = this.resolveWeeklyRewardAmount();
 
@@ -1102,12 +2334,32 @@ export class AdminService {
     const { winnerNotificationPayload: _winnerNotificationPayload, ...response } =
       result;
 
+    await this.createAuditLog({
+      actorAdminId: adminId,
+      action: 'WEEKLY_REWARD_FINALIZED',
+      entityType: 'WEEKLY_COMPETITION',
+      entityId: response.competition.id,
+      requestId,
+      summary: response.alreadyFinalized
+        ? 'Weekly reward finalize called for already finalized competition'
+        : `Weekly reward processed with status ${response.competition.status}`,
+      after: {
+        status: response.competition.status,
+        winnerUserId:
+          (response.winner && 'id' in response.winner
+            ? response.winner.id
+            : null) ?? null,
+        rewardAmount: response.competition.rewardAmount,
+      },
+    });
+
     return response;
   }
 
   async broadcastSystemMessage(
     adminId: string,
     dto: BroadcastSystemMessageDto,
+    requestId?: string,
   ) {
     const text = dto.text?.trim();
 
@@ -1115,9 +2367,27 @@ export class AdminService {
       throw new BadRequestException('Message text is required');
     }
 
-    return this.systemNotificationsService.broadcastFromAdmin(adminId, {
+    const result = await this.systemNotificationsService.broadcastFromAdmin(
+      adminId,
+      {
       title: dto.title,
       text,
+      },
+    );
+
+    await this.createAuditLog({
+      actorAdminId: adminId,
+      action: 'SYSTEM_BROADCAST_SENT',
+      entityType: 'SYSTEM_NOTIFICATION',
+      requestId,
+      summary: `Broadcast sent to ${result.sent} users`,
+      metadata: {
+        title: dto.title ?? null,
+        text,
+        sent: result.sent,
+      },
     });
+
+    return result;
   }
 }

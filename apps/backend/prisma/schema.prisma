@@ -92,6 +92,10 @@ model User {
   paymentCardBrand   String?
   paymentCardLinkedAt DateTime?
   role         Role     @default(BUYER)
+  isBannedPermanent Boolean @default(false)
+  bannedUntil DateTime?
+  banReason String?
+  warningStage Int @default(1)
   createdAt    DateTime @default(now())
 
   ratingAvg   Float @default(0)
@@ -122,8 +126,31 @@ model User {
   createdSystemNotifications SystemNotification[] @relation("AdminSystemNotifications")
   reportsSubmitted Report[] @relation("ReportsSubmitted")
   reportsReviewed Report[] @relation("ReportsReviewed")
+  adminAuditLogs AuditLog[] @relation("AdminAuditLogs")
+  warningsReceived UserWarning[] @relation("WarningsReceived")
+  warningsIssued UserWarning[] @relation("WarningsIssued")
+  warningsRevoked UserWarning[] @relation("WarningsRevoked")
 
   @@index([activeBadgeDefinitionId])
+}
+
+model UserWarning {
+  id String @id @default(cuid())
+  userId String
+  issuedByAdminId String
+  reason String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  revokedAt DateTime?
+  revokedByAdminId String?
+
+  user User @relation("WarningsReceived", fields: [userId], references: [id])
+  issuedByAdmin User @relation("WarningsIssued", fields: [issuedByAdminId], references: [id])
+  revokedByAdmin User? @relation("WarningsRevoked", fields: [revokedByAdminId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([userId, expiresAt, revokedAt])
+  @@index([issuedByAdminId, createdAt])
 }
 
 model AchievementDefinition {
@@ -270,6 +297,27 @@ model Report {
   @@index([targetType, targetId])
   @@index([status, createdAt])
   @@index([reviewedByAdminId, reviewedAt])
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  actorAdminId String
+  action       String
+  entityType   String
+  entityId     String?
+  requestId    String?
+  summary      String?
+  before       Json?
+  after        Json?
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  actorAdmin User @relation("AdminAuditLogs", fields: [actorAdminId], references: [id])
+
+  @@index([actorAdminId, createdAt])
+  @@index([action, createdAt])
+  @@index([entityType, entityId])
+  @@index([createdAt])
 }
 
 model Listing {

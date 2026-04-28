@@ -24,6 +24,42 @@ export class UsersService {
   private readonly topSellersMaxLimit = 20;
   private readonly topSellersDefaultLimit = 10;
 
+  private resolveWarningLimit(stage: number) {
+    return stage >= 2 ? 2 : 3;
+  }
+
+  private async getActiveWarningCount(userId: string, now = new Date()) {
+    return this.prisma.userWarning.count({
+      where: {
+        userId,
+        revokedAt: null,
+        expiresAt: {
+          gt: now,
+        },
+      },
+    });
+  }
+
+  private async getNextWarningExpiresAt(userId: string, now = new Date()) {
+    const next = await this.prisma.userWarning.findFirst({
+      where: {
+        userId,
+        revokedAt: null,
+        expiresAt: {
+          gt: now,
+        },
+      },
+      orderBy: {
+        expiresAt: 'asc',
+      },
+      select: {
+        expiresAt: true,
+      },
+    });
+
+    return next?.expiresAt ?? null;
+  }
+
   private readonly achievementThresholds = {
     trustedSellerMinDeals: 5,
     trustedSellerMinRatingAvg: 4.5,
@@ -860,6 +896,7 @@ export class UsersService {
         paymentCardBrand: true,
         paymentCardLinkedAt: true,
         role: true,
+        warningStage: true,
         ratingAvg: true,
         ratingCount: true,
       },
@@ -869,9 +906,11 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    const [achievements, selectedProfileBadges] = await Promise.all([
+    const [achievements, selectedProfileBadges, warningCount, nextWarningExpiresAt] = await Promise.all([
       this.getAchievementsForUser(userId),
       this.getSelectedProfileBadgesForUser(userId),
+      this.getActiveWarningCount(userId),
+      this.getNextWarningExpiresAt(userId),
     ]);
 
     return {
@@ -887,6 +926,9 @@ export class UsersService {
         achievements,
       ),
       achievements,
+      warningCount,
+      warningLimit: this.resolveWarningLimit(user.warningStage),
+      nextWarningExpiresAt,
     };
   }
 
@@ -1086,6 +1128,7 @@ export class UsersService {
         },
         ratingAvg: true,
         ratingCount: true,
+        warningStage: true,
         listings: {
           where: { status: 'ACTIVE' },
           orderBy: { createdAt: 'desc' },

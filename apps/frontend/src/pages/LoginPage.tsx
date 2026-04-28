@@ -1,29 +1,13 @@
 import { useState } from "react";
 import { http } from "../api/http";
 import { useAuth } from "../auth/AuthContext";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Eye, EyeOff, Gamepad2, Lock, Mail } from "lucide-react";
 import { Card, CardContent, CardHeader } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { PageContainer } from "../components/ui/PageLayout";
-
-function extractErrorMessage(error: unknown, fallback: string) {
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "response" in error &&
-    typeof (error as { response?: { data?: { message?: unknown } } }).response
-      ?.data?.message === "string"
-  ) {
-    return (
-      (error as { response?: { data?: { message?: string } } }).response?.data
-        ?.message ?? fallback
-    );
-  }
-
-  return fallback;
-}
+import { extractHttpErrorMessage } from "../utils/httpError";
 
 export function LoginPage() {
   const [email, setEmail] = useState("");
@@ -31,8 +15,12 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
   const { login } = useAuth();
   const nav = useNavigate();
+  const showRegisteredHint = searchParams.get("registered") === "1";
+  const showVerifiedHint = searchParams.get("verified") === "1";
+  const showPasswordResetHint = searchParams.get("passwordReset") === "1";
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -43,7 +31,7 @@ export function LoginPage() {
       await login();
       nav("/");
     } catch (error: unknown) {
-      setErr(extractErrorMessage(error, "Login failed"));
+      setErr(extractHttpErrorMessage(error, "Login failed"));
     } finally {
       setLoading(false);
     }
@@ -67,6 +55,21 @@ export function LoginPage() {
         </CardHeader>
 
         <CardContent className="space-y-4">
+          {showRegisteredHint && (
+            <div className="rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-sm text-success">
+              Registration successful. Check your email and confirm your account before sign in.
+            </div>
+          )}
+          {showVerifiedHint && (
+            <div className="rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-sm text-success">
+              Email confirmed. You can now sign in.
+            </div>
+          )}
+          {showPasswordResetHint && (
+            <div className="rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-sm text-success">
+              Password updated. Sign in with your new password.
+            </div>
+          )}
           <form onSubmit={onSubmit} className="space-y-3.5">
             <div className="space-y-2">
               <label className="block text-sm font-medium text-foreground">Email</label>
@@ -85,7 +88,9 @@ export function LoginPage() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="block text-sm font-medium text-foreground">Password</label>
-                <span className="text-xs text-primary">Forgot password?</span>
+                <Link className="text-xs text-primary hover:underline" to="/forgot-password">
+                  Forgot password?
+                </Link>
               </div>
               <div className="relative">
                 <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

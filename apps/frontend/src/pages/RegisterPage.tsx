@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { http } from "../api/http";
-import { useAuth } from "../auth/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
 import { Check, Eye, EyeOff, Gamepad2, Lock, Mail, User } from "lucide-react";
 import { Card, CardContent, CardHeader } from "../components/ui/Card";
@@ -8,6 +7,7 @@ import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { PageContainer } from "../components/ui/PageLayout";
 import { cn } from "../lib/cn";
+import { extractHttpErrorMessage } from "../utils/httpError";
 
 export function RegisterPage() {
   const [email, setEmail] = useState("");
@@ -18,7 +18,6 @@ export function RegisterPage() {
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const { login } = useAuth();
   const nav = useNavigate();
 
   const passwordRequirements = [
@@ -57,20 +56,9 @@ export function RegisterPage() {
         password,
         displayName,
       });
-      await login();
-      nav("/");
+      nav("/login?registered=1");
     } catch (error: unknown) {
-      const message =
-        typeof error === "object" &&
-        error !== null &&
-        "response" in error &&
-        typeof (error as { response?: { data?: { message?: unknown } } }).response
-          ?.data?.message === "string"
-          ? (error as { response?: { data?: { message?: string } } }).response
-              ?.data?.message ?? "Register failed"
-          : "Register failed";
-
-      setErr(message);
+      setErr(extractHttpErrorMessage(error, "Register failed"));
     } finally {
       setLoading(false);
     }

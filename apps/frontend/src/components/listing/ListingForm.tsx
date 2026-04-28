@@ -172,6 +172,22 @@ export function ListingForm({
               className="min-h-[120px] resize-none overflow-hidden"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== "Tab") return;
+
+                e.preventDefault();
+                const target = e.currentTarget;
+                const start = target.selectionStart;
+                const end = target.selectionEnd;
+                const nextValue = `${description.slice(0, start)}\t${description.slice(end)}`;
+
+                setDescription(nextValue);
+
+                requestAnimationFrame(() => {
+                  target.selectionStart = start + 1;
+                  target.selectionEnd = start + 1;
+                });
+              }}
               placeholder="Describe the product or service..."
             />
           </div>

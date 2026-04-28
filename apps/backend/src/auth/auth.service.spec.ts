@@ -8,23 +8,41 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { MailService } from './mail.service';
 
 jest.mock('bcrypt');
 
 describe('AuthService', () => {
   let service: AuthService;
-  let prisma: { user: { findUnique: jest.Mock; create: jest.Mock } };
+  let prisma: {
+    user: {
+      findUnique: jest.Mock;
+      create: jest.Mock;
+      findFirst: jest.Mock;
+      update: jest.Mock;
+    };
+  };
   let jwt: { signAsync: jest.Mock };
+  let mail: { sendEmail: jest.Mock };
 
   beforeEach(async () => {
-    prisma = { user: { findUnique: jest.fn(), create: jest.fn() } };
+    prisma = {
+      user: {
+        findUnique: jest.fn(),
+        create: jest.fn(),
+        findFirst: jest.fn(),
+        update: jest.fn(),
+      },
+    };
     jwt = { signAsync: jest.fn().mockResolvedValue('mock-token') };
+    mail = { sendEmail: jest.fn().mockResolvedValue(undefined) };
 
     const module = await Test.createTestingModule({
       providers: [
         AuthService,
         { provide: PrismaService, useValue: prisma },
         { provide: JwtService, useValue: jwt },
+        { provide: MailService, useValue: mail },
       ],
     }).compile();
 
@@ -38,7 +56,7 @@ describe('AuthService', () => {
       displayName: 'Test',
     };
 
-    it('should register a new user and return token', async () => {
+    it('should register a new user and require email verification', async () => {
       prisma.user.findUnique.mockResolvedValue(null);
       (bcrypt.hash as jest.Mock).mockResolvedValue('hashed');
       const created = {
@@ -53,12 +71,13 @@ describe('AuthService', () => {
       const result = await service.register(dto);
 
       expect(result.user).toEqual(created);
-      expect(result.accessToken).toBe('mock-token');
+      expect(result.emailVerificationRequired).toBe(true);
       expect(prisma.user.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ email: dto.email, role: 'BUYER' }),
         }),
       );
+      expect(mail.sendEmail).toHaveBeenCalled();
     });
 
     it('should throw BadRequestException if email exists', async () => {
@@ -75,6 +94,7 @@ describe('AuthService', () => {
       displayName: 'Test',
       role: 'BUYER',
       createdAt: new Date(),
+      emailVerifiedAt: new Date(),
     };
 
     it('should return user and token on valid credentials', async () => {
@@ -101,6 +121,18 @@ describe('AuthService', () => {
         UnauthorizedException,
       );
     });
+
+    it('should throw UnauthorizedException if email is not verified', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        ...dbUser,
+        emailVerifiedAt: null,
+      });
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+
+      await expect(service.login('test@test.com', '123456')).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
   });
 
   describe('getMyProfile', () => {
@@ -108,6 +140,7 @@ describe('AuthService', () => {
       const profile = {
         id: '1',
         email: 'test@test.com',
+        emailVerifiedAt: new Date(),
         displayName: 'Test',
         role: 'BUYER',
         ratingAvg: 0,

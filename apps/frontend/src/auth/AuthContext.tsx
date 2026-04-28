@@ -12,6 +12,7 @@ import { disconnectSocket } from "../api/socket";
 type User = {
   id: string;
   email: string;
+  emailVerifiedAt?: string | null;
   role: "BUYER" | "SELLER" | "ADMIN";
   displayName?: string;
   avatarUrl?: string | null;

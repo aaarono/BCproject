@@ -39,7 +39,7 @@ export function ListingDetails({ listing }: { listing: Listing }) {
       <CardContent className="space-y-4 p-5 sm:p-6">
         <div className="space-y-2">
           <h1 className="text-2xl font-bold tracking-tight text-foreground">{listing.title}</h1>
-          <p className="text-sm leading-relaxed text-muted-foreground">{listing.description}</p>
+          <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">{listing.description}</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">

@@ -17,6 +17,15 @@ const LoginPage = lazy(() =>
 const RegisterPage = lazy(() =>
   import("../pages/RegisterPage").then((module) => ({ default: module.RegisterPage })),
 );
+const VerifyEmailPage = lazy(() =>
+  import("../pages/VerifyEmailPage").then((module) => ({ default: module.VerifyEmailPage })),
+);
+const ForgotPasswordPage = lazy(() =>
+  import("../pages/ForgotPasswordPage").then((module) => ({ default: module.ForgotPasswordPage })),
+);
+const ResetPasswordPage = lazy(() =>
+  import("../pages/ResetPasswordPage").then((module) => ({ default: module.ResetPasswordPage })),
+);
 const WalletPage = lazy(() =>
   import("../pages/WalletPage").then((module) => ({ default: module.WalletPage })),
 );
@@ -74,6 +83,9 @@ export const router = createBrowserRouter([
 
       { path: "/login", element: withSuspense(<LoginPage />) },
       { path: "/register", element: withSuspense(<RegisterPage />) },
+      { path: "/verify-email", element: withSuspense(<VerifyEmailPage />) },
+      { path: "/forgot-password", element: withSuspense(<ForgotPasswordPage />) },
+      { path: "/reset-password", element: withSuspense(<ResetPasswordPage />) },
 
       {
         element: (

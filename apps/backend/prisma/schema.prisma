@@ -65,6 +65,11 @@ model User {
   id           String   @id @default(cuid())
   email        String   @unique
   passwordHash String
+  emailVerifiedAt DateTime?
+  emailVerificationTokenHash String?
+  emailVerificationExpiresAt DateTime?
+  passwordResetTokenHash String?
+  passwordResetExpiresAt DateTime?
   displayName  String
   avatarUrl    String?
   activeBadgeDefinitionId String?

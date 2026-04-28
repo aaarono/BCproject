@@ -154,6 +154,13 @@ Commonly used values:
 - JWT_SECRET
 - CORS_ORIGIN
 - PORT
+- APP_BASE_URL
+- SMTP_HOST
+- SMTP_PORT
+- SMTP_SECURE
+- SMTP_USER
+- SMTP_PASS
+- SMTP_FROM
 
 Frontend can use:
 - VITE_API_URL

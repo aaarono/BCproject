@@ -17,6 +17,8 @@ type WalletPrismaMock = {
   $transaction: jest.Mock;
 };
 
+type WalletTxArg = Parameters<WalletService['lockEscrow']>[0];
+
 describe('WalletService', () => {
   let service: WalletService;
   let prisma: WalletPrismaMock;
@@ -117,6 +119,7 @@ describe('WalletService', () => {
 
     beforeEach(() => {
       txEscrow = {
+        user: { findUnique: jest.fn() },
         wallet: { upsert: jest.fn(), update: jest.fn() },
         walletTransaction: { create: jest.fn() },
       };
@@ -128,7 +131,12 @@ describe('WalletService', () => {
         balance: 10000,
       });
 
-      await service.lockEscrow(txEscrow, 'u1', 'deal1', 5000);
+      await service.lockEscrow(
+        txEscrow as unknown as WalletTxArg,
+        'u1',
+        'deal1',
+        5000,
+      );
 
       expect(txEscrow.wallet.update).toHaveBeenCalledWith({
         where: { userId: 'u1' },
@@ -149,7 +157,12 @@ describe('WalletService', () => {
       txEscrow.wallet.upsert.mockResolvedValue({ userId: 'u1', balance: 1000 });
 
       await expect(
-        service.lockEscrow(txEscrow, 'u1', 'deal1', 5000),
+        service.lockEscrow(
+          txEscrow as unknown as WalletTxArg,
+          'u1',
+          'deal1',
+          5000,
+        ),
       ).rejects.toThrow(ForbiddenException);
     });
   });
@@ -196,7 +209,12 @@ describe('WalletService', () => {
         walletTransaction: { create: jest.fn() },
       };
 
-      await service.releaseEscrowToSeller(tx, 'seller1', 'deal1', 5000);
+      await service.releaseEscrowToSeller(
+        tx as unknown as WalletTxArg,
+        'seller1',
+        'deal1',
+        5000,
+      );
 
       expect(tx.wallet.update).toHaveBeenCalledWith({
         where: { userId: 'seller1' },
@@ -222,7 +240,12 @@ describe('WalletService', () => {
         walletTransaction: { create: jest.fn() },
       };
 
-      await service.refundToBuyer(tx, 'buyer1', 'deal1', 3000);
+      await service.refundToBuyer(
+        tx as unknown as WalletTxArg,
+        'buyer1',
+        'deal1',
+        3000,
+      );
 
       expect(tx.wallet.update).toHaveBeenCalledWith({
         where: { userId: 'buyer1' },

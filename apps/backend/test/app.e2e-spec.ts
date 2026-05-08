@@ -4,10 +4,12 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../prisma/prisma.service';
+import { MailService } from '../src/auth/mail.service';
 
 describe('Marketplace API (e2e)', () => {
   let app: INestApplication<App>;
   let prisma: any;
+  let mail: { sendEmail: jest.Mock };
 
   // Mock data
   const mockUser = {
@@ -117,11 +119,17 @@ describe('Marketplace API (e2e)', () => {
       $transaction: jest.fn((cb) => cb(prisma)),
     };
 
+    mail = {
+      sendEmail: jest.fn().mockResolvedValue(undefined),
+    };
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
       .overrideProvider(PrismaService)
       .useValue(prisma)
+      .overrideProvider(MailService)
+      .useValue(mail)
       .compile();
 
     app = moduleFixture.createNestApplication();

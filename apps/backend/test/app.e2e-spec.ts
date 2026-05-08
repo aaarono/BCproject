@@ -83,6 +83,9 @@ describe('Marketplace API (e2e)', () => {
         create: jest.fn(),
         count: jest.fn(),
       },
+      listingPriceHistory: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
       wallet: {
         findUnique: jest.fn(),
         upsert: jest.fn(),
@@ -188,7 +191,7 @@ describe('Marketplace API (e2e)', () => {
         })
         .expect(201);
 
-      expect(response.body).toHaveProperty('accessToken');
+      expect(response.body.emailVerificationRequired).toBe(true);
       expect(response.body.user.email).toBe('test@test.com');
     });
 

@@ -87,7 +87,12 @@ export class AdminController {
     @CurrentUser() admin: JwtPayload,
     @Req() req: Request,
   ) {
-    return this.adminService.banUser(id, dto, admin.sub, this.getRequestId(req));
+    return this.adminService.banUser(
+      id,
+      dto,
+      admin.sub,
+      this.getRequestId(req),
+    );
   }
 
   @ApiOperation({ summary: 'Unban user' })
@@ -108,7 +113,12 @@ export class AdminController {
     @CurrentUser() admin: JwtPayload,
     @Req() req: Request,
   ) {
-    return this.adminService.warnUser(id, dto, admin.sub, this.getRequestId(req));
+    return this.adminService.warnUser(
+      id,
+      dto,
+      admin.sub,
+      this.getRequestId(req),
+    );
   }
 
   @ApiOperation({ summary: 'Remove one active warning for user' })
@@ -128,7 +138,11 @@ export class AdminController {
     @CurrentUser() admin: JwtPayload,
     @Req() req: Request,
   ) {
-    return this.adminService.removeUserAvatar(id, admin.sub, this.getRequestId(req));
+    return this.adminService.removeUserAvatar(
+      id,
+      admin.sub,
+      this.getRequestId(req),
+    );
   }
 
   @ApiOperation({ summary: 'Assign achievement to a user' })
@@ -164,7 +178,11 @@ export class AdminController {
     @CurrentUser() admin: JwtPayload,
     @Req() req: Request,
   ) {
-    return this.adminService.archiveListing(id, admin.sub, this.getRequestId(req));
+    return this.adminService.archiveListing(
+      id,
+      admin.sub,
+      this.getRequestId(req),
+    );
   }
 
   @ApiOperation({ summary: 'Restore listing as admin' })
@@ -174,7 +192,11 @@ export class AdminController {
     @CurrentUser() admin: JwtPayload,
     @Req() req: Request,
   ) {
-    return this.adminService.restoreListing(id, admin.sub, this.getRequestId(req));
+    return this.adminService.restoreListing(
+      id,
+      admin.sub,
+      this.getRequestId(req),
+    );
   }
 
   @ApiOperation({ summary: 'List deals for admin panel' })
@@ -288,7 +310,11 @@ export class AdminController {
     @CurrentUser() admin: JwtPayload,
     @Req() req: Request,
   ) {
-    return this.adminService.deleteAchievement(id, admin.sub, this.getRequestId(req));
+    return this.adminService.deleteAchievement(
+      id,
+      admin.sub,
+      this.getRequestId(req),
+    );
   }
 
   @ApiOperation({ summary: 'List manual achievement assignment history' })
@@ -330,6 +356,10 @@ export class AdminController {
     @CurrentUser() admin: JwtPayload,
     @Req() req: Request,
   ) {
-    return this.adminService.deleteReview(id, admin.sub, this.getRequestId(req));
+    return this.adminService.deleteReview(
+      id,
+      admin.sub,
+      this.getRequestId(req),
+    );
   }
 }

@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { ListingType, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ChatGateway } from '../chat/chat.gateway';
 import { CreateListingDto } from './dto/create-listing.dto';
@@ -693,11 +693,11 @@ export class ListingsService {
           dto.saleEndsAt !== undefined ? dto.saleEndsAt : listing.saleEndsAt,
       });
 
-      const nextType = (dto.type ?? listing.type) as ListingType;
+      const nextType = dto.type ?? listing.type;
       const nextBasePrice = dto.price ?? listing.price;
       const resolvedStockQuantity =
         nextType === 'GOOD'
-          ? dto.stockQuantity ?? listing.stockQuantity
+          ? (dto.stockQuantity ?? listing.stockQuantity)
           : null;
 
       const touchesSaleOrPrice =

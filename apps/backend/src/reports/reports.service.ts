@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateReportDto } from './dto/create-report.dto';
 
@@ -6,7 +10,10 @@ import { CreateReportDto } from './dto/create-report.dto';
 export class ReportsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private async assertTargetExists(targetType: CreateReportDto['targetType'], targetId: string) {
+  private async assertTargetExists(
+    targetType: CreateReportDto['targetType'],
+    targetId: string,
+  ) {
     switch (targetType) {
       case 'LISTING': {
         const exists = await this.prisma.listing.findUnique({

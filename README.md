@@ -91,6 +91,14 @@ Main focus of the project:
 - Frontend: React, Vite, TypeScript, Tailwind CSS
 - Infra: Docker, Docker Compose, GitHub Actions CI
 
+## Production Readiness Highlights
+
+- Backend Docker runs in production mode (`NODE_ENV=production`, `prisma migrate deploy`, `start:prod`).
+- Frontend Docker serves production build via Nginx (SPA fallback enabled).
+- Docker services include healthchecks (db, backend, frontend).
+- Backend lint and e2e are green.
+- Structured request logging is enabled with `x-request-id` correlation.
+
 ## Repository Structure
 
 ```text
@@ -105,15 +113,34 @@ Main focus of the project:
 
 ## Quick Start
 
-### Option A: Backend + DB in Docker, Frontend locally
+### Option A: Full stack in Docker (one command)
 
-1) Start database and backend
+1) Start database, backend, and frontend
 
 ```bash
 docker compose up --build -d
 ```
 
-2) Start frontend
+URLs:
+- Frontend: http://localhost:8080
+- Backend API: http://localhost:3000
+- Swagger: http://localhost:3000/api/docs
+
+2) Run smoke checks
+
+PowerShell:
+
+scripts/smoke.ps1
+
+### Option B: Backend + DB in Docker, Frontend locally
+
+1) Start database and backend
+
+```bash
+docker compose up --build -d db backend
+```
+
+2) Start frontend locally
 
 ```bash
 cd apps/frontend
@@ -122,11 +149,14 @@ npm run dev
 ```
 
 URLs:
+- Frontend: http://localhost:5173
 - Backend API: http://localhost:3000
 - Swagger: http://localhost:3000/api/docs
-- Frontend: http://localhost:5173
 
-### Option B: Fully local development
+Note:
+- Docker backend starts in production mode via `apps/backend/docker-entrypoint.sh`.
+
+### Option C: Fully local development
 
 Backend:
 
@@ -172,8 +202,13 @@ CI workflow runs for backend and frontend:
 - dependency install
 - security audit
 - lint
-- build
 - backend unit tests
+- backend e2e tests
+- frontend tests (if present)
+- build
+
+Pipeline file:
+- .github/workflows/ci.yml
 
 Local quality checks:
 
@@ -182,6 +217,7 @@ Local quality checks:
 cd apps/backend
 npm run lint
 npm test -- --runInBand
+npm run test:e2e
 npm run build
 
 # frontend

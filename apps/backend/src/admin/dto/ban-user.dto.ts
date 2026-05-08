@@ -1,7 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsIn, IsString, MaxLength, MinLength } from 'class-validator';
 
-export const BAN_DURATION_VALUES = ['1day', '3days', '7days', '30days', 'PERMANENT'] as const;
+export const BAN_DURATION_VALUES = [
+  '1day',
+  '3days',
+  '7days',
+  '30days',
+  'PERMANENT',
+] as const;
 export type BanDuration = (typeof BAN_DURATION_VALUES)[number];
 
 export class BanUserDto {

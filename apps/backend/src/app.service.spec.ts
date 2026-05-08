@@ -1,12 +1,16 @@
 import { AppService } from './app.service';
 
+type PrismaHealthMock = {
+  $queryRaw: jest.Mock;
+};
+
 describe('AppService', () => {
   it('returns healthy status when database query succeeds', async () => {
-    const prisma = {
+    const prisma: PrismaHealthMock = {
       $queryRaw: jest.fn().mockResolvedValue([{ '?column?': 1 }]),
-    } as any;
+    };
 
-    const service = new AppService(prisma);
+    const service = new AppService(prisma as never);
     const health = await service.getHealth();
 
     expect(health.ok).toBe(true);
@@ -16,11 +20,11 @@ describe('AppService', () => {
   });
 
   it('returns degraded status when database query fails', async () => {
-    const prisma = {
+    const prisma: PrismaHealthMock = {
       $queryRaw: jest.fn().mockRejectedValue(new Error('db down')),
-    } as any;
+    };
 
-    const service = new AppService(prisma);
+    const service = new AppService(prisma as never);
     const health = await service.getHealth();
 
     expect(health.ok).toBe(false);

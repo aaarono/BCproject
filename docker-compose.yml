@@ -26,12 +26,40 @@ services:
     environment:
       DATABASE_URL: postgresql://marketplace:marketplace@db:5432/marketplace?schema=public
       PORT: "3000"
+      NODE_ENV: production
+      CORS_ORIGIN: http://localhost:8080,http://localhost:5173
     ports:
       - "3000:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:3000/health >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
     volumes:
       - marketplace_uploads:/app/uploads
     depends_on:
       db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./apps/frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://localhost:3000
+        VITE_WS_URL: http://localhost:3000
+    container_name: marketplace_frontend
+    ports:
+      - "8080:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost/ >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    depends_on:
+      backend:
         condition: service_healthy
 
 volumes:

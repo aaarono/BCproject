@@ -5,12 +5,14 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { existsSync, mkdirSync } from 'fs';
 import * as express from 'express';
+import type { NextFunction, Request, Response } from 'express';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const logger = new Logger('HTTP');
+  const appLogger = new Logger('Bootstrap');
 
   const uploadsRoot = join(process.cwd(), 'uploads');
   const avatarUploadsPath = join(uploadsRoot, 'avatars');
@@ -28,16 +30,25 @@ async function bootstrap() {
 
   app.use('/uploads', express.static(uploadsRoot));
 
-  app.use((req, res, next) => {
+  app.use((req: Request, res: Response, next: NextFunction) => {
     const requestId = randomUUID();
     const startedAt = process.hrtime.bigint();
-    (req as express.Request & { requestId?: string }).requestId = requestId;
+    (req as Request & { requestId?: string }).requestId = requestId;
 
     res.setHeader('x-request-id', requestId);
     res.on('finish', () => {
-      const durationMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
+      const durationMs =
+        Number(process.hrtime.bigint() - startedAt) / 1_000_000;
       logger.log(
-        `${req.method} ${req.originalUrl} ${res.statusCode} ${durationMs.toFixed(1)}ms requestId=${requestId}`,
+        JSON.stringify({
+          requestId,
+          method: req.method,
+          path: req.originalUrl,
+          statusCode: res.statusCode,
+          durationMs: Number(durationMs.toFixed(1)),
+          ip: req.ip,
+          userAgent: req.headers['user-agent'] ?? null,
+        }),
       );
     });
 
@@ -57,7 +68,9 @@ async function bootstrap() {
     }),
   );
 
-  const expressApp = app.getHttpAdapter().getInstance();
+  const expressApp = app.getHttpAdapter().getInstance() as {
+    disable?: (setting: string) => void;
+  };
   if (typeof expressApp.disable === 'function') {
     expressApp.disable('x-powered-by');
   }
@@ -90,7 +103,22 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document);
 
   const port = Number(process.env.PORT ?? 3000);
+
+  app.enableShutdownHooks();
+
+  process.on('unhandledRejection', (reason) => {
+    appLogger.error(`UnhandledRejection: ${String(reason)}`);
+  });
+
+  process.on('uncaughtException', (error) => {
+    appLogger.error(`UncaughtException: ${error.message}`, error.stack);
+  });
+
   await app.listen(port);
+
+  appLogger.log(
+    `Backend started on port ${port} (env=${process.env.NODE_ENV ?? 'development'})`,
+  );
 }
 
 void bootstrap();

@@ -72,7 +72,10 @@ export class ListingsController {
       limits: { fileSize: LISTING_IMAGE_MAX_FILE_SIZE_BYTES },
       fileFilter: (_req, file, cb) => {
         if (!ALLOWED_LISTING_IMAGE_MIME_TYPES.has(file.mimetype)) {
-          cb(new BadRequestException('Unsupported listing image file type'), false);
+          cb(
+            new BadRequestException('Unsupported listing image file type'),
+            false,
+          );
           return;
         }
 
@@ -119,10 +122,7 @@ export class ListingsController {
 
   @ApiOperation({ summary: 'Get listing price history' })
   @Get(':id/price-history')
-  getPriceHistory(
-    @Param('id') id: string,
-    @Query('period') period?: string,
-  ) {
+  getPriceHistory(@Param('id') id: string, @Query('period') period?: string) {
     const normalizedPeriod = period === 'all' ? 'all' : '30d';
     return this.listings.getPriceHistory(id, normalizedPeriod);
   }

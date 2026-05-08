@@ -69,7 +69,9 @@ export class SystemNotificationsService {
         avatarUrl: null,
       },
       unreadCount: params.unreadCount,
-      messages: params.latestMessage ? [this.toMessage(params.latestMessage)] : [],
+      messages: params.latestMessage
+        ? [this.toMessage(params.latestMessage)]
+        : [],
     };
   }
 
@@ -168,13 +170,19 @@ export class SystemNotificationsService {
         }),
       );
 
-      this.chatGateway.emitSystemMessage(params.userId, this.toMessage(created));
+      this.chatGateway.emitSystemMessage(
+        params.userId,
+        this.toMessage(created),
+      );
     }
 
     return created;
   }
 
-  async broadcastFromAdmin(adminId: string, params: { title?: string; text: string }) {
+  async broadcastFromAdmin(
+    adminId: string,
+    params: { title?: string; text: string },
+  ) {
     const users = await this.prisma.user.findMany({
       where: {
         id: {

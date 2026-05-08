@@ -14,7 +14,9 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
 class SendMessageMediaItemDto {
-  @ApiProperty({ example: 'http://localhost:3000/uploads/messages/example.jpg' })
+  @ApiProperty({
+    example: 'http://localhost:3000/uploads/messages/example.jpg',
+  })
   @IsString()
   @IsUrl({ require_tld: false })
   mediaUrl!: string;
@@ -37,7 +39,9 @@ export class SendMessageDto {
   @MaxLength(5000)
   text?: string;
 
-  @ApiPropertyOptional({ example: 'http://localhost:3000/uploads/messages/example.jpg' })
+  @ApiPropertyOptional({
+    example: 'http://localhost:3000/uploads/messages/example.jpg',
+  })
   @IsOptional()
   @IsString()
   @IsUrl({ require_tld: false })
